@@ -1,0 +1,887 @@
+{% extends "base.html" %}
+
+{% block title %}Dispensação - Processo {{ process.protocol_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('main.high_cost_index') }}">Alto Custo</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}">{{ process.protocol_number }}</a>
+                </li>
+                <li class="breadcrumb-item active">Dispensação</li>
+            </ol>
+        </nav>
+        
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-pills me-2 text-primary"></i>
+                    Dispensação de Medicamento
+                </h1>
+                <p class="text-muted mb-0">
+                    Processo: <strong>{{ process.protocol_number }}</strong> - 
+                    Paciente: <strong>{{ process.patient.full_name }}</strong>
+                </p>
+            </div>
+            <div class="col-auto">
+                <span class="badge bg-success fs-6">
+                    <i class="fas fa-check me-1"></i>Aprovado para Dispensação
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Formulário de Dispensação -->
+        <div class="col-lg-8">
+            <form method="POST">
+                {{ form.hidden_tag() }}
+                
+                <!-- Informações da Dispensação -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-hand-holding-medical me-2"></i>Dados da Dispensação
+                        </h5>
+                        <small class="text-muted">Registre a entrega do medicamento ao paciente</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                {{ form.quantity_dispensed.label(class="form-label fw-semibold") }}
+                                <div class="input-group">
+                                    {{ form.quantity_dispensed(class="form-control", min="1", max=max_quantity, id="quantity_dispensed") }}
+                                    <span class="input-group-text">unidades</span>
+                                </div>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Máximo aprovado: <strong>{{ max_quantity }}</strong> unidades
+                                </div>
+                                
+                                <!-- Alerta de estoque será inserido aqui pelo JavaScript -->
+                                <div id="stock-alerts"></div>
+                                
+                                {% for error in form.quantity_dispensed.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                {{ form.next_dispensation_date.label(class="form-label fw-semibold") }}
+                                {{ form.next_dispensation_date(class="form-control") }}
+                                <div class="form-text">
+                                    <i class="fas fa-calendar-alt me-1"></i>
+                                    Data para próxima dispensação (se aplicável)
+                                </div>
+                                {% for error in form.next_dispensation_date.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            {{ form.observations.label(class="form-label fw-semibold") }}
+                            {{ form.observations(class="form-control", rows="3", placeholder="Observações sobre a dispensação, orientações ao paciente...") }}
+                            <div class="form-text">
+                                Campo opcional para observações adicionais
+                            </div>
+                            {% for error in form.observations.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Confirmações do Paciente - VERSÃO MELHORADA -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-user-check me-2"></i>Confirmações do Paciente
+                        </h5>
+                        <small class="text-muted">Obrigatório - Confirmações necessárias</small>
+                    </div>
+                    <div class="card-body">
+                        <!-- Nome/Assinatura do Paciente -->
+                        <div class="mb-4">
+                            {{ form.patient_signature.label(class="form-label fw-semibold") }}
+                            {{ form.patient_signature(class="form-control", placeholder="Nome completo do paciente ou responsável") }}
+                            <div class="form-text text-danger">
+                                <i class="fas fa-exclamation-circle me-1"></i>
+                                <strong>Obrigatório</strong> - Nome de quem está recebendo o medicamento
+                            </div>
+                            {% for error in form.patient_signature.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Lista de Confirmações Individuais -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold mb-3">Confirmo que o paciente foi orientado sobre:</label>
+                            
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input orientation-check" type="checkbox" id="posologia" required>
+                                        <label class="form-check-label" for="posologia">
+                                            <i class="fas fa-pills text-primary me-1"></i>
+                                            Posologia e forma de uso do medicamento
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input orientation-check" type="checkbox" id="efeitos" required>
+                                        <label class="form-check-label" for="efeitos">
+                                            <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                                            Possíveis efeitos adversos e reações
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input orientation-check" type="checkbox" id="adesao" required>
+                                        <label class="form-check-label" for="adesao">
+                                            <i class="fas fa-heart text-danger me-1"></i>
+                                            Importância da adesão ao tratamento
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input orientation-check" type="checkbox" id="armazenamento" required>
+                                        <label class="form-check-label" for="armazenamento">
+                                            <i class="fas fa-snowflake text-info me-1"></i>
+                                            Condições de armazenamento
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input orientation-check" type="checkbox" id="acompanhamento" required>
+                                        <label class="form-check-label" for="acompanhamento">
+                                            <i class="fas fa-user-md text-success me-1"></i>
+                                            Necessidade de acompanhamento médico
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input orientation-check" type="checkbox" id="retorno" required>
+                                        <label class="form-check-label" for="retorno">
+                                            <i class="fas fa-calendar-check text-secondary me-1"></i>
+                                            Data de retorno para acompanhamento
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Progresso das confirmações -->
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">Progresso das orientações:</small>
+                                    <small class="text-muted"><span id="checked-count">0</span>/6 confirmadas</small>
+                                </div>
+                                <div class="progress mt-1" style="height: 8px;">
+                                    <div class="progress-bar bg-warning" id="progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Declaração do Paciente -->
+                        <div class="alert alert-light border mb-4">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-file-signature me-1"></i>Declaração do Paciente/Responsável:
+                            </h6>
+                            <p class="mb-2">Declaro que:</p>
+                            <ul class="mb-2">
+                                <li>Recebi as orientações sobre o uso correto do medicamento</li>
+                                <li>Fui informado(a) sobre possíveis efeitos adversos</li>
+                                <li>Compreendo a importância da adesão ao tratamento</li>
+                                <li>Estou ciente das condições de armazenamento</li>
+                                <li>Comprometo-me a seguir as orientações médicas</li>
+                            </ul>
+                            <p class="mb-0">
+                                <small>
+                                    <strong>Data:</strong> <span id="current-date"></span> | 
+                                    <strong>Hora:</strong> <span id="current-time"></span> |
+                                    <strong>Farmacêutico:</strong> {{ current_user.full_name }}
+                                </small>
+                            </p>
+                        </div>
+
+                        <!-- Confirmação Final -->
+                        <div class="form-check">
+                            {{ form.terms_accepted(class="form-check-input", id="terms_accepted") }}
+                            <label class="form-check-label fw-semibold" for="terms_accepted">
+                                <i class="fas fa-shield-alt text-success me-1"></i>
+                                Confirmo que todas as orientações foram fornecidas e compreendidas pelo paciente
+                            </label>
+                            {% for error in form.terms_accepted.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumo da Dispensação -->
+                <div class="card mb-4 border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-clipboard-list me-2"></i>Resumo da Dispensação
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <strong>Medicamento:</strong><br>
+                                {{ process.medication.commercial_name }}<br>
+                                <small class="text-muted">{{ process.medication.dosage }}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Paciente:</strong><br>
+                                {{ process.patient.full_name }}<br>
+                                <small class="text-muted">{{ format_cpf(process.patient.cpf) }}</small>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Estoque Atual:</strong><br>
+                                <span class="badge bg-info fs-6">{{ process.medication.current_stock }} unidades</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Quantidade a Dispensar:</strong><br>
+                                <span class="badge bg-warning text-dark fs-6" id="quantity-display">0 unidades</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Estoque Após Dispensação:</strong><br>
+                                <span class="badge bg-secondary fs-6" id="remaining-stock">{{ process.medication.current_stock }} unidades</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
+                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}" 
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-success" id="dispense-btn" disabled>
+                        <i class="fas fa-hand-holding-medical me-1"></i>Confirmar Dispensação
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Sidebar com Informações -->
+        <div class="col-lg-4">
+            <!-- Informações da Aprovação -->
+            {% if process.approvals %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-check-circle me-2"></i>Detalhes da Aprovação
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% set approval = process.approvals[-1] %}
+                    <div class="mb-3">
+                        <dt class="text-muted small">Responsável pela Aprovação</dt>
+                        <dd class="fw-semibold">{{ approval.approver.full_name }}</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Data da Aprovação</dt>
+                        <dd class="fw-semibold">{{ format_date(approval.approval_date) }}</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Quantidade Aprovada</dt>
+                        <dd class="fw-semibold">{{ approval.approved_quantity }} unidades</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Duração Aprovada</dt>
+                        <dd class="fw-semibold">{{ approval.approved_duration }} dias</dd>
+                    </div>
+                    
+                    {% if approval.approval_expires_at %}
+                    <div class="mb-3">
+                        <dt class="text-muted small">Válido Até</dt>
+                        <dd class="fw-semibold">{{ format_date(approval.approval_expires_at) }}</dd>
+                    </div>
+                    {% endif %}
+                    
+                    {% if approval.special_conditions %}
+                    <div class="mb-0">
+                        <dt class="text-muted small">Condições Especiais</dt>
+                        <dd class="small">{{ approval.special_conditions }}</dd>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Informações do Medicamento -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-pills me-2"></i>Informações do Medicamento
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <dt class="text-muted small">Nome Comercial</dt>
+                        <dd class="fw-semibold">{{ process.medication.commercial_name }}</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Nome Genérico</dt>
+                        <dd class="fw-semibold">{{ process.medication.generic_name }}</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Dosagem</dt>
+                        <dd class="fw-semibold">{{ process.medication.dosage }}</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Forma Farmacêutica</dt>
+                        <dd class="fw-semibold">{{ process.medication.pharmaceutical_form }}</dd>
+                    </div>
+                    
+                    <div class="mb-0">
+                        <dt class="text-muted small">Estoque Atual</dt>
+                        <dd>
+                            {% if process.medication.current_stock < 10 %}
+                                <span class="badge bg-danger">{{ process.medication.current_stock }} unidades</span>
+                                <small class="text-danger d-block">Estoque crítico!</small>
+                            {% elif process.medication.current_stock < 50 %}
+                                <span class="badge bg-warning text-dark">{{ process.medication.current_stock }} unidades</span>
+                                <small class="text-warning d-block">Estoque baixo</small>
+                            {% else %}
+                                <span class="badge bg-success">{{ process.medication.current_stock }} unidades</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Histórico de Dispensações -->
+            {% if process.dispensations %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>Dispensações Anteriores
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for dispensation in process.dispensations %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <small class="text-muted">{{ format_date(dispensation.dispensation_date) }}</small><br>
+                        <strong>{{ dispensation.quantity_dispensed }} unidades</strong><br>
+                        <small>por {{ dispensation.dispenser.full_name }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Checklist de Dispensação -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-tasks me-2"></i>Checklist de Dispensação
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input checklist-item" type="checkbox" id="check-identity">
+                        <label class="form-check-label small" for="check-identity">
+                            Identidade do paciente verificada
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input checklist-item" type="checkbox" id="check-medication">
+                        <label class="form-check-label small" for="check-medication">
+                            Medicamento conferido (nome, dose, lote)
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input checklist-item" type="checkbox" id="check-expiry">
+                        <label class="form-check-label small" for="check-expiry">
+                            Validade do medicamento verificada
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input checklist-item" type="checkbox" id="check-quantity">
+                        <label class="form-check-label small" for="check-quantity">
+                            Quantidade conferida
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input checklist-item" type="checkbox" id="check-orientation">
+                        <label class="form-check-label small" for="check-orientation">
+                            Orientações fornecidas ao paciente
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orientações -->
+            <div class="alert alert-info">
+                <h6 class="alert-heading">
+                    <i class="fas fa-lightbulb me-1"></i>Orientações para Dispensação
+                </h6>
+                <small>
+                    <ul class="mb-0 ps-3">
+                        <li>Verifique a identidade do paciente</li>
+                        <li>Confirme os dados do medicamento</li>
+                        <li>Oriente sobre posologia e uso</li>
+                        <li>Informe sobre efeitos adversos</li>
+                        <li>Documente todas as orientações</li>
+                    </ul>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Melhorias visuais */
+.card {
+    border: 1px solid rgba(0,0,0,.125);
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0,0,0,.125);
+}
+
+.card-header.bg-primary {
+    border-color: #0d6efd;
+}
+
+/* Estilos para as confirmações */
+.orientation-check:checked + label {
+    color: #198754;
+    font-weight: 500;
+}
+
+.orientation-check:checked + label i {
+    animation: checkmark 0.3s ease-in;
+}
+
+@keyframes checkmark {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.checklist-item:checked + label {
+    text-decoration: line-through;
+    color: #6c757d;
+}
+
+/* Progress bar animada */
+.progress {
+    transition: all 0.3s ease;
+}
+
+.progress-bar {
+    transition: width 0.5s ease, background-color 0.3s ease;
+}
+
+/* Input group melhorado */
+.input-group-text {
+    background-color: #f8f9fa;
+    font-size: 0.875rem;
+}
+
+/* Badge customizado */
+.badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge.fs-6 {
+    font-size: 0.875rem !important;
+}
+
+/* Alert customizado */
+.alert-info {
+    border-left: 4px solid #0dcaf0;
+    background-color: rgba(13, 202, 240, 0.1);
+}
+
+.alert-light {
+    border-left: 4px solid #6c757d;
+}
+
+.alert ul li {
+    margin-bottom: 0.25rem;
+}
+
+/* Transições suaves */
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Form check melhorado */
+.form-check-label {
+    cursor: pointer;
+}
+
+.form-check-input {
+    cursor: pointer;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+}
+
+/* Animações */
+.alert, #stock-alerts .alert {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Estados do botão */
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Destaque para campos obrigatórios */
+.text-danger .fa-exclamation-circle {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Destaque para texto quando todos checados */
+.all-orientations-complete {
+    background-color: rgba(25, 135, 84, 0.1);
+    border-color: #198754;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const quantityInput = $('#quantity_dispensed');
+    const currentStock = {{ process.medication.current_stock }};
+    const maxQuantity = {{ max_quantity }};
+    const patientSignature = $('input[name="patient_signature"]');
+    const termsAccepted = $('#terms_accepted');
+    const dispenseBtn = $('#dispense-btn');
+    
+    // === ATUALIZAÇÃO DE DISPLAYS ===
+    function updateDisplays() {
+        const quantity = parseInt(quantityInput.val()) || 0;
+        const remainingStock = currentStock - quantity;
+        
+        $('#quantity-display').text(quantity + ' unidades');
+        $('#remaining-stock').text(remainingStock + ' unidades');
+        
+        // Atualizar cor do badge baseado no estoque restante
+        const remainingBadge = $('#remaining-stock');
+        remainingBadge.removeClass('bg-success bg-warning bg-danger bg-secondary');
+        
+        if (quantity === 0) {
+            remainingBadge.addClass('bg-secondary');
+        } else if (remainingStock < 0) {
+            remainingBadge.addClass('bg-danger');
+        } else if (remainingStock < 10) {
+            remainingBadge.addClass('bg-warning');
+        } else {
+            remainingBadge.addClass('bg-success');
+        }
+        
+        updateStockAlerts(quantity);
+    }
+    
+    function updateStockAlerts(quantity) {
+        const alertContainer = $('#stock-alerts');
+        alertContainer.empty();
+        
+        if (quantity > 0) {
+            let alertHtml = '';
+            
+            if (quantity > currentStock) {
+                alertHtml = `
+                    <div class="alert alert-danger mt-2">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <strong>Estoque insuficiente!</strong><br>
+                        Disponível: ${currentStock} unidades<br>
+                        Solicitado: ${quantity} unidades
+                    </div>
+                `;
+            } else if ((currentStock - quantity) < 10) {
+                alertHtml = `
+                    <div class="alert alert-warning mt-2">
+                        <i class="fas fa-exclamation-circle me-1"></i>
+                        <strong>Atenção!</strong> Após esta dispensação restará apenas ${currentStock - quantity} unidades
+                    </div>
+                `;
+            }
+            
+            if (alertHtml) {
+                alertContainer.html(alertHtml);
+            }
+        }
+    }
+    
+    // === PROGRESSO DAS ORIENTAÇÕES ===
+    function updateProgress() {
+        const total = $('.orientation-check').length;
+        const checked = $('.orientation-check:checked').length;
+        const percentage = (checked / total) * 100;
+        
+        $('#checked-count').text(checked);
+        $('#progress-bar').css('width', percentage + '%');
+        
+        // Mudar cor da progress bar
+        const progressBar = $('#progress-bar');
+        progressBar.removeClass('bg-warning bg-success bg-danger');
+        
+        if (checked === 0) {
+            progressBar.addClass('bg-danger');
+        } else if (checked === total) {
+            progressBar.addClass('bg-success');
+            $('#terms_accepted').prop('disabled', false);
+            // Destacar card quando completo
+            $('#terms_accepted').closest('.card-body').addClass('all-orientations-complete');
+        } else {
+            progressBar.addClass('bg-warning');
+            $('#terms_accepted').prop('disabled', true).prop('checked', false);
+            $('#terms_accepted').closest('.card-body').removeClass('all-orientations-complete');
+        }
+        
+        validateForm();
+    }
+    
+    // === VALIDAÇÃO DO FORMULÁRIO ===
+    function validateForm() {
+        const quantity = parseInt(quantityInput.val()) || 0;
+        const signature = patientSignature.val().trim();
+        const terms = termsAccepted.is(':checked');
+        const orientationsComplete = $('.orientation-check:checked').length === $('.orientation-check').length;
+        
+        const isValid = quantity > 0 && 
+                       quantity <= maxQuantity && 
+                       quantity <= currentStock && 
+                       signature.length >= 3 && 
+                       orientationsComplete &&
+                       terms;
+        
+        dispenseBtn.prop('disabled', !isValid);
+        
+        if (isValid) {
+            dispenseBtn.removeClass('btn-outline-success').addClass('btn-success');
+            dispenseBtn.html('<i class="fas fa-hand-holding-medical me-1"></i>Confirmar Dispensação');
+        } else {
+            dispenseBtn.removeClass('btn-success').addClass('btn-outline-secondary');
+            
+            if (quantity === 0) {
+                dispenseBtn.html('<i class="fas fa-exclamation-triangle me-1"></i>Informe a quantidade');
+            } else if (quantity > currentStock) {
+                dispenseBtn.html('<i class="fas fa-exclamation-triangle me-1"></i>Estoque insuficiente');
+            } else if (!signature) {
+                dispenseBtn.html('<i class="fas fa-exclamation-triangle me-1"></i>Confirme a assinatura');
+            } else if (!orientationsComplete) {
+                dispenseBtn.html('<i class="fas fa-exclamation-triangle me-1"></i>Complete as orientações');
+            } else if (!terms) {
+                dispenseBtn.html('<i class="fas fa-exclamation-triangle me-1"></i>Aceite os termos');
+            } else {
+                dispenseBtn.html('<i class="fas fa-exclamation-triangle me-1"></i>Preencha os campos');
+            }
+        }
+    }
+    
+    // === ATUALIZAÇÃO DE DATA/HORA ===
+    function updateDateTime() {
+        const now = new Date();
+        $('#current-date').text(now.toLocaleDateString('pt-BR'));
+        $('#current-time').text(now.toLocaleTimeString('pt-BR'));
+    }
+    
+    // === EVENTOS ===
+    quantityInput.on('input change', function() {
+        updateDisplays();
+        validateForm();
+    });
+    
+    patientSignature.on('input', validateForm);
+    termsAccepted.on('change', validateForm);
+    $('.orientation-check').on('change', updateProgress);
+    
+    // Checklist lateral (opcional)
+    $('.checklist-item').on('change', function() {
+        const total = $('.checklist-item').length;
+        const checked = $('.checklist-item:checked').length;
+        
+        if (checked === total) {
+            $(this).closest('.card').addClass('border-success');
+        } else {
+            $(this).closest('.card').removeClass('border-success');
+        }
+    });
+    
+    // === INICIALIZAÇÃO ===
+    updateDisplays();
+    updateProgress();
+    validateForm();
+    updateDateTime();
+    
+    // Atualizar data/hora a cada segundo
+    setInterval(updateDateTime, 1000);
+    
+    // Auto-focus
+    quantityInput.focus();
+    
+    // Sugerir próxima data de dispensação (30 dias)
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + 30);
+    $('input[name="next_dispensation_date"]').val(nextDate.toISOString().split('T')[0]);
+    
+    // === CONFIRMAÇÃO ANTES DE SUBMETER ===
+    $('form').on('submit', function(e) {
+        const quantity = parseInt(quantityInput.val()) || 0;
+        const signature = patientSignature.val().trim();
+        
+        if (!confirm(`Confirmar dispensação de ${quantity} unidades para:\n${signature}?\n\nEsta ação não poderá ser desfeita.`)) {
+            e.preventDefault();
+        }
+    });
+    
+    // === AUTO-SAVE ===
+    function saveFormData() {
+        const formData = {
+            quantity_dispensed: quantityInput.val(),
+            patient_signature: patientSignature.val(),
+            next_dispensation_date: $('input[name="next_dispensation_date"]').val(),
+            observations: $('textarea[name="observations"]').val(),
+            terms_accepted: termsAccepted.is(':checked'),
+            orientations: []
+        };
+        
+        // Salvar estado das orientações
+        $('.orientation-check').each(function() {
+            formData.orientations.push({
+                id: $(this).attr('id'),
+                checked: $(this).is(':checked')
+            });
+        });
+        
+        localStorage.setItem('dispensation_backup_{{ process.id }}', JSON.stringify(formData));
+    }
+    
+    // Restaurar dados salvos
+    function restoreFormData() {
+        const backupData = localStorage.getItem('dispensation_backup_{{ process.id }}');
+        if (backupData) {
+            try {
+                const data = JSON.parse(backupData);
+                
+                quantityInput.val(data.quantity_dispensed || '');
+                patientSignature.val(data.patient_signature || '');
+                $('input[name="next_dispensation_date"]').val(data.next_dispensation_date || '');
+                $('textarea[name="observations"]').val(data.observations || '');
+                termsAccepted.prop('checked', data.terms_accepted || false);
+                
+                // Restaurar orientações
+                if (data.orientations) {
+                    data.orientations.forEach(orientation => {
+                        $(`#${orientation.id}`).prop('checked', orientation.checked);
+                    });
+                }
+                
+                updateDisplays();
+                updateProgress();
+                validateForm();
+            } catch (e) {
+                console.warn('Erro ao restaurar dados:', e);
+            }
+        }
+    }
+    
+    // Salvar a cada mudança
+    $('input, textarea').on('change', saveFormData);
+    $('.orientation-check, #terms_accepted').on('change', saveFormData);
+    
+    // Restaurar dados na inicialização
+    restoreFormData();
+    
+    // Limpar backup ao submeter com sucesso
+    $('form').on('submit', function() {
+        localStorage.removeItem('dispensation_backup_{{ process.id }}');
+    });
+    
+    // === MELHORIAS DE UX ===
+    
+    // Destacar campos obrigatórios vazios
+    function highlightEmptyFields() {
+        const fields = [quantityInput, patientSignature];
+        
+        fields.forEach(field => {
+            if (!field.val() || field.val().trim() === '') {
+                field.addClass('border-warning');
+            } else {
+                field.removeClass('border-warning');
+            }
+        });
+    }
+    
+    // Verificar a cada mudança
+    quantityInput.add(patientSignature).on('blur', highlightEmptyFields);
+    
+    // Som de notificação quando todas orientações estão completas
+    $('.orientation-check').on('change', function() {
+        const total = $('.orientation-check').length;
+        const checked = $('.orientation-check:checked').length;
+        
+        if (checked === total) {
+            // Criar feedback visual
+            $('html, body').animate({
+                scrollTop: $('#terms_accepted').offset().top - 100
+            }, 500);
+            
+            // Flash no campo final
+            $('#terms_accepted').closest('.form-check').addClass('border border-success rounded p-2');
+            setTimeout(() => {
+                $('#terms_accepted').closest('.form-check').removeClass('border border-success rounded p-2');
+            }, 2000);
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,538 @@
+{% extends "base.html" %}
+
+{% block title %}Dispensação - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-hand-holding-medical me-2 text-primary"></i>
+                Dispensação de Medicamentos
+            </h1>
+            <p class="text-muted mb-0">Sistema de dispensação básica para medicamentos comuns</p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-xl-10">
+            <!-- Card de Busca de Paciente -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-search me-2"></i>
+                        Buscar Paciente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- ✅ Busca Unificada -->
+                    <div class="row">
+                        <!-- Busca por Nome/CPF/CNS -->
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-user me-1"></i>Nome, CPF ou CNS:
+                                </label>
+                                <input type="text" id="patientSearch" class="form-control form-control-lg" 
+                                       placeholder="Digite o nome, CPF ou CNS..." autofocus>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Busca automática com 3+ caracteres
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Busca por Data de Nascimento -->
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-birthday-cake me-1"></i>Data de Nascimento:
+                                </label>
+                                <input type="date" id="birthdateSearch" class="form-control form-control-lg">
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Busca automática por aniversário
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Período -->
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-calendar me-1"></i>Período:
+                                </label>
+                                <select id="birthdatePeriod" class="form-control form-control-lg">
+                                    <option value="exact">Data exata</option>
+                                    <option value="week">Semana (±3 dias)</option>
+                                    <option value="month">Mês inteiro</option>
+                                </select>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Alcance da busca por data
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botão de Limpar -->
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="button" id="clearBtn" class="btn btn-outline-secondary btn-lg w-100">
+                                <i class="fas fa-eraser me-1"></i>Limpar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ✅ Indicadores de Busca Ativa -->
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <div class="d-flex flex-wrap gap-2">
+                                <span id="searchIndicator" class="badge bg-light text-dark border" style="display: none;">
+                                    <i class="fas fa-search me-1"></i>
+                                    <span id="searchIndicatorText"></span>
+                                    <button type="button" class="btn-close btn-close-sm ms-1" onclick="clearSearch()"></button>
+                                </span>
+                                <span id="birthdateIndicator" class="badge bg-light text-dark border" style="display: none;">
+                                    <i class="fas fa-birthday-cake me-1"></i>
+                                    <span id="birthdateIndicatorText"></span>
+                                    <button type="button" class="btn-close btn-close-sm ms-1" onclick="clearBirthdate()"></button>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading -->
+                    <div id="searchLoading" class="text-center py-3" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Buscando...</span>
+                        </div>
+                        <p class="mt-2 mb-0 text-muted">
+                            <span id="loadingText">Buscando pacientes...</span>
+                        </p>
+                    </div>
+                    
+                    <!-- Resultados da busca -->
+                    <div id="searchResults" style="display: none;">
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Resultados da Busca:</h6>
+                            <small class="text-muted" id="searchSummary"></small>
+                        </div>
+                        <div id="patientsContainer"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instruções -->
+            <div class="card">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Sistema de busca unificada de pacientes</h5>
+                    <div class="row mt-4">
+                        <div class="col-md-3">
+                            <div class="d-flex flex-column align-items-center">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mb-2" style="width: 40px; height: 40px;">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <h6>Busca por Nome/CPF/CNS</h6>
+                                <p class="text-muted small mb-0">Digite qualquer informação pessoal do paciente</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex flex-column align-items-center">
+                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center mb-2" style="width: 40px; height: 40px;">
+                                    <i class="fas fa-birthday-cake"></i>
+                                </div>
+                                <h6>Busca por Aniversário</h6>
+                                <p class="text-muted small mb-0">Encontre aniversariantes de uma data específica</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex flex-column align-items-center">
+                                <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center mb-2" style="width: 40px; height: 40px;">
+                                    <i class="fas fa-pills"></i>
+                                </div>
+                                <h6>Dispensar Medicamentos</h6>
+                                <p class="text-muted small mb-0">Selecione o paciente e inicie a dispensação</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex flex-column align-items-center">
+                                <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center mb-2" style="width: 40px; height: 40px;">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                                <h6>Confirmar</h6>
+                                <p class="text-muted small mb-0">Revise e finalize a dispensação</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ✅ Dicas de Busca -->
+                    <div class="mt-4 pt-3 border-top">
+                        <div class="row text-start">
+                            <div class="col-md-6">
+                                <h6 class="text-primary">
+                                    <i class="fas fa-lightbulb me-1"></i>Dicas de Busca Geral:
+                                </h6>
+                                <ul class="small text-muted">
+                                    <li><strong>CPF:</strong> Digite apenas números (11 dígitos)</li>
+                                    <li><strong>CNS:</strong> Digite apenas números (15 dígitos)</li>
+                                    <li><strong>Nome:</strong> Qualquer parte do nome completo</li>
+                                    <li><strong>Automática:</strong> Busca enquanto você digita</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-success">
+                                    <i class="fas fa-birthday-cake me-1"></i>Dicas de Busca por Aniversário:
+                                </h6>
+                                <ul class="small text-muted">
+                                    <li><strong>Data exata:</strong> Apenas pacientes nascidos no dia</li>
+                                    <li><strong>Semana:</strong> ±3 dias da data selecionada</li>
+                                    <li><strong>Mês inteiro:</strong> Todos os aniversariantes do mês</li>
+                                    <li><strong>Dinâmica:</strong> Busca automática ao selecionar data</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Erro -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Erro
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="errorMessage">Ocorreu um erro inesperado.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    let searchTimeout;
+    let birthdateTimeout;
+    
+    // ✅ Busca automática por nome/CPF/CNS
+    $('#patientSearch').on('input', function() {
+        clearTimeout(searchTimeout);
+        const term = $(this).val().trim();
+        
+        // Limpar busca por data se estiver ativa
+        if (term.length >= 3) {
+            clearBirthdateSearch(false);
+            
+            searchTimeout = setTimeout(() => {
+                searchPatientsByName(term);
+                updateSearchIndicator(term);
+            }, 500);
+        } else {
+            $('#searchResults').hide();
+            hideSearchIndicator();
+        }
+    });
+    
+    // ✅ Busca automática por data de nascimento
+    $('#birthdateSearch').on('change', function() {
+        clearTimeout(birthdateTimeout);
+        const birthdate = $(this).val();
+        const period = $('#birthdatePeriod').val();
+        
+        if (birthdate) {
+            // Limpar busca por nome se estiver ativa
+            clearNameSearch(false);
+            
+            birthdateTimeout = setTimeout(() => {
+                searchPatientsByBirthdate(birthdate, period);
+                updateBirthdateIndicator(birthdate, period);
+            }, 300);
+        } else {
+            $('#searchResults').hide();
+            hideBirthdateIndicator();
+        }
+    });
+    
+    // ✅ Mudança no período atualiza busca automaticamente
+    $('#birthdatePeriod').on('change', function() {
+        const birthdate = $('#birthdateSearch').val();
+        if (birthdate) {
+            const period = $(this).val();
+            searchPatientsByBirthdate(birthdate, period);
+            updateBirthdateIndicator(birthdate, period);
+        }
+    });
+    
+    // ✅ Botão limpar tudo
+    $('#clearBtn').on('click', function() {
+        clearAll();
+    });
+    
+    // ✅ Enter para buscar
+    $('#patientSearch').on('keypress', function(e) {
+        if (e.which === 13) {
+            const term = $(this).val().trim();
+            if (term.length >= 3) {
+                searchPatientsByName(term);
+            }
+        }
+    });
+    
+    // ✅ Função de busca por Nome/CPF/CNS
+    function searchPatientsByName(term) {
+        $('#searchLoading').show();
+        $('#searchResults').hide();
+        $('#loadingText').text('Buscando por nome/CPF/CNS...');
+        
+        $.ajax({
+            url: '{{ url_for("main.dispensation_search_patient") }}',
+            method: 'POST',
+            data: {
+                patient_search: term,
+                search_type: 'name_cpf_cns',
+                csrf_token: $('meta[name=csrf-token]').attr('content')
+            },
+            success: function(response) {
+                $('#searchLoading').hide();
+                displayPatients(response.patients, `Busca por: "${term}"`);
+            },
+            error: function(xhr) {
+                $('#searchLoading').hide();
+                const response = xhr.responseJSON;
+                showError(response ? response.error : 'Erro ao buscar pacientes.');
+            }
+        });
+    }
+    
+    // ✅ Função de busca por data de aniversário (CORRIGIDA)
+    function searchPatientsByBirthdate(birthdate, period) {
+        $('#searchLoading').show();
+        $('#searchResults').hide();
+        
+        let loadingText = 'Buscando aniversariantes';
+        if (period === 'exact') loadingText += ' do dia';
+        else if (period === 'month') loadingText += ' do mês';
+        else if (period === 'week') loadingText += ' da semana';
+        $('#loadingText').text(loadingText + '...');
+        
+        $.ajax({
+            url: '{{ url_for("main.dispensation_search_patient_birthdate") }}',
+            method: 'POST',
+            data: {
+                birthdate: birthdate, // Enviar exatamente como está (YYYY-MM-DD)
+                period: period,
+                csrf_token: $('meta[name=csrf-token]').attr('content')
+            },
+            success: function(response) {
+                $('#searchLoading').hide();
+                
+                // ✅ Formatar data para exibição SEM problemas de timezone
+                const [year, month, day] = birthdate.split('-');
+                const displayDate = `${day}/${month}/${year}`;
+                
+                let searchDesc = `Aniversariantes`;
+                if (period === 'exact') {
+                    searchDesc += ` de ${displayDate}`;
+                } else if (period === 'month') {
+                    const monthNames = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                                      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+                    const monthName = monthNames[parseInt(month) - 1];
+                    searchDesc += ` de ${monthName}/${year}`;
+                } else if (period === 'week') {
+                    searchDesc += ` da semana de ${displayDate}`;
+                }
+                
+                displayPatients(response.patients, searchDesc);
+            },
+            error: function(xhr) {
+                $('#searchLoading').hide();
+                const response = xhr.responseJSON;
+                showError(response ? response.error : 'Erro ao buscar aniversariantes.');
+            }
+        });
+    }
+    
+    // ✅ Exibir resultados
+    function displayPatients(patients, searchDescription) {
+        const container = $('#patientsContainer');
+        const summary = $('#searchSummary');
+        container.empty();
+        
+        // Resumo dos resultados
+        summary.text(`${patients.length} resultado(s) - ${searchDescription}`);
+        
+        if (patients.length === 0) {
+            container.html(`
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Nenhum paciente encontrado com este critério de busca.
+                </div>
+            `);
+        } else {
+            let html = '<div class="list-group">';
+            
+            patients.forEach(patient => {
+                // ✅ Calcular idade e formatar data (CORRIGIDO)
+                let age = patient.age || 0;
+                let formattedBirthDate = 'N/A';
+                
+                if (patient.birth_date) {
+                    // Criar data sem problemas de timezone
+                    const [year, month, day] = patient.birth_date.split('-');
+                    const birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                    
+                    age = calculateAge(birthDate);
+                    formattedBirthDate = `${day}/${month}/${year}`;
+                }
+                
+                html += `
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${patient.name || patient.full_name}</h6>
+                                <p class="mb-1">
+                                    <small>
+                                        <strong>CPF:</strong> ${patient.cpf}
+                                        ${patient.cns ? ` | <strong>CNS:</strong> ${patient.cns}` : ''}
+                                         | <strong>Idade:</strong> ${age} anos |
+                                        <strong>Nascimento:</strong> ${formattedBirthDate}
+                                        ${patient.phone ? ` | <strong>Tel:</strong> ${patient.phone}` : ''}
+                                    </small>
+                                </p>
+                                ${patient.mother_name ? `<p class="mb-0"><small class="text-muted"><strong>Mãe:</strong> ${patient.mother_name}</small></p>` : ''}
+                            </div>
+                            <div>
+                                <button class="btn btn-primary" onclick="goToDispensation(${patient.id})">
+                                    <i class="fas fa-pills me-1"></i>Dispensar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.html(html);
+        }
+        
+        $('#searchResults').show();
+    }
+    
+    // ✅ Indicadores de busca ativa
+    function updateSearchIndicator(term) {
+        $('#searchIndicatorText').text(`Busca: "${term}"`);
+        $('#searchIndicator').show();
+    }
+    
+    function updateBirthdateIndicator(birthdate, period) {
+        // ✅ Formatar data SEM problemas de timezone
+        const [year, month, day] = birthdate.split('-');
+        const formattedDate = `${day}/${month}/${year}`;
+        
+        let text = `Data: ${formattedDate}`;
+        if (period === 'month') text += ' (mês)';
+        else if (period === 'week') text += ' (semana)';
+        
+        $('#birthdateIndicatorText').text(text);
+        $('#birthdateIndicator').show();
+    }
+    
+    function hideSearchIndicator() {
+        $('#searchIndicator').hide();
+    }
+    
+    function hideBirthdateIndicator() {
+        $('#birthdateIndicator').hide();
+    }
+    
+    // ✅ Funções de limpeza
+    function clearNameSearch(hideResults = true) {
+        $('#patientSearch').val('');
+        hideSearchIndicator();
+        if (hideResults) {
+            $('#searchResults').hide();
+        }
+    }
+    
+    function clearBirthdateSearch(hideResults = true) {
+        $('#birthdateSearch').val('');
+        hideBirthdateIndicator();
+        if (hideResults) {
+            $('#searchResults').hide();
+        }
+    }
+    
+    function clearAll() {
+        clearNameSearch(true);
+        clearBirthdateSearch(true);
+        $('#birthdatePeriod').val('exact');
+        $('#searchResults').hide();
+    }
+    
+    // ✅ Calcular idade (CORRIGIDO)
+    function calculateAge(birthDate) {
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        
+        return age;
+    }
+    
+    function showError(message) {
+        $('#errorMessage').text(message);
+        $('#errorModal').modal('show');
+    }
+    
+    // CSRF Token para AJAX
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", $('meta[name=csrf-token]').attr('content'));
+            }
+        }
+    });
+});
+
+// ✅ Funções globais (ADICIONADAS)
+function clearSearch() {
+    $('#patientSearch').val('');
+    $('#searchIndicator').hide();
+    $('#searchResults').hide();
+}
+
+function clearBirthdate() {
+    $('#birthdateSearch').val('');
+    $('#birthdateIndicator').hide();
+    $('#searchResults').hide();
+}
+
+// Função global para redirecionar para dispensação
+function goToDispensation(patientId) {
+    if (!patientId || patientId === 0) {
+        alert('ID do paciente inválido.');
+        return;
+    }
+    
+    const url = `/dispensation/patient/${patientId}`;
+    console.log('Redirecionando para:', url);
+    window.location.href = url;
+}
+</script>
+{% endblock %}

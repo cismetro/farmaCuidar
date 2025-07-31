@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+
+{% block title %}Processos Alto Custo - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-star me-2 text-primary"></i>
+                Processos Alto Custo
+            </h1>
+            <p class="text-muted mb-0">Gerenciamento de medicamentos de alto custo</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.patients_list') }}?select_for=high_cost" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Nova Solicitação
+            </a>
+        </div>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Pendentes</div>
+                            <div class="fs-4 fw-bold">{{ stats.pending }}</div>
+                        </div>
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold text-white-75">Em Avaliação</div>
+                            <div class="fs-4 fw-bold">{{ stats.under_evaluation }}</div>
+                        </div>
+                        <i class="fas fa-search fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold text-white-75">Aprovados</div>
+                            <div class="fs-4 fw-bold">{{ stats.approved }}</div>
+                        </div>
+                        <i class="fas fa-check fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold text-white-75">Negados</div>
+                            <div class="fs-4 fw-bold">{{ stats.denied }}</div>
+                        </div>
+                        <i class="fas fa-times fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Status:</label>
+                    <select name="status" class="form-select">
+                        <option value="">Todos os Status</option>
+                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pendente</option>
+                        <option value="under_evaluation" {% if status_filter == 'under_evaluation' %}selected{% endif %}>Em Avaliação</option>
+                        <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Aprovado</option>
+                        <option value="denied" {% if status_filter == 'denied' %}selected{% endif %}>Negado</option>
+                        <option value="dispensed" {% if status_filter == 'dispensed' %}selected{% endif %}>Dispensado</option>
+                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Concluído</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Buscar:</label>
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Protocolo, paciente ou medicamento..." 
+                           value="{{ request.args.get('search', '') }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-filter me-1"></i>Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Processos -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-list me-2"></i>
+                Lista de Processos
+                {% if status_filter %}
+                <small class="text-muted">(Filtrado por: {{ format_process_status(status_filter) }})</small>
+                {% endif %}
+            </h5>
+        </div>
+        
+        <div class="card-body p-0">
+            {% if processes.items %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Protocolo</th>
+                            <th>Paciente</th>
+                            <th>Medicamento</th>
+                            <th>CID-10</th>
+                            <th>Data Solicit.</th>
+                            <th>Status</th>
+                            <th>Urgência</th>
+                            <th width="150">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for process in processes.items %}
+                        <tr class="{{ 'table-warning' if process.urgency_level == 'urgent' else '' }}">
+                            <td>
+                                <code class="fs-6">{{ process.protocol_number }}</code>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ process.patient.full_name }}</div>
+                                    <small class="text-muted">{{ format_cpf(process.patient.cpf) }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ process.medication.commercial_name }}</div>
+                                    <small class="text-muted">{{ process.medication.dosage }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">{{ process.cid10 }}</span>
+                            </td>
+                            <td>
+                                <small>{{ format_date(process.request_date) }}</small>
+                            </td>
+                            <td>
+                                {% set status_class = {
+                                    'pending': 'warning',
+                                    'under_evaluation': 'info',
+                                    'approved': 'success',
+                                    'denied': 'danger',
+                                    'dispensed': 'primary',
+                                    'completed': 'secondary',
+                                    'cancelled': 'dark'
+                                }.get(process.status.value, 'secondary') %}
+                                <span class="badge bg-{{ status_class }}">
+                                    {{ format_process_status(process.status) }}
+                                </span>
+                            </td>
+                            <td>
+                                {% set urgency_class = {
+                                    'low': 'secondary',
+                                    'medium': 'primary',
+                                    'high': 'warning',
+                                    'urgent': 'danger'
+                                }.get(process.urgency_level, 'secondary') %}
+                                <span class="badge bg-{{ urgency_class }}">
+                                    {% if process.urgency_level == 'low' %}Baixa
+                                    {% elif process.urgency_level == 'medium' %}Média
+                                    {% elif process.urgency_level == 'high' %}Alta
+                                    {% elif process.urgency_level == 'urgent' %}Urgente
+                                    {% else %}Não informado
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}" 
+                                       class="btn btn-outline-primary" title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    
+                                    {% if process.status.value == 'pending' and has_permission('evaluate_high_cost') %}
+                                    <a href="{{ url_for('main.high_cost_evaluate', id=process.id) }}" 
+                                       class="btn btn-outline-info" title="Avaliar">
+                                        <i class="fas fa-search"></i>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if process.status.value == 'under_evaluation' and has_permission('manage_users') %}
+                                    <a href="{{ url_for('main.high_cost_approve', id=process.id) }}" 
+                                       class="btn btn-outline-success" title="Aprovar/Negar">
+                                        <i class="fas fa-gavel"></i>
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {% if process.status.value == 'approved' and has_permission('dispense_medications') %}
+                                    <a href="{{ url_for('main.high_cost_dispense', id=process.id) }}" 
+                                       class="btn btn-outline-primary" title="Dispensar">
+                                        <i class="fas fa-pills"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginação -->
+            {% if processes.pages > 1 %}
+            <div class="card-footer">
+                <nav aria-label="Paginação de processos">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if processes.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.high_cost_index', page=processes.prev_num, status=status_filter) }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for page_num in processes.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != processes.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('main.high_cost_index', page=page_num, status=status_filter) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                                {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if processes.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.high_cost_index', page=processes.next_num, status=status_filter) }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- Estado vazio -->
+            <div class="text-center py-5">
+                <i class="fas fa-star fa-3x text-muted mb-3"></i>
+                {% if status_filter or request.args.get('search') %}
+                <h5>Nenhum processo encontrado</h5>
+                <p class="text-muted">Nenhum processo foi encontrado com os filtros aplicados.</p>
+                <a href="{{ url_for('main.high_cost_index') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-times me-1"></i>Limpar Filtros
+                </a>
+                {% else %}
+                <h5>Nenhum processo alto custo</h5>
+                <p class="text-muted">Ainda não há processos de medicamentos de alto custo cadastrados.</p>
+                <a href="{{ url_for('main.patients_list') }}?select_for=high_cost" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Criar Primeira Solicitação
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-refresh a cada 2 minutos para processos urgentes
+    setInterval(function() {
+        // Verificar se há processos urgentes que precisam de atenção
+        $('.badge.bg-danger').each(function() {
+            if ($(this).text().includes('Urgente')) {
+                $(this).closest('tr').addClass('table-warning');
+            }
+        });
+    }, 120000); // 2 minutos
+    
+    // Destacar processos urgentes na inicialização
+    $('.badge.bg-danger').each(function() {
+        if ($(this).text().includes('Urgente')) {
+            $(this).closest('tr').addClass('table-warning');
+        }
+    });
+
+    // Melhorar feedback visual dos cards de estatísticas
+    $('.card[class*="bg-"]').hover(
+        function() {
+            $(this).addClass('shadow-lg').css('transform', 'translateY(-2px)');
+        },
+        function() {
+            $(this).removeClass('shadow-lg').css('transform', 'translateY(0)');
+        }
+    );
+
+    // Auto-focus no campo de busca
+    $('input[name="search"]').focus();
+
+    // Enter para submeter busca
+    $('input[name="search"]').on('keypress', function(e) {
+        if (e.which == 13) {
+            $(this).closest('form').submit();
+        }
+    });
+
+    // Confirmar ações importantes
+    $('a[title="Aprovar/Negar"]').on('click', function(e) {
+        const protocolNumber = $(this).closest('tr').find('code').text();
+        if (!confirm(`Tem certeza que deseja decidir sobre o processo ${protocolNumber}?`)) {
+            e.preventDefault();
+        }
+    });
+
+    // Tooltip para processos urgentes
+    $('tr.table-warning').attr('title', 'Processo com urgência alta - requer atenção imediata');
+
+    // Contador de processos por status
+    updateStatusCounters();
+});
+
+function updateStatusCounters() {
+    const badges = {
+        'pending': 0,
+        'under_evaluation': 0,
+        'approved': 0,
+        'denied': 0,
+        'dispensed': 0
+    };
+
+    $('table tbody tr').each(function() {
+        const statusBadge = $(this).find('.badge[class*="bg-"]').first();
+        const statusText = statusBadge.text().trim().toLowerCase();
+        
+        if (statusText.includes('pendente')) badges.pending++;
+        else if (statusText.includes('avaliação')) badges.under_evaluation++;
+        else if (statusText.includes('aprovado')) badges.approved++;
+        else if (statusText.includes('negado')) badges.denied++;
+        else if (statusText.includes('dispensado')) badges.dispensed++;
+    });
+
+    // Atualizar contadores visuais se necessário
+    console.log('Status atual:', badges);
+}
+
+// Função para exportar processos (placeholder)
+function exportProcesses() {
+    showAlert('Funcionalidade de exportação em desenvolvimento', 'info');
+}
+
+// Função para notificações
+function showAlert(message, type = 'info') {
+    const alertClass = {
+        'success': 'alert-success',
+        'warning': 'alert-warning',
+        'danger': 'alert-danger',
+        'info': 'alert-info'
+    }[type] || 'alert-info';
+    
+    const alert = $(`
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+             style="top: 20px; right: 20px; z-index: 1050; min-width: 300px;" role="alert">
+            <i class="fas fa-info-circle me-2"></i>${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    
+    $('body').append(alert);
+    
+    setTimeout(() => {
+        alert.fadeOut(function() {
+            $(this).remove();
+        });
+    }, 5000);
+}
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Melhorias visuais */
+.card {
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0,0,0,.125);
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+    border-left: 4px solid #ffc107;
+}
+
+.badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+code {
+    background-color: #f1f3f4;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.btn-group-sm .btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Responsividade melhorada */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.125rem 0.25rem;
+    }
+    
+    .card-body .row {
+        margin: 0;
+    }
+    
+    .card-body .col-md-4,
+    .card-body .col-md-6,
+    .card-body .col-md-2 {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+/* Estados vazios melhorados */
+.text-center.py-5 i {
+    opacity: 0.5;
+}
+
+/* Animações suaves */
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Melhor contraste para badges */
+.badge.bg-light {
+    color: #495057 !important;
+    border: 1px solid #dee2e6;
+}
+
+/* Loading state para formulários */
+.btn[type="submit"]:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Melhor visualização de códigos */
+code.fs-6 {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+</style>
+{% endblock %}

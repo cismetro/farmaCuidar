@@ -1,0 +1,576 @@
+{% extends "base.html" %}
+
+{% block title %}Relatórios - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-chart-bar me-2 text-primary"></i>
+                Central de Relatórios
+            </h1>
+            <p class="text-muted mb-0">Gere relatórios detalhados sobre todas as operações da farmácia</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-calendar me-1"></i>Período
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="setDateRange('today')">Hoje</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="setDateRange('week')">Esta Semana</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="setDateRange('month')">Este Mês</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="setDateRange('year')">Este Ano</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas Rápidas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Dispensações Hoje</div>
+                            <div class="fs-4 fw-bold" id="today-dispensations">-</div>
+                        </div>
+                        <i class="fas fa-pills fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Pacientes Ativos</div>
+                            <div class="fs-4 fw-bold" id="active-patients">-</div>
+                        </div>
+                        <i class="fas fa-users fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Estoque Baixo</div>
+                            <div class="fs-4 fw-bold" id="low-stock-count">-</div>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Vencimentos</div>
+                            <div class="fs-4 fw-bold" id="expiring-soon">-</div>
+                        </div>
+                        <i class="fas fa-calendar-times fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relatórios Disponíveis -->
+    <div class="row g-4">
+        <!-- Relatórios de Dispensação -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-pills me-2"></i>Dispensações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Relatórios detalhados sobre dispensações de medicamentos.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Dispensações por período</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Por farmacêutico</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Por medicamento</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Por paciente</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button onclick="generateReport('dispensations')" class="btn btn-primary w-100">
+                        <i class="fas fa-chart-line me-1"></i>Gerar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relatórios de Estoque -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-boxes me-2"></i>Estoque
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Controle e análise de estoque de medicamentos.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Posição atual do estoque</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Produtos em falta</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Estoque mínimo</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Movimentações</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button onclick="generateReport('stock')" class="btn btn-success w-100">
+                        <i class="fas fa-chart-bar me-1"></i>Gerar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relatórios de Vencimento -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar-times me-2"></i>Vencimentos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Controle de validade dos medicamentos.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Vencidos</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Próximos ao vencimento</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Por categoria</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Valor de perdas</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button onclick="generateReport('expiry')" class="btn btn-warning w-100">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Gerar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relatórios de Pacientes -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>Pacientes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Análise e estatísticas de pacientes.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Cadastros por período</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Perfil demográfico</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Frequência de atendimento</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Medicamentos mais utilizados</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button onclick="generateReport('patients')" class="btn btn-info w-100">
+                        <i class="fas fa-chart-pie me-1"></i>Gerar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relatórios Financeiros -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-dollar-sign me-2"></i>Financeiro
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Análise financeira e custos operacionais.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Custo por dispensação</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Valor total dispensado</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Custos por categoria</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Análise de tendências</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button onclick="generateReport('financial')" class="btn btn-secondary w-100">
+                        <i class="fas fa-calculator me-1"></i>Gerar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relatórios de Alto Custo -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-star me-2"></i>Alto Custo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Processos e medicamentos de alto custo.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Processos por status</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Tempo de aprovação</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Medicamentos mais solicitados</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Análise de custos</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button onclick="generateReport('high_cost')" class="btn btn-danger w-100">
+                        <i class="fas fa-chart-area me-1"></i>Gerar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relatórios de Consumo -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header" style="background-color: #6f42c1; color: white;">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Consumo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Análise de consumo de medicamentos.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Consumo por período</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Tendências de uso</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Sazonalidade</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Previsão de demanda</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button onclick="generateReport('consumption')" class="btn w-100" style="background-color: #6f42c1; color: white;">
+                        <i class="fas fa-analytics me-1"></i>Gerar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relatório Personalizado -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-primary">
+                <div class="card-header bg-light border-primary">
+                    <h5 class="card-title mb-0 text-primary">
+                        <i class="fas fa-cogs me-2"></i>Personalizado
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Crie relatórios personalizados conforme sua necessidade.</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-check text-success me-2"></i>Filtros customizáveis</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Múltiplas visualizações</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Exportação em vários formatos</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Agendamento de relatórios</li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-outline-primary w-100" onclick="openCustomReportModal()">
+                        <i class="fas fa-plus me-1"></i>Criar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Relatório Personalizado -->
+<div class="modal fade" id="customReportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-cogs me-2"></i>Criar Relatório Personalizado
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="customReportForm" method="POST" action="{{ url_for('main.reports_generate') }}">
+                    {% if form %}
+                        {{ form.hidden_tag() }}
+                    {% endif %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Tipo de Relatório:</label>
+                            <select class="form-select" name="report_type" required>
+                                <option value="">Selecione...</option>
+                                <option value="dispensations">Dispensações</option>
+                                <option value="stock">Estoque</option>
+                                <option value="expiry">Vencimentos</option>
+                                <option value="patients">Pacientes</option>
+                                <option value="financial">Financeiro</option>
+                                <option value="high_cost">Alto Custo</option>
+                                <option value="consumption">Consumo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Formato:</label>
+                            <select class="form-select" name="format_type">
+                                <option value="html">Visualizar na Tela</option>
+                                <option value="pdf">PDF</option>
+                                <option value="excel">Excel</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Data Início:</label>
+                            <input type="date" class="form-control" name="start_date" id="custom-start-date">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Data Fim:</label>
+                            <input type="date" class="form-control" name="end_date" id="custom-end-date">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="generateCustomReport()">
+                    <i class="fas fa-chart-bar me-1"></i>Gerar Relatório
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Forms ocultos para gerar relatórios -->
+<form id="report-form" method="POST" action="{{ url_for('main.reports_generate') }}" style="display: none;">
+    {% if form %}
+        {{ form.hidden_tag() }}
+    {% endif %}
+    <input type="hidden" name="report_type" id="form-report-type">
+    <input type="hidden" name="start_date" id="form-start-date">
+    <input type="hidden" name="end_date" id="form-end-date">
+    <input type="hidden" name="format_type" value="html">
+</form>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.list-unstyled li {
+    padding: 0.25rem 0;
+}
+
+.btn {
+    border-radius: 0.5rem;
+}
+
+.btn.loading {
+    position: relative;
+    color: transparent !important;
+}
+
+.btn.loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+    .col-md-6.col-lg-4 {
+        margin-bottom: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Função para gerar relatórios
+function generateReport(type) {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    
+    // Mostrar loading
+    btn.classList.add('loading');
+    btn.disabled = true;
+    
+    // Definir datas padrão (último mês)
+    const today = new Date();
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    
+    // Preencher form oculto
+    document.getElementById('form-report-type').value = type;
+    document.getElementById('form-start-date').value = lastMonth.toISOString().split('T')[0];
+    document.getElementById('form-end-date').value = today.toISOString().split('T')[0];
+    
+    // Submeter form
+    document.getElementById('report-form').submit();
+    
+    // Restaurar botão após delay
+    setTimeout(() => {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+    }, 2000);
+}
+
+function setDateRange(period) {
+    const today = new Date();
+    let startDate, endDate = today;
+    
+    switch(period) {
+        case 'today':
+            startDate = today;
+            break;
+        case 'week':
+            startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+        case 'month':
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            break;
+        case 'year':
+            startDate = new Date(today.getFullYear(), 0, 1);
+            break;
+        default:
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+    
+    // Atualizar campos de data no modal
+    document.getElementById('custom-start-date').value = startDate.toISOString().split('T')[0];
+    document.getElementById('custom-end-date').value = endDate.toISOString().split('T')[0];
+    
+    showToast(`Período definido: ${period}`, 'success');
+}
+
+function openCustomReportModal() {
+    const modal = new bootstrap.Modal(document.getElementById('customReportModal'));
+    
+    // Definir datas padrão
+    const today = new Date();
+    const lastMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    document.getElementById('custom-start-date').value = lastMonth.toISOString().split('T')[0];
+    document.getElementById('custom-end-date').value = today.toISOString().split('T')[0];
+    
+    modal.show();
+}
+
+function generateCustomReport() {
+    const form = document.getElementById('customReportForm');
+    const reportType = form.querySelector('select[name="report_type"]').value;
+    
+    if (!reportType) {
+        showToast('Selecione o tipo de relatório', 'warning');
+        return;
+    }
+    
+    // Submeter form
+    form.submit();
+    
+    // Fechar modal
+    bootstrap.Modal.getInstance(document.getElementById('customReportModal')).hide();
+}
+
+function showToast(message, type = 'info') {
+    const toastClass = {
+        'success': 'bg-success text-white',
+        'error': 'bg-danger text-white',
+        'info': 'bg-info text-white',
+        'warning': 'bg-warning text-dark'
+    }[type] || 'bg-info text-white';
+    
+    const toast = $(`
+        <div class="toast ${toastClass}" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 1050;">
+            <div class="toast-body">
+                ${message}
+            </div>
+        </div>
+    `);
+    
+    $('body').append(toast);
+    
+    const bsToast = new bootstrap.Toast(toast[0], { delay: 3000 });
+    bsToast.show();
+    
+    toast.on('hidden.bs.toast', function() {
+        $(this).remove();
+    });
+}
+
+// Carregar estatísticas ao abrir a página
+function loadStatistics() {
+    // Tentar carregar via API se existir
+    if (typeof window.fetch !== 'undefined') {
+        fetch('{{ url_for("main.api_dashboard_stats") }}')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('today-dispensations').textContent = data.today_dispensations || 0;
+                document.getElementById('active-patients').textContent = data.total_patients || 0;
+                document.getElementById('low-stock-count').textContent = data.low_stock_medications || 0;
+            })
+            .catch(console.error);
+        
+        fetch('{{ url_for("main.api_stock_alerts") }}')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('expiring-soon').textContent = data.near_expiry || 0;
+            })
+            .catch(console.error);
+    }
+}
+
+$(document).ready(function() {
+    // Animação de entrada dos cards
+    $('.card').each(function(index) {
+        $(this).css({
+            'opacity': '0',
+            'transform': 'translateY(20px)'
+        });
+        
+        setTimeout(() => {
+            $(this).css({
+                'opacity': '1',
+                'transform': 'translateY(0)',
+                'transition': 'all 0.3s ease'
+            });
+        }, index * 100);
+    });
+    
+    // Carregar estatísticas
+    loadStatistics();
+});
+</script>
+{% endblock %}

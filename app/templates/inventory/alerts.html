@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Alertas de Estoque - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                Alertas de Estoque e Validade
+            </h1>
+            <p class="text-muted mb-0">Monitoramento de medicamentos críticos</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.inventory_list') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Voltar ao Inventário
+            </a>
+        </div>
+    </div>
+
+    <!-- Resumo dos Alertas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Estoque Baixo</div>
+                            <div class="fs-2 fw-bold">{{ low_stock|length }}</div>
+                        </div>
+                        <i class="fas fa-boxes fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Próximo ao Vencimento</div>
+                            <div class="fs-2 fw-bold">{{ near_expiry|length }}</div>
+                        </div>
+                        <i class="fas fa-calendar-times fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Vencidos</div>
+                            <div class="fs-2 fw-bold">{{ expired|length }}</div>
+                        </div>
+                        <i class="fas fa-times-circle fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medicamentos com Estoque Baixo -->
+    {% if low_stock %}
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Medicamentos com Estoque Baixo ({{ low_stock|length }})
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Estoque Atual</th>
+                            <th>Estoque Mínimo</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medication in low_stock %}
+                        <tr>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ medication.commercial_name }}</div>
+                                    <small class="text-muted">{{ medication.generic_name }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% if medication.current_stock <= 0 %}
+                                    <span class="badge bg-dark fs-6">{{ medication.current_stock }}</span>
+                                {% else %}
+                                    <span class="badge bg-danger fs-6">{{ medication.current_stock }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ medication.minimum_stock }}</td>
+                            <td>
+                                {% if medication.current_stock <= 0 %}
+                                    <span class="badge bg-dark">SEM ESTOQUE</span>
+                                {% else %}
+                                    <span class="badge bg-danger">CRÍTICO</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('main.medication_view', id=medication.id) }}" 
+                                       class="btn btn-outline-primary" title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if current_user.role.value in ['admin', 'pharmacist'] %}
+                                    <a href="{{ url_for('main.stock_entry') }}?medication_id={{ medication.id }}" 
+                                       class="btn btn-success" title="Entrada de Estoque">
+                                        <i class="fas fa-plus-circle"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Medicamentos Próximos ao Vencimento -->
+    {% if near_expiry %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-calendar-times me-2"></i>
+                Medicamentos Próximos ao Vencimento ({{ near_expiry|length }})
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Data de Validade</th>
+                            <th>Dias Restantes</th>
+                            <th>Estoque</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medication in near_expiry %}
+                        <tr>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ medication.commercial_name }}</div>
+                                    <small class="text-muted">{{ medication.generic_name }}</small>
+                                </div>
+                            </td>
+                            <td>{{ format_date(medication.expiry_date) }}</td>
+                            <td>
+                                {% set days_left = calculate_days_until_expiry(medication.expiry_date) %}
+                                {% if days_left <= 7 %}
+                                    <span class="badge bg-danger">{{ days_left }} dias</span>
+                                {% elif days_left <= 15 %}
+                                    <span class="badge bg-warning">{{ days_left }} dias</span>
+                                {% else %}
+                                    <span class="badge bg-info">{{ days_left }} dias</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ medication.current_stock }} unidades</td>
+                            <td>
+                                <a href="{{ url_for('main.medication_view', id=medication.id) }}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> Ver
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Medicamentos Vencidos -->
+    {% if expired %}
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-times-circle me-2"></i>
+                Medicamentos Vencidos ({{ expired|length }})
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Data de Validade</th>
+                            <th>Dias Vencido</th>
+                            <th>Estoque</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medication in expired %}
+                        <tr class="table-danger">
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ medication.commercial_name }}</div>
+                                    <small class="text-muted">{{ medication.generic_name }}</small>
+                                </div>
+                            </td>
+                            <td>{{ format_date(medication.expiry_date) }}</td>
+                            <td>
+                                {% set days_expired = (moment().date() - medication.expiry_date).days %}
+                                <span class="badge bg-danger">{{ days_expired }} dias</span>
+                            </td>
+                            <td>{{ medication.current_stock }} unidades</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('main.medication_view', id=medication.id) }}" 
+                                       class="btn btn-outline-primary">
+                                        <i class="fas fa-eye"></i> Ver
+                                    </a>
+                                    {% if current_user.role.value in ['admin', 'pharmacist'] %}
+                                    <button class="btn btn-outline-danger" 
+                                            onclick="markAsExpired({{ medication.id }})">
+                                        <i class="fas fa-trash"></i> Descartar
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Estado sem alertas -->
+    {% if not low_stock and not near_expiry and not expired %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+            <h5 class="text-success">Nenhum alerta no momento!</h5>
+            <p class="text-muted">Todos os medicamentos estão com estoque adequado e dentro da validade.</p>
+            <a href="{{ url_for('main.inventory_list') }}" class="btn btn-primary">
+                <i class="fas fa-pills me-1"></i>Ver Inventário Completo
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function markAsExpired(medicationId) {
+    if (confirm('Tem certeza que deseja marcar este medicamento como descartado?')) {
+        // Implementar descarte de medicamento vencido
+        alert('Funcionalidade de descarte será implementada.');
+    }
+}
+
+$(document).ready(function() {
+    // Destacar linhas críticas
+    $('tr').each(function() {
+        const badge = $(this).find('.badge');
+        if (badge.hasClass('bg-danger') || badge.hasClass('bg-dark')) {
+            $(this).addClass('table-warning');
+        }
+    });
+    
+    // Auto-refresh a cada 5 minutos
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+
+{% block title %}{{ report.title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.reports_index') }}">Relatórios</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.' + report.type + '_reports') }}">{{ report.type.title() }}</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ report.title }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-file-alt me-2 text-primary"></i>
+                {{ report.title }}
+            </h1>
+            <p class="text-muted mb-0">
+                Gerado em {{ format_datetime(report.created_at) }} por {{ report.created_by.full_name }}
+            </p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="downloadReport('pdf')">
+                    <i class="fas fa-download me-1"></i>Baixar PDF
+                </button>
+                <button class="btn btn-success" onclick="downloadReport('excel')">
+                    <i class="fas fa-file-excel me-1"></i>Baixar Excel
+                </button>
+                <button class="btn btn-info" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+                <div class="btn-group">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-share me-1"></i>Compartilhar
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="shareReport('email')">
+                            <i class="fas fa-envelope me-2"></i>Por Email
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="shareReport('link')">
+                            <i class="fas fa-link me-2"></i>Copiar Link
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="#" onclick="deleteReport()">
+                            <i class="fas fa-trash me-2"></i>Excluir Relatório
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações do Relatório -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Informações do Relatório
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Tipo:</dt>
+                        <dd class="col-sm-9">
+                            <span class="badge bg-primary">{{ report.type.title() }}</span>
+                        </dd>
+                        
+                        <dt class="col-sm-3">Período:</dt>
+                        <dd class="col-sm-9">
+                            {% if report.start_date and report.end_date %}
+                            {{ format_date(report.start_date) }} a {{ format_date(report.end_date) }}
+                            {% else %}
+                            Não especificado
+                            {% endif %}
+                        </dd>
+                        
+                        <dt class="col-sm-3">Filtros:</dt>
+                        <dd class="col-sm-9">
+                            {% if report.filters %}
+                            {% for key, value in report.filters.items() %}
+                            <span class="badge bg-info me-1">{{ key }}: {{ value }}</span>
+                            {% endfor %}
+                            {% else %}
+                            Nenhum filtro aplicado
+                            {% endif %}
+                        </dd>
+                        
+                        <dt class="col-sm-3">Status:</dt>
+                        <dd class="col-sm-9">
+                            {% if report.status == 'completed' %}
+                            <span class="badge bg-success">Concluído</span>
+                            {% elif report.status == 'processing' %}
+                            <span class="badge bg-warning">Processando</span>
+                            {% elif report.status == 'failed' %}
+                            <span class="badge bg-danger">Falhou</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ report.status.title() }}</span>
+                            {% endif %}
+                        </dd>
+                        
+                        <dt class="col-sm-3">Registros:</dt>
+                        <dd class="col-sm-9">{{ report.total_records or 0 }} registros processados</dd>
+                        
+                        <dt class="col-sm-3">Tempo de Geração:</dt>
+                        <dd class="col-sm-9">{{ report.processing_time or 0 }} segundos</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Estatísticas Rápidas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if report.type == 'dispensations' %}
+                    <div class="text-center mb-3">
+                        <h4 class="text-primary">{{ report.summary.total_dispensations or 0 }}</h4>
+                        <p class="text-muted mb-0">Total de Dispensações</p>
+                    </div>
+                    <div class="text-center mb-3">
+                        <h5 class="text-success">R$ {{ "{:,.2f}".format(report.summary.total_value or 0) }}</h5>
+                        <p class="text-muted mb-0">Valor Total</p>
+                    </div>
+                    <div class="text-center">
+                        <h5 class="text-info">{{ report.summary.unique_patients or 0 }}</h5>
+                        <p class="text-muted mb-0">Pacientes Únicos</p>
+                    </div>
+                    {% elif report.type == 'stock' %}
+                    <div class="text-center mb-3">
+                        <h4 class="text-primary">{{ report.summary.total_medications or 0 }}</h4>
+                        <p class="text-muted mb-0">Medicamentos</p>
+                    </div>
+                    <div class="text-center mb-3">
+                        <h5 class="text-warning">{{ report.summary.low_stock_count or 0 }}</h5>
+                        <p class="text-muted mb-0">Estoque Baixo</p>
+                    </div>
+                    <div class="text-center">
+                        <h5 class="text-danger">{{ report.summary.out_of_stock or 0 }}</h5>
+                        <p class="text-muted mb-0">Em Falta</p>
+                    </div>
+                    {% elif report.type == 'patients' %}
+                    <div class="text-center mb-3">
+                        <h4 class="text-primary">{{ report.summary.total_patients or 0 }}</h4>
+                        <p class="text-muted mb-0">Total de Pacientes</p>
+                    </div>
+                    <div class="text-center mb-3">
+                        <h5 class="text-success">{{ report.summary.active_patients or 0 }}</h5>
+                        <p class="text-muted mb-0">Pacientes Ativos</p>
+                    </div>
+                    <div class="text-center">
+                        <h5 class="text-info">{{ report.summary.new_patients or 0 }}</h5>
+                        <p class="text-muted mb-0">Novos (30 dias)</p>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+                        <p class="text-muted mb-0">Estatísticas não disponíveis</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conteúdo do Relatório -->
+    <div class="card mb-4" id="report-content">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-table me-2"></i>Dados do Relatório
+            </h5>
+        </div>
+        
+        {% if report.status == 'completed' %}
+        <div class="card-body p-0">
+            {% if report.data %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="reportDataTable">
+                    <thead class="table-light">
+                        <tr>
+                            {% for column in report.columns %}
+                            <th>{{ column.title() }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in report.data %}
+                        <tr>
+                            {% for cell in row %}
+                            <td>{{ cell }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-table fa-3x text-muted mb-3"></i>
+                <h5>Nenhum dado encontrado</h5>
+                <p class="text-muted">Os critérios aplicados não retornaram resultados.</p>
+            </div>
+            {% endif %}
+        </div>
+        {% elif report.status == 'processing' %}
+        <div class="card-body text-center py-5">
+            <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Processando...</span>
+            </div>
+            <h5>Processando Relatório</h5>
+            <p class="text-muted">O relatório está sendo gerado. Atualize a página em alguns instantes.</p>
+            <button class="btn btn-outline-primary" onclick="location.reload()">
+                <i class="fas fa-sync me-1"></i>Atualizar
+            </button>
+        </div>
+        {% elif report.status == 'failed' %}
+        <div class="card-body text-center py-5">
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+            <h5>Erro na Geração</h5>
+            <p class="text-muted">Ocorreu um erro durante a geração do relatório.</p>
+            {% if report.error_message %}
+            <div class="alert alert-danger">
+                <strong>Erro:</strong> {{ report.error_message }}
+            </div>
+            {% endif %}
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="retryReport()">
+                    <i class="fas fa-redo me-1"></i>Tentar Novamente
+                </button>
+                <a href="{{ url_for('main.reports_index') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar aos Relatórios
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Gráficos (se disponível) -->
+    {% if report.status == 'completed' and report.charts %}
+    <div class="row mb-4">
+        {% for chart in report.charts %}
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">{{ chart.title }}</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="chart{{ loop.index }}" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Histórico de Versões -->
+    {% if report.versions and report.versions|length > 1 %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-history me-2"></i>Histórico de Versões
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Versão</th>
+                            <th>Data/Hora</th>
+                            <th>Gerado por</th>
+                            <th>Registros</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for version in report.versions %}
+                        <tr{% if version.id == report.id %} class="table-primary"{% endif %}>
+                            <td>
+                                v{{ version.version }}
+                                {% if version.id == report.id %}
+                                <span class="badge bg-primary ms-1">Atual</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ format_datetime(version.created_at) }}</td>
+                            <td>{{ version.created_by.full_name }}</td>
+                            <td>{{ version.total_records or 0 }}</td>
+                            <td>
+                                {% if version.status == 'completed' %}
+                                <span class="badge bg-success">Concluído</span>
+                                {% elif version.status == 'failed' %}
+                                <span class="badge bg-danger">Falhou</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ version.status.title() }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if version.status == 'completed' %}
+                                <div class="btn-group btn-group-sm">
+                                    {% if version.id != report.id %}
+                                    <a href="{{ url_for('main.reports_view', id=version.id) }}" 
+                                       class="btn btn-outline-primary" title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% endif %}
+                                    <button class="btn btn-outline-success" 
+                                            onclick="downloadVersion({{ version.id }}, 'pdf')" title="Download PDF">
+                                        <i class="fas fa-file-pdf"></i>
+                                    </button>
+                                </div>
+                                {% else %}
+                                --
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Compartilhamento -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-share me-2"></i>Compartilhar Relatório
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="shareContent">
+                    <!-- Conteúdo será preenchido dinamicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.table-primary {
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+dl.row dt {
+    font-weight: 600;
+    color: #495057;
+}
+
+dl.row dd {
+    margin-bottom: 0.5rem;
+}
+
+@media print {
+    .btn-group, .btn, .dropdown-menu {
+        display: none !important;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+    
+    .breadcrumb {
+        display: none;
+    }
+}
+
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable se houver dados
+    {% if report.status == 'completed' and report.data %}
+    $('#reportDataTable').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+        },
+        pageLength: 50,
+        scrollX: true,
+        dom: 'Bfrtip',
+        buttons: [
+            'copy', 'csv', 'excel', 'pdf', 'print'
+        ]
+    });
+    {% endif %}
+    
+    // Gerar gráficos se disponíveis
+    {% if report.charts %}
+    {% for chart in report.charts %}
+    const ctx{{ loop.index }} = document.getElementById('chart{{ loop.index }}').getContext('2d');
+    new Chart(ctx{{ loop.index }}, {
+        type: '{{ chart.type }}',
+        data: {{ chart.data|safe }},
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            ...{{ chart.options|safe if chart.options else '{}' }}
+        }
+    });
+    {% endfor %}
+    {% endif %}
+});
+
+function downloadReport(format) {
+    const url = `/reports/{{ report.id }}/download?format=${format}`;
+    window.open(url, '_blank');
+}
+
+function downloadVersion(versionId, format) {
+    const url = `/reports/${versionId}/download?format=${format}`;
+    window.open(url, '_blank');
+}
+
+function shareReport(method) {
+    const modal = new bootstrap.Modal(document.getElementById('shareModal'));
+    const content = document.getElementById('shareContent');
+    
+    if (method === 'email') {
+        content.innerHTML = `
+            <form id="shareEmailForm">
+                <div class="mb-3">
+                    <label class="form-label">Email do destinatário:</label>
+                    <input type="email" class="form-control" name="recipient_email" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mensagem (opcional):</label>
+                    <textarea class="form-control" name="message" rows="3" 
+                              placeholder="Adicione uma mensagem personalizada..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-envelope me-1"></i>Enviar por Email
+                </button>
+            </form>
+        `;
+        
+        // Handler para envio por email
+        document.getElementById('shareEmailForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            // Implementar envio por email
+            alert('Funcionalidade de envio por email em desenvolvimento');
+            modal.hide();
+        });
+    } else if (method === 'link') {
+        const link = window.location.href;
+        content.innerHTML = `
+            <div class="mb-3">
+                <label class="form-label">Link do relatório:</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" value="${link}" readonly id="shareLink">
+                    <button class="btn btn-outline-secondary" onclick="copyLink()" type="button">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <small class="text-muted">
+                Este link permite acesso ao relatório para usuários autorizados.
+            </small>
+        `;
+    }
+    
+    modal.show();
+}
+
+function copyLink() {
+    const linkInput = document.getElementById('shareLink');
+    linkInput.select();
+    document.execCommand('copy');
+    
+    // Feedback visual
+    const button = event.target.closest('button');
+    const originalHtml = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i>';
+    button.classList.replace('btn-outline-secondary', 'btn-success');
+    
+    setTimeout(() => {
+        button.innerHTML = originalHtml;
+        button.classList.replace('btn-success', 'btn-outline-secondary');
+    }, 2000);
+}
+
+function deleteReport() {
+    if (confirm('Tem certeza que deseja excluir este relatório? Esta ação não pode ser desfeita.')) {
+        // Implementar exclusão
+        alert('Funcionalidade de exclusão em desenvolvimento');
+    }
+}
+
+function retryReport() {
+    if (confirm('Deseja tentar gerar o relatório novamente?')) {
+        // Implementar retry
+        window.location.reload();
+    }
+}
+
+// Auto-refresh para relatórios em processamento
+{% if report.status == 'processing' %}
+setTimeout(() => {
+    location.reload();
+}, 30000); // Atualizar a cada 30 segundos
+{% endif %}
+</script>
+{% endblock %}

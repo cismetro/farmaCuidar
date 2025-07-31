@@ -1,0 +1,625 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório de Consumo - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.reports_index') }}">Relatórios</a>
+                    </li>
+                    <li class="breadcrumb-item active">Consumo</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-chart-line me-2" style="color: #6f42c1;"></i>
+                Relatório de Consumo
+            </h1>
+            <p class="text-muted mb-0">Análise de consumo e tendências de medicamentos</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="exportReport('pdf')">
+                    <i class="fas fa-file-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-outline-success" onclick="exportReport('excel')">
+                    <i class="fas fa-file-excel me-1"></i>Excel
+                </button>
+                <button class="btn btn-outline-info" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métricas de Consumo -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-white" style="background-color: #6f42c1;">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Consumo Mensal</div>
+                            <div class="fs-4 fw-bold">{{ monthly_consumption or 0 }}</div>
+                            <small>unidades dispensadas</small>
+                        </div>
+                        <i class="fas fa-pills fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Crescimento</div>
+                            <div class="fs-4 fw-bold">{{ "{:+.1f}".format(growth_rate or 0) }}%</div>
+                            <small>vs. mês anterior</small>
+                        </div>
+                        <i class="fas fa-trending-up fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Medicamentos Ativos</div>
+                            <div class="fs-4 fw-bold">{{ active_medications or 0 }}</div>
+                            <small>com dispensações</small>
+                        </div>
+                        <i class="fas fa-capsules fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Média Diária</div>
+                            <div class="fs-4 fw-bold">{{ daily_average or 0 }}</div>
+                            <small>dispensações/dia</small>
+                        </div>
+                        <i class="fas fa-calendar-day fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-filter me-2"></i>Filtros de Análise
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Período:</label>
+                    <select name="period" class="form-select">
+                        <option value="30" {% if request.args.get('period') == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                        <option value="90" {% if request.args.get('period') == '90' %}selected{% endif %}>Últimos 90 dias</option>
+                        <option value="180" {% if request.args.get('period') == '180' %}selected{% endif %}>Últimos 6 meses</option>
+                        <option value="365" {% if request.args.get('period') == '365' %}selected{% endif %}>Último ano</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Categoria:</label>
+                    <select name="category" class="form-select">
+                        <option value="">Todas</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}" 
+                                {% if request.args.get('category') == category %}selected{% endif %}>
+                            {{ category }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Agrupamento:</label>
+                    <select name="grouping" class="form-select">
+                        <option value="daily" {% if request.args.get('grouping') == 'daily' %}selected{% endif %}>Diário</option>
+                        <option value="weekly" {% if request.args.get('grouping') == 'weekly' %}selected{% endif %}>Semanal</option>
+                        <option value="monthly" {% if request.args.get('grouping') == 'monthly' %}selected{% endif %}>Mensal</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-chart-line me-1"></i>Atualizar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Gráficos Principais -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Tendência de Consumo</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="consumptionTrendChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Sazonalidade</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="seasonalityChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Medicamentos e Análise -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header" style="background-color: #6f42c1; color: white;">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-trophy me-2"></i>Top 10 - Maior Consumo
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if top_medications %}
+                    <div class="list-group list-group-flush">
+                        {% for medication in top_medications %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ medication.commercial_name }}</h6>
+                                <small class="text-muted">{{ medication.generic_name }}</small>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar" style="background-color: #6f42c1; width: {{ medication.percentage }}%"></div>
+                                </div>
+                            </div>
+                            <div class="text-end ms-3">
+                                <span class="badge rounded-pill" style="background-color: #6f42c1;">{{ medication.total_dispensed }}</span>
+                                <br>
+                                <small class="text-muted">{{ medication.percentage }}%</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-bar fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">Nenhum dado disponível</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>Análise por Categoria
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="categoryConsumptionChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Previsão de Demanda -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-crystal-ball me-2"></i>Previsão de Demanda (Próximos 30 dias)
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <canvas id="demandForecastChart" height="150"></canvas>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex flex-column h-100 justify-content-center">
+                        <div class="text-center mb-3">
+                            <h4 class="text-success">{{ predicted_demand or 0 }}</h4>
+                            <p class="text-muted mb-1">Unidades previstas</p>
+                            <small class="text-muted">Baseado em tendência histórica</small>
+                        </div>
+                        <div class="text-center mb-3">
+                            <h5 class="text-info">{{ "{:.1f}".format(confidence_level or 0) }}%</h5>
+                            <p class="text-muted mb-0">Nível de confiança</p>
+                        </div>
+                        <div class="alert alert-info mb-0">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                Previsão baseada em algoritmo de tendência linear
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas de Consumo -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Alertas de Consumo Alto
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if high_consumption_alerts %}
+                    <div class="list-group list-group-flush">
+                        {% for alert in high_consumption_alerts %}
+                        <div class="list-group-item border-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ alert.medication_name }}</h6>
+                                    <p class="mb-1">Consumo {{ alert.increase_percentage }}% acima da média</p>
+                                    <small class="text-muted">{{ alert.current_consumption }} unidades este mês</small>
+                                </div>
+                                <span class="badge bg-warning text-dark">Alto</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <p class="text-muted mb-0">Nenhum alerta de consumo alto</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Medicamentos em Crescimento
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if growing_medications %}
+                    <div class="list-group list-group-flush">
+                        {% for medication in growing_medications %}
+                        <div class="list-group-item border-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ medication.name }}</h6>
+                                    <p class="mb-1">Crescimento de {{ medication.growth_rate }}%</p>
+                                    <small class="text-muted">{{ medication.trend_description }}</small>
+                                </div>
+                                <span class="badge bg-success">+{{ medication.growth_rate }}%</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-minus-circle fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">Nenhuma tendência de crescimento identificada</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela Detalhada -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-table me-2"></i>Detalhamento do Consumo
+            </h5>
+        </div>
+        
+        <div class="card-body p-0">
+            {% if consumption_details %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="consumptionTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Categoria</th>
+                            <th>Total Dispensado</th>
+                            <th>Média Mensal</th>
+                            <th>Tendência (30d)</th>
+                            <th>Último Mês</th>
+                            <th>Variação</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detail in consumption_details %}
+                        <tr>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ detail.commercial_name }}</div>
+                                    <small class="text-muted">{{ detail.generic_name }}</small>
+                                </div>
+                            </td>
+                            <td>{{ detail.category or '--' }}</td>
+                            <td>
+                                <span class="badge bg-primary">{{ detail.total_dispensed }}</span>
+                            </td>
+                            <td>{{ detail.monthly_average }}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if detail.trend == 'up' %}
+                                    <i class="fas fa-arrow-up text-success me-1"></i>
+                                    {% elif detail.trend == 'down' %}
+                                    <i class="fas fa-arrow-down text-danger me-1"></i>
+                                    {% else %}
+                                    <i class="fas fa-minus text-muted me-1"></i>
+                                    {% endif %}
+                                    {{ detail.trend_description }}
+                                </div>
+                            </td>
+                            <td>{{ detail.last_month_consumption }}</td>
+                            <td>
+                                {% if detail.variation > 0 %}
+                                <span class="text-success">+{{ "{:.1f}".format(detail.variation) }}%</span>
+                                {% elif detail.variation < 0 %}
+                                <span class="text-danger">{{ "{:.1f}".format(detail.variation) }}%</span>
+                                {% else %}
+                                <span class="text-muted">0%</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if detail.status == 'high' %}
+                                <span class="badge bg-warning text-dark">Alto</span>
+                                {% elif detail.status == 'normal' %}
+                                <span class="badge bg-success">Normal</span>
+                                {% elif detail.status == 'low' %}
+                                <span class="badge bg-info">Baixo</span>
+                                {% else %}
+                                <span class="badge bg-secondary">--</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                <h5>Nenhum dado de consumo encontrado</h5>
+                <p class="text-muted">Selecione um período para ver os dados.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.progress {
+    background-color: rgba(111, 66, 193, 0.1);
+}
+
+canvas {
+    max-height: 400px;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.border-warning {
+    border-color: #ffc107 !important;
+}
+
+.border-info {
+    border-color: #17a2b8 !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable
+    $('#consumptionTable').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+        },
+        pageLength: 25,
+        order: [[2, 'desc']], // Ordenar por total dispensado
+        columnDefs: [
+            { orderable: false, targets: [7] }
+        ]
+    });
+    
+    // Gráfico de Tendência de Consumo
+    const ctxTrend = document.getElementById('consumptionTrendChart').getContext('2d');
+    new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+            labels: {{ trend_labels|safe if trend_labels else '[]' }},
+            datasets: [
+                {
+                    label: 'Consumo Real',
+                    data: {{ trend_data|safe if trend_data else '[]' }},
+                    borderColor: '#6f42c1',
+                    backgroundColor: 'rgba(111, 66, 193, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Média Móvel (7 dias)',
+                    data: {{ moving_average|safe if moving_average else '[]' }},
+                    borderColor: '#28a745',
+                    backgroundColor: 'transparent',
+                    borderDash: [5, 5],
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            }
+        }
+    });
+    
+    // Gráfico de Sazonalidade
+    const ctxSeasonal = document.getElementById('seasonalityChart').getContext('2d');
+    new Chart(ctxSeasonal, {
+        type: 'radar',
+        data: {
+            labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+            datasets: [{
+                label: 'Padrão Sazonal',
+                data: {{ seasonal_data|safe if seasonal_data else '[0,0,0,0,0,0,0,0,0,0,0,0]' }},
+                borderColor: '#6f42c1',
+                backgroundColor: 'rgba(111, 66, 193, 0.2)',
+                pointBackgroundColor: '#6f42c1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+    
+    // Gráfico de Categoria
+    const ctxCategory = document.getElementById('categoryConsumptionChart').getContext('2d');
+    new Chart(ctxCategory, {
+        type: 'doughnut',
+        data: {
+            labels: {{ category_labels|safe if category_labels else '[]' }},
+            datasets: [{
+                data: {{ category_consumption|safe if category_consumption else '[]' }},
+                backgroundColor: [
+                    '#6f42c1', '#007bff', '#28a745', '#ffc107', '#dc3545',
+                    '#fd7e14', '#20c997', '#e83e8c', '#6c757d', '#17a2b8'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+    
+    // Gráfico de Previsão de Demanda
+    const ctxForecast = document.getElementById('demandForecastChart').getContext('2d');
+    new Chart(ctxForecast, {
+        type: 'line',
+        data: {
+            labels: {{ forecast_labels|safe if forecast_labels else '[]' }},
+            datasets: [
+                {
+                    label: 'Histórico',
+                    data: {{ historical_data|safe if historical_data else '[]' }},
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    fill: true
+                },
+                {
+                    label: 'Previsão',
+                    data: {{ forecast_data|safe if forecast_data else '[]' }},
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    borderDash: [5, 5],
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            }
+        }
+    });
+});
+
+function exportReport(format) {
+    const period = $('select[name="period"]').val();
+    const category = $('select[name="category"]').val();
+    const grouping = $('select[name="grouping"]').val();
+    
+    const params = new URLSearchParams({
+        format: format,
+        period: period,
+        category: category,
+        grouping: grouping
+    });
+    
+    window.open(`/reports/consumption/export?${params.toString()}`, '_blank');
+}
+</script>
+{% endblock %}

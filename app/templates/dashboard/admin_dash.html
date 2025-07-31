@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Administrativo - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-tachometer-alt me-2 text-primary"></i>
+                Dashboard Administrativo
+            </h1>
+            <p class="text-muted mb-0">Visão geral do sistema para administradores</p>
+        </div>
+        <div class="col-auto">
+            <span class="badge bg-primary fs-6">
+                <i class="fas fa-user-shield me-1"></i>
+                Administrador
+            </span>
+        </div>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold text-white-75">Total de Pacientes</div>
+                            <div class="fs-2 fw-bold">{{ stats.total_patients }}</div>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-users fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between small">
+                    <a class="text-white stretched-link" href="{{ url_for('main.patients_list') }}">Ver Detalhes</a>
+                    <div class="text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold text-white-75">Total de Usuários</div>
+                            <div class="fs-2 fw-bold">{{ stats.total_users }}</div>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-user-cog fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between small">
+                    <a class="text-white stretched-link" href="{{ url_for('main.admin_users_list') }}">Ver Detalhes</a>
+                    <div class="text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold text-white-75">Medicamentos</div>
+                            <div class="fs-2 fw-bold">{{ stats.total_medications }}</div>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-pills fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between small">
+                    <a class="text-white stretched-link" href="{{ url_for('main.inventory_list') }}">Ver Detalhes</a>
+                    <div class="text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Alto Custo Pendente</div>
+                            <div class="fs-2 fw-bold">{{ stats.pending_high_cost }}</div>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-star fa-2x text-dark-50"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between small">
+                    <a class="text-dark stretched-link" href="{{ url_for('main.high_cost_index') }}">Ver Detalhes</a>
+                    <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas importantes -->
+    <div class="row g-4 mb-4">
+        {% if stats.low_stock_medications > 0 %}
+        <div class="col-md-6">
+            <div class="alert alert-warning d-flex align-items-center" role="alert">
+                <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Estoque Baixo!</h5>
+                    <p class="mb-0">{{ stats.low_stock_medications }} medicamento(s) com estoque baixo.</p>
+                    <a href="{{ url_for('main.inventory_alerts') }}" class="alert-link">Ver medicamentos</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if stats.near_expiry_medications > 0 %}
+        <div class="col-md-6">
+            <div class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="fas fa-calendar-times fa-2x me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Medicamentos Vencendo!</h5>
+                    <p class="mb-0">{{ stats.near_expiry_medications }} medicamento(s) próximo(s) ao vencimento.</p>
+                    <a href="{{ url_for('main.inventory_alerts') }}" class="alert-link">Ver medicamentos</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        <!-- Dispensações Recentes -->
+        <div class="col-xl-8">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="fas fa-hand-holding-medical me-2"></i>
+                    Dispensações Recentes
+                </div>
+                <div class="card-body">
+                    {% if recent_dispensations %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Paciente</th>
+                                    <th>Atendente</th>
+                                    <th>Itens</th>
+                                    <th>Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dispensation in recent_dispensations %}
+                                <tr>
+                                    <td>{{ format_datetime(dispensation.dispensation_date) }}</td>
+                                    <td>
+                                        <a href="{{ url_for('main.patient_view', id=dispensation.patient.id) }}" class="text-decoration-none">
+                                            {{ dispensation.patient.full_name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ dispensation.dispenser.full_name }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ dispensation.items|length }} itens</span>
+                                    </td>
+                                    <td>{{ format_currency(dispensation.total_cost) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>Nenhuma dispensação recente encontrada.</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('main.reports_index') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-chart-bar me-1"></i>Ver Relatórios Completos
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processos Alto Custo -->
+        <div class="col-xl-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="fas fa-star me-2"></i>
+                    Processos Alto Custo
+                </div>
+                <div class="card-body">
+                    {% if recent_high_cost %}
+                    <div class="list-group list-group-flush">
+                        {% for process in recent_high_cost %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ process.protocol_number }}</h6>
+                                <small>{{ format_date(process.request_date) }}</small>
+                            </div>
+                            <p class="mb-1 small">{{ process.patient.full_name }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">{{ process.medication.commercial_name }}</small>
+                                <span class="badge bg-{{ 'success' if process.status.value == 'approved' else 'warning' if process.status.value == 'pending' else 'danger' }}">
+                                    {{ format_process_status(process.status) }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-star fa-3x mb-3"></i>
+                        <p>Nenhum processo alto custo recente.</p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('main.high_cost_index') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-list me-1"></i>Ver Todos os Processos
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Atualizar estatísticas a cada 5 minutos
+    setInterval(function() {
+        $.ajax({
+            url: '{{ url_for("main.api_dashboard_stats") }}',
+            method: 'GET',
+            success: function(data) {
+                // Atualizar badges de alertas se necessário
+                if (data.total_alerts > 0) {
+                    $('#alertsBadge').text(data.total_alerts).show();
+                } else {
+                    $('#alertsBadge').hide();
+                }
+            }
+        });
+    }, 300000); // 5 minutos
+});
+</script>
+{% endblock %}

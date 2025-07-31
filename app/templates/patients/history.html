@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+
+{% block title %}Histórico - {{ patient.full_name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.patients_list') }}">Pacientes</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.patient_view', id=patient.id) }}">{{ patient.full_name }}</a>
+                    </li>
+                    <li class="breadcrumb-item active">Histórico</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-history me-2 text-primary"></i>
+                Histórico de {{ patient.full_name }}
+            </h1>
+            <p class="text-muted mb-0">CPF: {{ patient.cpf }} • CNS: {{ patient.cns or 'Não informado' }}</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <a href="{{ url_for('main.patient_view', id=patient.id) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-user me-1"></i>Ver Perfil
+                </a>
+                <button class="btn btn-outline-primary" onclick="printHistory()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumo do Histórico -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Total de Dispensações</div>
+                            <div class="fs-2 fw-bold">{{ total_dispensations }}</div>
+                        </div>
+                        <i class="fas fa-pills fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Medicamentos Diferentes</div>
+                            <div class="fs-2 fw-bold">{{ unique_medications }}</div>
+                        </div>
+                        <i class="fas fa-capsules fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Processos Alto Custo</div>
+                            <div class="fs-2 fw-bold">{{ total_high_cost }}</div>
+                        </div>
+                        <i class="fas fa-star fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Última Dispensação</div>
+                            <div class="fs-6 fw-bold">
+                                {% if last_dispensation %}
+                                    {{ format_date(last_dispensation.dispensation_date) }}
+                                {% else %}
+                                    Nenhuma
+                                {% endif %}
+                            </div>
+                        </div>
+                        <i class="fas fa-calendar fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Período:</label>
+                    <select name="period" class="form-select">
+                        <option value="">Todos os períodos</option>
+                        <option value="30" {% if period == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                        <option value="90" {% if period == '90' %}selected{% endif %}>Últimos 3 meses</option>
+                        <option value="180" {% if period == '180' %}selected{% endif %}>Últimos 6 meses</option>
+                        <option value="365" {% if period == '365' %}selected{% endif %}>Último ano</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label class="form-label">Tipo:</label>
+                    <select name="type" class="form-select">
+                        <option value="">Todos os tipos</option>
+                        <option value="dispensation" {% if type == 'dispensation' %}selected{% endif %}>Dispensações</option>
+                        <option value="high_cost" {% if type == 'high_cost' %}selected{% endif %}>Alto Custo</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <label class="form-label">Medicamento:</label>
+                    <input type="text" name="medication" class="form-control" 
+                           placeholder="Buscar medicamento..." value="{{ medication_filter }}">
+                </div>
+                
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Timeline do Histórico -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-timeline me-2"></i>
+                Histórico Detalhado
+                {% if filtered_count != total_count %}
+                <small class="text-muted">({{ filtered_count }} de {{ total_count }} registros)</small>
+                {% endif %}
+            </h5>
+        </div>
+        
+        {% if history_items %}
+        <div class="card-body">
+            <div class="timeline">
+                {% for item in history_items %}
+                <div class="timeline-item">
+                    <div class="timeline-marker">
+                        {% if item.type == 'dispensation' %}
+                            <div class="timeline-marker-icon bg-primary text-white">
+                                <i class="fas fa-pills"></i>
+                            </div>
+                        {% elif item.type == 'high_cost' %}
+                            <div class="timeline-marker-icon bg-warning text-dark">
+                                <i class="fas fa-star"></i>
+                            </div>
+                        {% else %}
+                            <div class="timeline-marker-icon bg-secondary text-white">
+                                <i class="fas fa-info"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="timeline-content">
+                        <div class="timeline-header">
+                            <h6 class="timeline-title mb-1">
+                                {% if item.type == 'dispensation' %}
+                                    Dispensação de {{ item.medication_name }}
+                                {% elif item.type == 'high_cost' %}
+                                    Processo Alto Custo - {{ item.medication_name }}
+                                {% endif %}
+                            </h6>
+                            <small class="text-muted">{{ format_datetime(item.date) }}</small>
+                        </div>
+                        
+                        <div class="timeline-body">
+                            {% if item.type == 'dispensation' %}
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Quantidade:</strong> {{ item.quantity }} unidades<br>
+                                        <strong>Farmacêutico:</strong> {{ item.pharmacist_name }}<br>
+                                        {% if item.prescription_number %}
+                                        <strong>Receita:</strong> {{ item.prescription_number }}<br>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Status:</strong> 
+                                        <span class="badge bg-success">Dispensado</span><br>
+                                        {% if item.notes %}
+                                        <strong>Observações:</strong> {{ item.notes }}<br>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% elif item.type == 'high_cost' %}
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Protocolo:</strong> {{ item.protocol_number }}<br>
+                                        <strong>Status:</strong> 
+                                        {% set status_class = {
+                                            'pending_evaluation': 'warning',
+                                            'under_evaluation': 'info',
+                                            'approved': 'success',
+                                            'rejected': 'danger',
+                                            'dispensed': 'primary'
+                                        }[item.status] %}
+                                        <span class="badge bg-{{ status_class }}">{{ format_process_status(item.status) }}</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Médico:</strong> {{ item.prescribing_doctor }}<br>
+                                        <strong>CID:</strong> {{ item.cid_code or 'Não informado' }}<br>
+                                        {% if item.quantity_approved %}
+                                        <strong>Qtd. Aprovada:</strong> {{ item.quantity_approved }}<br>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if item.attachments %}
+                        <div class="timeline-footer mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-paperclip me-1"></i>
+                                {{ item.attachments|length }} anexo(s)
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Paginação -->
+        {% if history_items.pages > 1 %}
+        <div class="card-footer">
+            <nav aria-label="Paginação do histórico">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if history_items.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.patient_history', id=patient.id, page=history_items.prev_num) }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for page_num in history_items.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != history_items.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.patient_history', id=patient.id, page=page_num) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if history_items.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.patient_history', id=patient.id, page=history_items.next_num) }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Estado vazio -->
+        <div class="card-body text-center py-5">
+            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+            <h5>Nenhum histórico encontrado</h5>
+            {% if medication_filter or period or type %}
+            <p class="text-muted">Nenhum registro corresponde aos filtros aplicados.</p>
+            <a href="{{ url_for('main.patient_history', id=patient.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-times me-1"></i>Limpar Filtros
+            </a>
+            {% else %}
+            <p class="text-muted">Este paciente ainda não possui histórico de dispensações ou processos.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Timeline Styles */
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -22px;
+    top: 5px;
+}
+
+.timeline-marker-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timeline-content {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.timeline-title {
+    color: #495057;
+    margin-bottom: 0;
+    flex-grow: 1;
+}
+
+.timeline-body {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.timeline-footer {
+    border-top: 1px solid #e9ecef;
+    padding-top: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .timeline {
+        padding-left: 20px;
+    }
+    
+    .timeline-marker {
+        left: -16px;
+    }
+    
+    .timeline-marker-icon {
+        width: 24px;
+        height: 24px;
+        font-size: 0.75rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .btn-group, .card-header, .pagination {
+        display: none !important;
+    }
+    
+    .timeline-content {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function printHistory() {
+    window.print();
+}
+
+$(document).ready(function() {
+    // Scroll suave para timeline
+    $('.timeline-item').each(function(index) {
+        $(this).css('animation-delay', (index * 0.1) + 's');
+    });
+    
+    // Tooltip para badges de status
+    $('[data-bs-toggle="tooltip"]').tooltip();
+});
+</script>
+{% endblock %}

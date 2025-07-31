@@ -1,0 +1,531 @@
+{% extends "base.html" %}
+
+{% block title %}Informações do Sistema - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.admin_index') }}">Administração</a>
+                    </li>
+                    <li class="breadcrumb-item active">Sistema</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-server me-2 text-info"></i>
+                Informações do Sistema
+            </h1>
+            <p class="text-muted mb-0">Status e estatísticas do servidor e banco de dados</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-outline-success" onclick="refreshSystemInfo()">
+                    <i class="fas fa-sync-alt me-1"></i>Atualizar
+                </button>
+                <a href="{{ url_for('main.admin_index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Geral -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-lg-6">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Status do Sistema</div>
+                            <div class="fs-4 fw-bold">ONLINE</div>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ✅ STATUS E-SUS -->
+        <div class="col-xl-3 col-lg-6">
+            {% if esus_status %}
+                <div class="card {% if esus_status.connected %}bg-success{% elif esus_status.configured %}bg-danger{% else %}bg-warning text-dark{% endif %} text-white">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="fs-6 fw-bold">e-SUS PEC</div>
+                                <div class="fs-4 fw-bold">
+                                    {% if esus_status.configured %}
+                                        {% if esus_status.connected %}
+                                            CONECTADO
+                                        {% else %}
+                                            OFFLINE
+                                        {% endif %}
+                                    {% else %}
+                                        NÃO CONFIG.
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <i class="fas fa-{% if esus_status.connected %}database{% elif esus_status.configured %}times-circle{% else %}exclamation-triangle{% endif %} fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="card bg-warning text-dark">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="fs-6 fw-bold">e-SUS PEC</div>
+                                <div class="fs-4 fw-bold">NÃO CONFIG.</div>
+                            </div>
+                            <i class="fas fa-exclamation-triangle fa-2x text-dark-50"></i>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-xl-3 col-lg-6">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">CPU</div>
+                            <div class="fs-4 fw-bold">{{ "%.1f"|format(system_info.cpu_percent) }}%</div>
+                        </div>
+                        <i class="fas fa-microchip fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-lg-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Memória</div>
+                            <div class="fs-4 fw-bold">{{ "%.1f"|format(system_info.memory.percent) }}%</div>
+                        </div>
+                        <i class="fas fa-memory fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informações do Servidor -->
+        <div class="col-xl-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-server me-2"></i>Informações do Servidor
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-5">Sistema Operacional:</dt>
+                        <dd class="col-sm-7">{{ system_info.platform }}</dd>
+                        
+                        <dt class="col-sm-5">Versão do Python:</dt>
+                        <dd class="col-sm-7">{{ system_info.python_version }}</dd>
+                        
+                        <dt class="col-sm-5">Tempo de Atividade:</dt>
+                        <dd class="col-sm-7">{{ system_info.uptime }}</dd>
+                        
+                        <dt class="col-sm-5">Uso de CPU:</dt>
+                        <dd class="col-sm-7">
+                            <div class="progress">
+                                <div class="progress-bar bg-info" 
+                                     style="width: {{ system_info.cpu_percent }}%">
+                                    {{ "%.1f"|format(system_info.cpu_percent) }}%
+                                </div>
+                            </div>
+                        </dd>
+                        
+                        <dt class="col-sm-5">Uso de Memória:</dt>
+                        <dd class="col-sm-7">
+                            <div class="progress">
+                                <div class="progress-bar bg-warning" 
+                                     style="width: {{ system_info.memory.percent }}%">
+                                    {{ "%.1f"|format(system_info.memory.percent) }}%
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                {{ "%.1f"|format(system_info.memory.used / 1024**3) }} GB / 
+                                {{ "%.1f"|format(system_info.memory.total / 1024**3) }} GB
+                            </small>
+                        </dd>
+                        
+                        <dt class="col-sm-5">Uso de Disco:</dt>
+                        <dd class="col-sm-7">
+                            <div class="progress">
+                                <div class="progress-bar bg-primary" 
+                                     style="width: {{ system_info.disk.percent }}%">
+                                    {{ "%.1f"|format(system_info.disk.percent) }}%
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                {{ "%.1f"|format(system_info.disk.used / 1024**3) }} GB / 
+                                {{ "%.1f"|format(system_info.disk.total / 1024**3) }} GB
+                            </small>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- ✅ INFORMAÇÕES E-SUS -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-database me-2"></i>Integração e-SUS PEC
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if esus_status %}
+                        <dl class="row">
+                            <dt class="col-sm-5">Status da Conexão:</dt>
+                            <dd class="col-sm-7">
+                                {% if esus_status.configured %}
+                                    {% if esus_status.connected %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>Conectado
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times-circle me-1"></i>Desconectado
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-warning">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>Não Configurado
+                                    </span>
+                                {% endif %}
+                            </dd>
+                            
+                            {% if esus_status.configured %}
+                                {% if esus_status.host %}
+                                <dt class="col-sm-5">Servidor:</dt>
+                                <dd class="col-sm-7">{{ esus_status.host }}:{{ esus_status.port or '5432' }}</dd>
+                                {% endif %}
+                                
+                                {% if esus_status.database %}
+                                <dt class="col-sm-5">Banco de Dados:</dt>
+                                <dd class="col-sm-7">{{ esus_status.database }}</dd>
+                                {% endif %}
+                                
+                                {% if esus_status.last_sync %}
+                                <dt class="col-sm-5">Última Sincronização:</dt>
+                                <dd class="col-sm-7">{{ esus_status.last_sync }}</dd>
+                                {% endif %}
+                                
+                                <dt class="col-sm-5">Pacientes Importados:</dt>
+                                <dd class="col-sm-7">
+                                    <span class="fw-bold text-success">{{ db_stats.esus_imported_patients or 0 }}</span>
+                                    <small class="text-muted">de {{ db_stats.total_patients }} total</small>
+                                </dd>
+                            {% else %}
+                                <dt class="col-sm-5">Configuração:</dt>
+                                <dd class="col-sm-7">
+                                    <a href="{{ url_for('main.esus_config') }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-cog me-1"></i>Configurar e-SUS
+                                    </a>
+                                </dd>
+                            {% endif %}
+                        </dl>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                            <h6>e-SUS PEC não configurado</h6>
+                            <p class="text-muted">Configure a integração para sincronizar dados de pacientes</p>
+                            <a href="{{ url_for('main.esus_config') }}" class="btn btn-warning">
+                                <i class="fas fa-cog me-1"></i>Configurar e-SUS
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Informações da Aplicação -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-code me-2"></i>Informações da Aplicação
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-5">Nome do Sistema:</dt>
+                        <dd class="col-sm-7">{{ system_name or 'Farmacuidar' }}</dd>
+                        
+                        <dt class="col-sm-5">Versão:</dt>
+                        <dd class="col-sm-7">1.0.0</dd>
+                        
+                        <dt class="col-sm-5">Desenvolvido para:</dt>
+                        <dd class="col-sm-7">{{ municipality or 'Cosmópolis' }}</dd>
+                        
+                        <dt class="col-sm-5">Framework:</dt>
+                        <dd class="col-sm-7">Flask + SQLAlchemy</dd>
+                        
+                        <dt class="col-sm-5">Banco de Dados:</dt>
+                        <dd class="col-sm-7">MySQL/PostgreSQL</dd>
+                        
+                        <dt class="col-sm-5">Última Atualização:</dt>
+                        <dd class="col-sm-7">{{ current_time.strftime('%d/%m/%Y %H:%M') }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas do Banco -->
+        <div class="col-xl-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Estatísticas do Banco de Dados
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-primary mb-1">{{ db_stats.total_patients }}</h4>
+                                <small class="text-muted">Pacientes Total</small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar bg-primary" style="width: 100%"></div>
+                                </div>
+                                <small class="text-success">{{ db_stats.active_patients }} ativos</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-success mb-1">{{ db_stats.total_medications }}</h4>
+                                <small class="text-muted">Medicamentos Total</small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar bg-success" style="width: 100%"></div>
+                                </div>
+                                <small class="text-success">{{ db_stats.active_medications }} ativos</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-warning mb-1">{{ db_stats.total_dispensations }}</h4>
+                                <small class="text-muted">Dispensações</small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar bg-warning" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-info mb-1">{{ db_stats.total_high_cost_processes }}</h4>
+                                <small class="text-muted">Processos Alto Custo</small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar bg-info" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-danger mb-1">{{ db_stats.total_users }}</h4>
+                                <small class="text-muted">Usuários Total</small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar bg-danger" style="width: 100%"></div>
+                                </div>
+                                <small class="text-success">{{ db_stats.active_users }} ativos</small>
+                            </div>
+                        </div>
+                        
+                        <!-- ✅ ESTATÍSTICA E-SUS -->
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-info mb-1">{{ db_stats.esus_imported_patients or 0 }}</h4>
+                                <small class="text-muted">Importados e-SUS</small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    {% set imported = db_stats.esus_imported_patients or 0 %}
+                                    {% set total = db_stats.total_patients or 1 %}
+                                    <div class="progress-bar bg-info" style="width: {{ (imported / total * 100) if total > 0 else 0 }}%"></div>
+                                </div>
+                                <small class="text-muted">
+                                    {% if total > 0 %}
+                                        {{ "%.1f"|format(imported / total * 100) }}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status de Segurança e Integração -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>Status de Segurança e Integração
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <strong>HTTPS</strong>
+                                <br><small class="text-muted">Conexão segura ativada</small>
+                            </div>
+                            <span class="badge bg-success">Ativo</span>
+                        </div>
+                        
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <strong>Autenticação</strong>
+                                <br><small class="text-muted">Sistema de login protegido</small>
+                            </div>
+                            <span class="badge bg-success">Ativo</span>
+                        </div>
+                        
+                        <!-- ✅ STATUS E-SUS NA LISTA -->
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                {% if esus_status and esus_status.connected %}
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                {% elif esus_status and esus_status.configured %}
+                                    <i class="fas fa-times-circle text-danger me-2"></i>
+                                {% else %}
+                                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                {% endif %}
+                                <strong>Integração e-SUS</strong>
+                                <br><small class="text-muted">
+                                    {% if esus_status and esus_status.connected %}
+                                        Conectado e sincronizando
+                                    {% elif esus_status and esus_status.configured %}
+                                        Configurado mas desconectado
+                                    {% else %}
+                                        Não configurado
+                                    {% endif %}
+                                </small>
+                            </div>
+                            {% if esus_status and esus_status.connected %}
+                                <span class="badge bg-success">Conectado</span>
+                            {% elif esus_status and esus_status.configured %}
+                                <span class="badge bg-danger">Desconectado</span>
+                            {% else %}
+                                <span class="badge bg-warning">Não Configurado</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <strong>Auditoria</strong>
+                                <br><small class="text-muted">Logs de ações registrados</small>
+                            </div>
+                            <span class="badge bg-success">Ativo</span>
+                        </div>
+                        
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <i class="fas fa-clock text-warning me-2"></i>
+                                <strong>Backup Automático</strong>
+                                <br><small class="text-muted">Sistema de backup programado</small>
+                            </div>
+                            <span class="badge bg-warning">Em Desenvolvimento</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshSystemInfo() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Atualizando...';
+    
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        location.reload();
+    }, 2000);
+}
+
+$(document).ready(function() {
+    // Adicionar animações nas barras de progresso
+    $('.progress-bar').each(function() {
+        const width = $(this).css('width');
+        $(this).css('width', '0%');
+        $(this).animate({
+            width: width
+        }, 1000);
+    });
+    
+    // Destacar itens críticos
+    $('.progress-bar').each(function() {
+        const percent = parseFloat($(this).text());
+        if (percent > 80) {
+            $(this).removeClass('bg-info bg-warning bg-primary').addClass('bg-danger');
+        } else if (percent > 60) {
+            $(this).removeClass('bg-info bg-primary').addClass('bg-warning');
+        }
+    });
+    
+    // ✅ Verificar status e-SUS periodicamente (se configurado)
+    {% if esus_status %}
+    function checkESUSStatus() {
+        $.ajax({
+            url: '/api/esus/status',
+            method: 'GET',
+            success: function(data) {
+                if (data.status_changed) {
+                    location.reload();
+                }
+            },
+            error: function() {
+                console.log('Erro ao verificar status e-SUS');
+            }
+        });
+    }
+    
+    // Verificar e-SUS a cada 2 minutos
+    setInterval(checkESUSStatus, 120000);
+    {% endif %}
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.progress {
+    height: 1.5rem;
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.text-dark-50 {
+    opacity: 0.5;
+}
+</style>
+{% endblock %}

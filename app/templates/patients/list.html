@@ -1,0 +1,681 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if request.args.get('select_for') == 'high_cost' %}
+Selecionar Paciente - Alto Custo
+{% else %}
+Pacientes - {{ super() }}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <!-- Breadcrumb para seleção de alto custo -->
+            {% if request.args.get('select_for') == 'high_cost' %}
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.high_cost_index') }}">Alto Custo</a>
+                    </li>
+                    <li class="breadcrumb-item active">Selecionar Paciente</li>
+                </ol>
+            </nav>
+            {% endif %}
+
+            <h1 class="h3 mb-0">
+                <i class="fas fa-users me-2 text-primary"></i>
+                {% if request.args.get('select_for') == 'high_cost' %}
+                    Selecionar Paciente para Alto Custo
+                {% else %}
+                    Gerenciamento de Pacientes
+                {% endif %}
+            </h1>
+            <p class="text-muted mb-0">
+                {% if request.args.get('select_for') == 'high_cost' %}
+                    Busque e selecione o paciente para criar a solicitação de medicamento alto custo
+                {% else %}
+                    Cadastro e consulta de pacientes atendidos
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                {% if request.args.get('select_for') == 'high_cost' %}
+                <!-- Botões para modo seleção alto custo -->
+                <a href="{{ url_for('main.patient_create') }}?redirect_to=high_cost" class="btn btn-success">
+                    <i class="fas fa-user-plus me-1"></i>Cadastrar Novo Paciente
+                </a>
+                <a href="{{ url_for('main.high_cost_index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+                {% else %}
+                <!-- Botões normais -->
+                <a href="{{ url_for('main.patient_create') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Novo Paciente
+                </a>
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="exportPatients()">
+                        <i class="fas fa-download me-2"></i>Exportar Lista
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="printList()">
+                        <i class="fas fa-print me-2"></i>Imprimir Lista
+                    </a></li>
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta para modo seleção -->
+    {% if request.args.get('select_for') == 'high_cost' %}
+    <div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        <div>
+            <strong>Modo de Seleção Ativo:</strong> Clique em "Selecionar" ao lado do paciente desejado para criar uma solicitação de medicamento alto custo.
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Estatísticas Rápidas (apenas no modo normal) -->
+    {% if request.args.get('select_for') != 'high_cost' %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Total de Pacientes</div>
+                            <div class="fs-4 fw-bold">{{ patients.total }}</div>
+                        </div>
+                        <i class="fas fa-users fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Ativos</div>
+                            <div class="fs-4 fw-bold">{{ patients.items|selectattr('is_active')|list|length }}</div>
+                        </div>
+                        <i class="fas fa-user-check fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Cadastros Hoje</div>
+                            <div class="fs-4 fw-bold">{{ today_registrations or 0 }}</div>
+                        </div>
+                        <i class="fas fa-user-plus fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Com CNS</div>
+                            <div class="fs-4 fw-bold">{{ patients.items|selectattr('cns')|list|length }}</div>
+                        </div>
+                        <i class="fas fa-id-card fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filtros de Busca -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <!-- Preservar parâmetro select_for -->
+                {% if request.args.get('select_for') %}
+                <input type="hidden" name="select_for" value="{{ request.args.get('select_for') }}">
+                {% endif %}
+                
+                <div class="col-md-2">
+                    <label class="form-label">Buscar por:</label>
+                    <select name="search_type" class="form-select">
+                        <option value="name" {% if search_type == 'name' %}selected{% endif %}>Nome</option>
+                        <option value="cpf" {% if search_type == 'cpf' %}selected{% endif %}>CPF</option>
+                        <option value="cns" {% if search_type == 'cns' %}selected{% endif %}>CNS</option>
+                        <option value="phone" {% if search_type == 'phone' %}selected{% endif %}>Telefone</option>
+                        <option value="email" {% if search_type == 'email' %}selected{% endif %}>Email</option>
+                        <option value="mother" {% if search_type == 'mother' %}selected{% endif %}>Nome da Mãe</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Termo de busca:</label>
+                    <input type="text" name="search_term" class="form-control" 
+                           value="{{ search_term }}" placeholder="Digite para buscar..." autofocus>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status:</label>
+                    <select name="status_filter" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Ativos</option>
+                        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inativos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Gênero:</label>
+                    <select name="gender_filter" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="M" {% if gender_filter == 'M' %}selected{% endif %}>Masculino</option>
+                        <option value="F" {% if gender_filter == 'F' %}selected{% endif %}>Feminino</option>
+                        <option value="O" {% if gender_filter == 'O' %}selected{% endif %}>Outro</option>
+                        <option value="N" {% if gender_filter == 'N' %}selected{% endif %}>Não informar</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="btn-group w-100">
+                        <button type="submit" class="btn btn-outline-primary">
+                            <i class="fas fa-search me-1"></i>Buscar
+                        </button>
+                        {% if search_term or status_filter or gender_filter %}
+                        <a href="{{ url_for('main.patients_list') }}{% if request.args.get('select_for') %}?select_for={{ request.args.get('select_for') }}{% endif %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Pacientes -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-list me-2"></i>
+                {% if request.args.get('select_for') == 'high_cost' %}
+                    Pacientes Disponíveis
+                {% else %}
+                    Lista de Pacientes
+                {% endif %}
+                {% if search_term %}
+                <small class="text-muted">(Filtrado por: {{ search_term }})</small>
+                {% endif %}
+            </h5>
+            <span class="badge bg-primary fs-6">
+                {{ patients.total }} paciente(s)
+            </span>
+        </div>
+        
+        <div class="card-body p-0">
+            {% if patients.items %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Paciente</th>
+                            <th>Documentos</th>
+                            <th>Contato</th>
+                            {% if request.args.get('select_for') != 'high_cost' %}
+                            <th>Endereço</th>
+                            <th>Informações Familiares</th>
+                            {% endif %}
+                            <th>Idade</th>
+                            <th>Status</th>
+                            {% if request.args.get('select_for') != 'high_cost' %}
+                            <th>Cadastro</th>
+                            {% endif %}
+                            <th width="{% if request.args.get('select_for') == 'high_cost' %}150{% else %}120{% endif %}">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for patient in patients.items %}
+                        <tr class="{% if request.args.get('select_for') == 'high_cost' %}cursor-pointer{% endif %}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
+                                        {{ patient.full_name[0].upper() }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold">{{ patient.full_name }}</div>
+                                        <small class="text-muted">{{ patient.gender_display }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>CPF:</strong> <code>{{ patient.formatted_cpf }}</code>
+                                    {% if patient.cns %}
+                                    <br><strong>CNS:</strong> <code class="small">{{ patient.formatted_cns }}</code>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <!-- ✅ Telefone Celular (Principal) -->
+                                    {% if patient.cell_phone %}
+                                    <div>
+                                        <i class="fas fa-mobile-alt text-success me-1"></i>
+                                        <a href="tel:{{ patient.cell_phone }}" class="text-decoration-none">
+                                            {{ patient.formatted_cell_phone }}
+                                        </a>
+                                        <small class="text-muted">(Celular)</small>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- ✅ Telefone Residencial -->
+                                    {% if patient.home_phone %}
+                                    <div>
+                                        <i class="fas fa-phone text-info me-1"></i>
+                                        <a href="tel:{{ patient.home_phone }}" class="text-decoration-none">
+                                            {{ patient.formatted_home_phone }}
+                                        </a>
+                                        <small class="text-muted">(Casa)</small>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- ✅ Telefone de Contato -->
+                                    {% if patient.contact_phone %}
+                                    <div>
+                                        <i class="fas fa-phone-alt text-warning me-1"></i>
+                                        <a href="tel:{{ patient.contact_phone }}" class="text-decoration-none">
+                                            {{ patient.formatted_contact_phone }}
+                                        </a>
+                                        <small class="text-muted">(Contato)</small>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- ✅ Email -->
+                                    {% if patient.email %}
+                                    <div class="mt-1">
+                                        <i class="fas fa-envelope text-muted me-1"></i>
+                                        <a href="mailto:{{ patient.email }}" class="text-decoration-none small">
+                                            {{ patient.email }}
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if not patient.cell_phone and not patient.home_phone and not patient.contact_phone and not patient.email %}
+                                    <span class="text-muted">--</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            {% if request.args.get('select_for') != 'high_cost' %}
+                            <td>
+                                <div class="small">
+                                    {% if patient.full_address != 'Endereço não informado' %}
+                                    <div title="{{ patient.full_address }}">
+                                        {{ patient.full_address|truncate(40) }}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted">--</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <!-- ✅ Nova coluna: Informações Familiares -->
+                            <td>
+                                <div class="small">
+                                    {% if patient.mother_name %}
+                                    <div>
+                                        <strong>Mãe:</strong> {{ patient.mother_name|truncate(25) }}
+                                    </div>
+                                    {% endif %}
+                                    {% if patient.father_name %}
+                                    <div>
+                                        <strong>Pai:</strong> {{ patient.father_name|truncate(25) }}
+                                    </div>
+                                    {% endif %}
+                                    {% if not patient.mother_name and not patient.father_name %}
+                                    <span class="text-muted">--</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            {% endif %}
+                            <td>
+                                <span class="badge bg-light text-dark">{{ patient.age }} anos</span>
+                            </td>
+                            <td>
+                                {% if patient.is_active %}
+                                <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inativo</span>
+                                {% endif %}
+                            </td>
+                            {% if request.args.get('select_for') != 'high_cost' %}
+                            <td>
+                                <small class="text-muted">{{ format_date(patient.created_at) }}</small>
+                                {% if patient.source == 'imported' %}
+                                <br><small class="badge bg-info">e-SUS</small>
+                                {% else %}
+                                <br><small class="badge bg-success">Local</small>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                            <td>
+                                {% if request.args.get('select_for') == 'high_cost' %}
+                                <!-- Botões para modo seleção alto custo -->
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('main.patient_view', id=patient.id) }}" 
+                                       class="btn btn-outline-info" title="Visualizar Paciente">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if patient.is_active %}
+                                    <a href="{{ url_for('main.high_cost_request', patient_id=patient.id) }}" 
+                                       class="btn btn-success" title="Selecionar para Alto Custo">
+                                        <i class="fas fa-check me-1"></i>Selecionar
+                                    </a>
+                                    {% else %}
+                                    <button class="btn btn-outline-secondary" disabled title="Paciente inativo">
+                                        <i class="fas fa-ban"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <!-- Botões normais -->
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('main.patient_view', id=patient.id) }}" 
+                                       class="btn btn-outline-primary" title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if current_user.role.value in ['admin', 'pharmacist'] %}
+                                    <a href="{{ url_for('main.patient_edit', id=patient.id) }}" 
+                                       class="btn btn-outline-secondary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% if has_permission('create_high_cost') and patient.is_active %}
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" title="Ações Especiais">
+                                            <i class="fas fa-star"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('main.high_cost_request', patient_id=patient.id) }}">
+                                                    <i class="fas fa-star me-2"></i>Solicitar Alto Custo
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('main.dispensation', patient_id=patient.id) }}">
+                                                    <i class="fas fa-pills me-2"></i>Dispensar Medicamentos
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginação -->
+            {% if patients.pages > 1 %}
+            <div class="card-footer">
+                <nav aria-label="Paginação de pacientes">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if patients.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.patients_list', page=patients.prev_num, search_term=search_term, search_type=search_type, status_filter=status_filter, gender_filter=gender_filter, select_for=request.args.get('select_for')) }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for page_num in patients.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != patients.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('main.patients_list', page=page_num, search_term=search_term, search_type=search_type, status_filter=status_filter, gender_filter=gender_filter, select_for=request.args.get('select_for')) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                                {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if patients.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.patients_list', page=patients.next_num, search_term=search_term, search_type=search_type, status_filter=status_filter, gender_filter=gender_filter, select_for=request.args.get('select_for')) }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- Estado vazio -->
+            <div class="text-center py-5">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                {% if search_term or status_filter or gender_filter %}
+                <h5>Nenhum paciente encontrado</h5>
+                <p class="text-muted">Nenhum paciente foi encontrado com os filtros aplicados.</p>
+                <a href="{{ url_for('main.patients_list') }}{% if request.args.get('select_for') %}?select_for={{ request.args.get('select_for') }}{% endif %}" class="btn btn-outline-primary">
+                    <i class="fas fa-times me-1"></i>Limpar Filtros
+                </a>
+                {% else %}
+                <h5>Nenhum paciente cadastrado</h5>
+                <p class="text-muted">
+                    {% if request.args.get('select_for') == 'high_cost' %}
+                        Não há pacientes cadastrados. Cadastre um novo paciente para continuar.
+                    {% else %}
+                        Comece cadastrando o primeiro paciente do sistema.
+                    {% endif %}
+                </p>
+                <a href="{{ url_for('main.patient_create') }}{% if request.args.get('select_for') == 'high_cost' %}?redirect_to=high_cost{% endif %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    {% if request.args.get('select_for') == 'high_cost' %}
+                        Cadastrar Novo Paciente
+                    {% else %}
+                        Cadastrar Primeiro Paciente
+                    {% endif %}
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.cursor-pointer:hover {
+    background-color: #f8f9fa;
+}
+
+/* ✅ Melhorar exibição dos telefones */
+.table td a[href^="tel:"] {
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.table td a[href^="tel:"]:hover {
+    text-decoration: underline;
+}
+
+/* ✅ Ícones diferenciados para tipos de telefone */
+.fa-mobile-alt {
+    color: #198754 !important; /* Verde para celular */
+}
+
+.fa-phone {
+    color: #0dcaf0 !important; /* Azul para residencial */
+}
+
+.fa-phone-alt {
+    color: #ffc107 !important; /* Amarelo para contato */
+}
+
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+    }
+    
+    /* ✅ Responsividade melhorada para telefones */
+    .table td div {
+        line-height: 1.2;
+    }
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.alert {
+    border-left: 4px solid #0dcaf0;
+}
+
+/* ✅ Estilo para fonte de dados */
+.badge.bg-info {
+    color: #fff !important;
+}
+
+.badge.bg-success {
+    background-color: #198754 !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-focus no campo de busca
+    $('input[name="search_term"]').focus();
+    
+    // Enter para submeter busca
+    $('input[name="search_term"]').on('keypress', function(e) {
+        if (e.which == 13) {
+            $(this).closest('form').submit();
+        }
+    });
+
+    // ✅ Atualizar placeholder baseado no tipo de busca selecionado
+    $('select[name="search_type"]').on('change', function() {
+        const searchInput = $('input[name="search_term"]');
+        const placeholders = {
+            'name': 'Digite o nome do paciente...',
+            'cpf': 'Digite o CPF (apenas números)...',
+            'cns': 'Digite o CNS (15 dígitos)...',
+            'phone': 'Digite qualquer telefone...',
+            'email': 'Digite o email...',
+            'mother': 'Digite o nome da mãe...'
+        };
+        
+        const selectedType = $(this).val();
+        searchInput.attr('placeholder', placeholders[selectedType] || 'Digite para buscar...');
+        searchInput.focus();
+    });
+
+    // Destacar pacientes ativos no modo seleção
+    {% if request.args.get('select_for') == 'high_cost' %}
+    $('tr').each(function() {
+        const isActive = $(this).find('.badge.bg-success').length > 0;
+        if (isActive) {
+            $(this).addClass('table-success');
+        } else {
+            $(this).addClass('table-light');
+        }
+    });
+    {% endif %}
+
+    // ✅ Tooltip para telefones longos
+    $('a[href^="tel:"]').each(function() {
+        $(this).attr('title', 'Clique para ligar: ' + $(this).text());
+    });
+
+    // ✅ Hover effect para linhas
+    $('tbody tr').hover(
+        function() {
+            $(this).addClass('table-hover-highlight');
+        },
+        function() {
+            $(this).removeClass('table-hover-highlight');
+        }
+    );
+});
+
+function exportPatients() {
+    showAlert('Funcionalidade de exportação em desenvolvimento', 'info');
+}
+
+function printList() {
+    window.print();
+}
+
+function showAlert(message, type = 'info') {
+    const alertClass = {
+        'success': 'alert-success',
+        'warning': 'alert-warning',
+        'danger': 'alert-danger',
+        'info': 'alert-info'
+    }[type] || 'alert-info';
+    
+    const alert = $(`
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    
+    $('.container-fluid').prepend(alert);
+    
+    setTimeout(() => {
+        alert.fadeOut();
+    }, 3000);
+}
+</script>
+{% endblock %}

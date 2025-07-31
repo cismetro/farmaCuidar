@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.inventory_list') }}">Inventário</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-pills me-2 text-primary"></i>
+                {{ title }}
+            </h1>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.inventory_list') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-xl-10">
+            <form method="POST" novalidate>
+                {{ form.hidden_tag() }}
+                
+                <!-- Informações Básicas -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-info-circle me-2"></i>Informações Básicas
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.commercial_name.label(class="form-label required") }}
+                                    {{ form.commercial_name(class="form-control" + (" is-invalid" if form.commercial_name.errors else "")) }}
+                                    {% if form.commercial_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.commercial_name.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.dosage.label(class="form-label required") }}
+                                    {{ form.dosage(class="form-control" + (" is-invalid" if form.dosage.errors else "")) }}
+                                    {% if form.dosage.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.dosage.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.generic_name.label(class="form-label required") }}
+                                    {{ form.generic_name(class="form-control" + (" is-invalid" if form.generic_name.errors else "")) }}
+                                    {% if form.generic_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.generic_name.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.pharmaceutical_form.label(class="form-label required") }}
+                                    {{ form.pharmaceutical_form(class="form-select" + (" is-invalid" if form.pharmaceutical_form.errors else "")) }}
+                                    {% if form.pharmaceutical_form.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.pharmaceutical_form.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Classificação -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-tags me-2"></i>Classificação
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.medication_type.label(class="form-label required") }}
+                                    {{ form.medication_type(class="form-select" + (" is-invalid" if form.medication_type.errors else "")) }}
+                                    {% if form.medication_type.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.medication_type.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        {{ form.requires_prescription(class="form-check-input") }}
+                                        {{ form.requires_prescription.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        {{ form.controlled_substance(class="form-check-input") }}
+                                        {{ form.controlled_substance.label(class="form-check-label") }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estoque -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-boxes me-2"></i>Controle de Estoque
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.current_stock.label(class="form-label required") }}
+                                    {{ form.current_stock(class="form-control" + (" is-invalid" if form.current_stock.errors else "")) }}
+                                    {% if form.current_stock.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.current_stock.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.minimum_stock.label(class="form-label required") }}
+                                    {{ form.minimum_stock(class="form-control" + (" is-invalid" if form.minimum_stock.errors else "")) }}
+                                    {% if form.minimum_stock.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.minimum_stock.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.unit_cost.label(class="form-label") }}
+                                    <div class="input-group">
+                                        <span class="input-group-text">R$</span>
+                                        {{ form.unit_cost(class="form-control" + (" is-invalid" if form.unit_cost.errors else "")) }}
+                                    </div>
+                                    {% if form.unit_cost.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.unit_cost.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lote e Validade -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-calendar me-2"></i>Lote e Validade
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.batch_number.label(class="form-label") }}
+                                    {{ form.batch_number(class="form-control" + (" is-invalid" if form.batch_number.errors else "")) }}
+                                    {% if form.batch_number.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.batch_number.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.expiry_date.label(class="form-label") }}
+                                    {{ form.expiry_date(class="form-control" + (" is-invalid" if form.expiry_date.errors else "")) }}
+                                    {% if form.expiry_date.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.expiry_date.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="card">
+                    <div class="card-footer bg-light">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('main.inventory_list') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Salvar Medicamento
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.required:after {
+    content: " *";
+    color: #dc3545;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-focus
+    $('#commercial_name').focus();
+    
+    // Máscara para moeda
+    $('#unit_cost').on('input', function() {
+        let value = this.value.replace(/[^\d,]/g, '');
+        const parts = value.split(',');
+        if (parts.length > 2) {
+            value = parts[0] + ',' + parts.slice(1).join('');
+        }
+        if (parts[1] && parts[1].length > 2) {
+            value = parts[0] + ',' + parts[1].substring(0, 2);
+        }
+        this.value = value;
+    });
+});
+</script>
+{% endblock %}

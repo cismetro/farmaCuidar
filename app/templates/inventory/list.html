@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}Inventário - {{ super() }}
+<script>
+$(document).ready(function() {
+    // Calcular status de validade dos medicamentos
+    const hoje = new Date();
+    
+    $('.expiry-status').each(function() {
+        const expiryDate = new Date($(this).data('expiry'));
+        const diffTime = expiryDate - hoje;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        const parentTd = $(this).closest('td');
+        const expirySpan = parentTd.find('span').first();
+        
+        if (diffDays < 0) {
+            expirySpan.removeClass().addClass('text-danger');
+            $(this).removeClass().addClass('text-danger').text('Vencido');
+        } else if (diffDays <= 30) {
+            expirySpan.removeClass().addClass('text-warning');
+            $(this).removeClass().addClass('text-warning').text(diffDays + ' dias');
+        } else {
+            expirySpan.removeClass();
+            $(this).removeClass().addClass('text-muted').text('');
+        }
+    });
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="fas fa-pills me-2 text-primary"></i>
+                Inventário de Medicamentos
+            </h1>
+            <p class="text-muted mb-0">Gestão completa do estoque de medicamentos</p>
+        </div>
+        <div class="col-auto">
+            {% if current_user.role.value in ['admin', 'pharmacist'] %}
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('main.medication_create') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Novo Medicamento
+                </a>
+                <a href="{{ url_for('main.stock_entry') }}" class="btn btn-success">
+                    <i class="fas fa-plus-circle me-1"></i>Entrada de Estoque
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Buscar medicamento:</label>
+                    <input type="text" name="search_term" class="form-control" 
+                           placeholder="Nome comercial ou genérico..." 
+                           value="{{ search_term }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipo:</label>
+                    <select name="medication_type" class="form-select">
+                        <option value="">Todos os tipos</option>
+                        <option value="basic" {% if medication_type == 'basic' %}selected{% endif %}>Básico</option>
+                        <option value="controlled" {% if medication_type == 'controlled' %}selected{% endif %}>Controlado</option>
+                        <option value="high_cost" {% if medication_type == 'high_cost' %}selected{% endif %}>Alto Custo</option>
+                        <option value="psychotropic" {% if medication_type == 'psychotropic' %}selected{% endif %}>Psicotrópico</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="w-100">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="low_stock_only" value="1" 
+                                   {% if low_stock_only %}checked{% endif %}>
+                            <label class="form-check-label text-danger">
+                                Apenas estoque baixo
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-search me-1"></i>Filtrar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Medicamentos -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-list me-2"></i>
+                Medicamentos 
+                <small class="text-muted">({{ medications.total }} encontrados)</small>
+            </h5>
+        </div>
+        
+        {% if medications.items %}
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Dosagem</th>
+                            <th>Tipo</th>
+                            <th>Estoque</th>
+                            <th>Custo Unit.</th>
+                            <th>Validade</th>
+                            <th width="150">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medication in medications.items %}
+                        <tr>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ medication.commercial_name }}</div>
+                                    <small class="text-muted">{{ medication.generic_name }}</small>
+                                </div>
+                            </td>
+                            <td>{{ medication.dosage }}</td>
+                            <td>
+                                {% set type_class = {
+                                    'basic': 'primary',
+                                    'controlled': 'warning',
+                                    'high_cost': 'danger',
+                                    'psychotropic': 'info'
+                                }[medication.medication_type.value] %}
+                                <span class="badge bg-{{ type_class }}">
+                                    {% if medication.medication_type.value == 'basic' %}Básico
+                                    {% elif medication.medication_type.value == 'controlled' %}Controlado
+                                    {% elif medication.medication_type.value == 'high_cost' %}Alto Custo
+                                    {% elif medication.medication_type.value == 'psychotropic' %}Psicotrópico
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                {% if medication.current_stock <= 0 %}
+                                    <span class="badge bg-dark">{{ medication.current_stock }}</span>
+                                {% elif medication.current_stock <= medication.minimum_stock %}
+                                    <span class="badge bg-danger">{{ medication.current_stock }}</span>
+                                {% elif medication.current_stock <= medication.minimum_stock * 2 %}
+                                    <span class="badge bg-warning">{{ medication.current_stock }}</span>
+                                {% else %}
+                                    <span class="badge bg-success">{{ medication.current_stock }}</span>
+                                {% endif %}
+                                <small class="text-muted d-block">Min: {{ medication.minimum_stock }}</small>
+                            </td>
+                            <td>{{ format_currency(medication.unit_cost) if medication.unit_cost else '—' }}</td>
+                            <td>
+                                {% if medication.expiry_date %}
+                                    <span>{{ format_date(medication.expiry_date) }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('main.medication_view', id=medication.id) }}" 
+                                       class="btn btn-outline-primary" title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if current_user.role.value in ['admin', 'pharmacist'] %}
+                                    <a href="{{ url_for('main.medication_edit', id=medication.id) }}" 
+                                       class="btn btn-outline-secondary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Paginação -->
+        {% if medications.pages > 1 %}
+        <div class="card-footer">
+            <nav aria-label="Paginação de medicamentos">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if medications.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.inventory_list', page=medications.prev_num) }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for page_num in medications.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != medications.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.inventory_list', page=page_num) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if medications.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.inventory_list', page=medications.next_num) }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Estado vazio -->
+        <div class="card-body text-center py-5">
+            <i class="fas fa-pills fa-3x text-muted mb-3"></i>
+            <h5>Nenhum medicamento encontrado</h5>
+            {% if search_term or medication_type or low_stock_only %}
+            <p class="text-muted">Nenhum medicamento corresponde aos filtros aplicados.</p>
+            <a href="{{ url_for('main.inventory_list') }}" class="btn btn-outline-primary">
+                <i class="fas fa-times me-1"></i>Limpar Filtros
+            </a>
+            {% else %}
+            <p class="text-muted">Ainda não há medicamentos cadastrados no sistema.</p>
+            {% if current_user.role.value in ['admin', 'pharmacist'] %}
+            <a href="{{ url_for('main.medication_create') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Cadastrar Primeiro Medicamento
+            </a>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Calcular status de validade dos medicamentos
+    const hoje = new Date();
+    
+    $('.expiry-status').each(function() {
+        const expiryDate = new Date($(this).data('expiry'));
+        const diffTime = expiryDate - hoje;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        const parentTd = $(this).closest('td');
+        const expirySpan = parentTd.find('span').first();
+        
+        if (diffDays < 0) {
+            expirySpan.removeClass().addClass('text-danger');
+            $(this).removeClass().addClass('text-danger').text('Vencido');
+        } else if (diffDays <= 30) {
+            expirySpan.removeClass().addClass('text-warning');
+            $(this).removeClass().addClass('text-warning').text(diffDays + ' dias');
+        } else {
+            expirySpan.removeClass();
+            $(this).removeClass().addClass('text-muted').text('');
+        }
+    });
+});
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Adicionar data atual para cálculos de validade
+    
+});
+</script>
+
+<script>
+$(document).ready(function() {
+    // Calcular status de validade dos medicamentos
+    const hoje = new Date();
+    
+    $('.expiry-status').each(function() {
+        const expiryDate = new Date($(this).data('expiry'));
+        const diffTime = expiryDate - hoje;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        const parentTd = $(this).closest('td');
+        const expirySpan = parentTd.find('span').first();
+        
+        if (diffDays < 0) {
+            expirySpan.removeClass().addClass('text-danger');
+            $(this).removeClass().addClass('text-danger').text('Vencido');
+        } else if (diffDays <= 30) {
+            expirySpan.removeClass().addClass('text-warning');
+            $(this).removeClass().addClass('text-warning').text(diffDays + ' dias');
+        } else {
+            expirySpan.removeClass();
+            $(this).removeClass().addClass('text-muted').text('');
+        }
+    });
+});
+</script>
+{% endblock %}

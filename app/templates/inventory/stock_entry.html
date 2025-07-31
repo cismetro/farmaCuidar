@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Entrada de Estoque - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.inventory_list') }}">Inventário</a>
+                    </li>
+                    <li class="breadcrumb-item active">Entrada de Estoque</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-plus-circle me-2 text-primary"></i>
+                Entrada de Estoque
+            </h1>
+            <p class="text-muted mb-0">Registrar entrada de medicamentos no estoque</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.inventory_list') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-box me-2"></i>
+                        Registrar Entrada
+                    </h5>
+                </div>
+                
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="card-body">
+                        <!-- Seleção do Medicamento -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-pills me-2"></i>Medicamento
+                                </h6>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    {{ form.medication_id.label(class="form-label required") }}
+                                    {{ form.medication_id(class="form-select form-select-lg" + (" is-invalid" if form.medication_id.errors else "")) }}
+                                    {% if form.medication_id.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.medication_id.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Selecione o medicamento para dar entrada no estoque</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Informações da Entrada -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>Dados da Entrada
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.quantity.label(class="form-label required") }}
+                                    <div class="input-group">
+                                        {{ form.quantity(class="form-control form-control-lg" + (" is-invalid" if form.quantity.errors else "")) }}
+                                        <span class="input-group-text">unidades</span>
+                                    </div>
+                                    {% if form.quantity.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.quantity.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.unit_cost.label(class="form-label") }}
+                                    <div class="input-group">
+                                        <span class="input-group-text">R$</span>
+                                        {{ form.unit_cost(class="form-control" + (" is-invalid" if form.unit_cost.errors else "")) }}
+                                    </div>
+                                    {% if form.unit_cost.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.unit_cost.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Custo unitário (opcional)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dados do Lote -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-barcode me-2"></i>Dados do Lote
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.batch_number.label(class="form-label") }}
+                                    {{ form.batch_number(class="form-control" + (" is-invalid" if form.batch_number.errors else "")) }}
+                                    {% if form.batch_number.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.batch_number.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Número do lote (opcional)</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.expiry_date.label(class="form-label") }}
+                                    {{ form.expiry_date(class="form-control" + (" is-invalid" if form.expiry_date.errors else "")) }}
+                                    {% if form.expiry_date.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.expiry_date.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Data de validade (opcional)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Observações -->
+                        <div class="row">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-comment me-2"></i>Observações
+                                </h6>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    {{ form.reason.label(class="form-label") }}
+                                    {{ form.reason(class="form-control" + (" is-invalid" if form.reason.errors else ""), rows="4") }}
+                                    {% if form.reason.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.reason.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Motivo da entrada, fornecedor, etc. (opcional)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer bg-light">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('main.inventory_list') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus me-1"></i>Registrar Entrada
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Card de Ajuda -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Informações Importantes
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-check-circle text-success me-2"></i>O que fazer:</h6>
+                            <ul class="small">
+                                <li>Verificar se o medicamento está correto</li>
+                                <li>Conferir a quantidade recebida</li>
+                                <li>Registrar o número do lote se disponível</li>
+                                <li>Verificar a data de validade</li>
+                                <li>Anotar o fornecedor nas observações</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-exclamation-triangle text-warning me-2"></i>Atenção:</h6>
+                            <ul class="small">
+                                <li>A quantidade será <strong>ADICIONADA</strong> ao estoque atual</li>
+                                <li>Medicamentos vencidos não devem ser aceitos</li>
+                                <li>Registre sempre o custo quando disponível</li>
+                                <li>Confira se não há danos na embalagem</li>
+                                <li>Esta ação não pode ser desfeita facilmente</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.required:after {
+    content: " *";
+    color: #dc3545;
+}
+
+.form-select-lg, .form-control-lg {
+    border-radius: 0.5rem;
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+    border-color: #ced4da;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.card-header.bg-info {
+    background-color: #17a2b8 !important;
+}
+
+.text-primary {
+    color: #5D5CDE !important;
+}
+
+.border-bottom {
+    border-bottom: 2px solid #e9ecef !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-focus no select de medicamento
+    $('#medication_id').focus();
+    
+    // Máscara para moeda no custo unitário
+    $('#unit_cost').on('input', function() {
+        let value = this.value.replace(/[^\d,]/g, '');
+        
+        // Permitir apenas uma vírgula
+        const parts = value.split(',');
+        if (parts.length > 2) {
+            value = parts[0] + ',' + parts.slice(1).join('');
+        }
+        
+        // Limitar casas decimais
+        if (parts[1] && parts[1].length > 2) {
+            value = parts[0] + ',' + parts[1].substring(0, 2);
+        }
+        
+        this.value = value;
+    });
+    
+    // Validação do formulário
+    $('form').on('submit', function(e) {
+        const medication = $('#medication_id').val();
+        const quantity = $('#quantity').val();
+        
+        if (!medication) {
+            e.preventDefault();
+            alert('Selecione um medicamento!');
+            $('#medication_id').focus();
+            return false;
+        }
+        
+        if (!quantity || quantity <= 0) {
+            e.preventDefault();
+            alert('Informe uma quantidade válida!');
+            $('#quantity').focus();
+            return false;
+        }
+        
+        // Confirmação
+        const medicationName = $('#medication_id option:selected').text();
+        if (!confirm(`Confirmar entrada de ${quantity} unidades de ${medicationName}?`)) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Loading state
+        $(this).find('button[type="submit"]').prop('disabled', true)
+            .html('<i class="fas fa-spinner fa-spin me-1"></i>Processando...');
+    });
+    
+    // Melhorar visualização do select
+    $('#medication_id').on('change', function() {
+        const selected = $(this).find('option:selected');
+        if (selected.val()) {
+            $(this).removeClass('text-muted');
+        } else {
+            $(this).addClass('text-muted');
+        }
+    });
+    
+    // Estado inicial do select
+    if (!$('#medication_id').val()) {
+        $('#medication_id').addClass('text-muted');
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Usuários - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.admin_index') }}">Administração</a>
+                    </li>
+                    <li class="breadcrumb-item active">Usuários</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-users me-2 text-primary"></i>
+                Gestão de Usuários
+            </h1>
+            <p class="text-muted mb-0">Gerenciar contas de acesso ao sistema</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.admin_user_create') }}" class="btn btn-primary">
+                <i class="fas fa-user-plus me-1"></i>Novo Usuário
+            </a>
+        </div>
+    </div>
+
+    <!-- Lista de Usuários -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-list me-2"></i>
+                Usuários do Sistema
+                <small class="text-muted">({{ users.total }} total)</small>
+            </h5>
+        </div>
+        
+        {% if users.items %}
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Usuário</th>
+                            <th>Email</th>
+                            <th>Perfil</th>
+                            <th>CRF</th>
+                            <th>Status</th>
+                            <th>Último Login</th>
+                            <th width="200">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users.items %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3">
+                                        {{ user.full_name[0].upper() }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold">{{ user.full_name }}</div>
+                                        <small class="text-muted">{{ user.username }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                {% set role_class = {
+                                    'admin': 'danger',
+                                    'pharmacist': 'success',
+                                    'attendant': 'primary'
+                                }[user.role.value] %}
+                                <span class="badge bg-{{ role_class }}">
+                                    {{ format_user_role(user.role) }}
+                                </span>
+                            </td>
+                            <td>{{ user.crf or '—' }}</td>
+                            <td>
+                                {% if user.is_active %}
+                                    <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.last_login %}
+                                    {{ format_datetime(user.last_login) }}
+                                {% else %}
+                                    <span class="text-muted">Nunca logou</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('main.admin_user_edit', id=user.id) }}" 
+                                       class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    
+                                    {% if user.id != current_user.id %}
+                                    <form method="POST" action="{{ url_for('main.admin_user_toggle_status', id=user.id) }}" 
+                                          class="d-inline" onsubmit="return confirmToggleStatus('{{ user.full_name }}', {{ user.is_active|lower }})">
+                                        {% if user.is_active %}
+                                            <button type="submit" class="btn btn-outline-warning" title="Desativar">
+                                                <i class="fas fa-user-slash"></i>
+                                            </button>
+                                        {% else %}
+                                            <button type="submit" class="btn btn-outline-success" title="Ativar">
+                                                <i class="fas fa-user-check"></i>
+                                            </button>
+                                        {% endif %}
+                                    </form>
+                                    {% else %}
+                                    <button class="btn btn-outline-secondary" disabled title="Você mesmo">
+                                        <i class="fas fa-user"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    <button class="btn btn-outline-info" 
+                                            onclick="showUserInfo({{ user.id }})" title="Informações">
+                                        <i class="fas fa-info-circle"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Paginação -->
+        {% if users.pages > 1 %}
+        <div class="card-footer">
+            <nav aria-label="Paginação de usuários">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if users.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.admin_users_list', page=users.prev_num) }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for page_num in users.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != users.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.admin_users_list', page=page_num) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if users.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.admin_users_list', page=users.next_num) }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Estado vazio -->
+        <div class="card-body text-center py-5">
+            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+            <h5>Nenhum usuário encontrado</h5>
+            <p class="text-muted">Ainda não há usuários cadastrados no sistema.</p>
+            <a href="{{ url_for('main.admin_user_create') }}" class="btn btn-primary">
+                <i class="fas fa-user-plus me-1"></i>Criar Primeiro Usuário
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal de Informações do Usuário -->
+<div class="modal fade" id="userInfoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Informações do Usuário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="userInfoContent">
+                    <!-- Conteúdo carregado via AJAX -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmToggleStatus(userName, isActive) {
+    const action = isActive ? 'desativar' : 'ativar';
+    return confirm(`Tem certeza que deseja ${action} o usuário "${userName}"?`);
+}
+
+function showUserInfo(userId) {
+    // Implementar carregamento de informações via AJAX
+    const modal = new bootstrap.Modal(document.getElementById('userInfoModal'));
+    document.getElementById('userInfoContent').innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
+    modal.show();
+    
+    // Simular carregamento de dados
+    setTimeout(() => {
+        document.getElementById('userInfoContent').innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Funcionalidade em desenvolvimento. Em breve será possível visualizar estatísticas detalhadas do usuário.
+            </div>
+        `;
+    }, 1000);
+}
+
+$(document).ready(function() {
+    // Destacar usuário atual
+    $('tr').each(function() {
+        if ($(this).find('.btn[disabled]').length > 0) {
+            $(this).addClass('table-warning');
+        }
+    });
+});
+</script>
+{% endblock %}

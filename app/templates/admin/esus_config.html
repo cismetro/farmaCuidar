@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Configuração e-SUS - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.admin_index') }}">Administração</a>
+                    </li>
+                    <li class="breadcrumb-item active">Configuração e-SUS</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-database me-2 text-primary"></i>
+                Configuração e-SUS
+            </h1>
+            <p class="text-muted mb-0">Configure a conexão com o banco de dados e-SUS</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Formulário de Configuração -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cog me-2"></i>Credenciais de Conexão
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('main.esus_config_save') }}">
+                        <div class="row g-3">
+                            <!-- Nome do Banco -->
+                            <div class="col-md-6">
+                                <label for="dbname" class="form-label">
+                                    <i class="fas fa-database me-1"></i>Nome do Banco *
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="dbname" 
+                                       name="dbname" 
+                                       value="{{ credentials[0] if credentials else '' }}"
+                                       placeholder="ex: esus_pec"
+                                       required>
+                                <div class="form-text">Nome do banco de dados PostgreSQL do e-SUS</div>
+                            </div>
+
+                            <!-- Usuário -->
+                            <div class="col-md-6">
+                                <label for="user" class="form-label">
+                                    <i class="fas fa-user me-1"></i>Usuário *
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="user" 
+                                       name="user" 
+                                       value="{{ credentials[1] if credentials else '' }}"
+                                       placeholder="usuário do PostgreSQL"
+                                       required>
+                            </div>
+
+                            <!-- Senha -->
+                            <div class="col-md-6">
+                                <label for="password" class="form-label">
+                                    <i class="fas fa-lock me-1"></i>Senha *
+                                </label>
+                                <div class="input-group">
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="password" 
+                                           name="password" 
+                                           value="{{ credentials[2] if credentials else '' }}"
+                                           placeholder="senha do PostgreSQL"
+                                           required>
+                                    <button class="btn btn-outline-secondary" 
+                                            type="button" 
+                                            onclick="togglePassword()">
+                                        <i class="fas fa-eye" id="toggleIcon"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Host -->
+                            <div class="col-md-4">
+                                <label for="host" class="form-label">
+                                    <i class="fas fa-server me-1"></i>Host *
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="host" 
+                                       name="host" 
+                                       value="{{ credentials[3] if credentials else 'localhost' }}"
+                                       placeholder="localhost"
+                                       required>
+                            </div>
+
+                            <!-- Porta -->
+                            <div class="col-md-2">
+                                <label for="port" class="form-label">
+                                    <i class="fas fa-plug me-1"></i>Porta *
+                                </label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="port" 
+                                       name="port" 
+                                       value="{{ credentials[4] if credentials else '5432' }}"
+                                       placeholder="5432"
+                                       min="1"
+                                       max="65535"
+                                       required>
+                            </div>
+
+                            <!-- Município -->
+                            <div class="col-md-6">
+                                <label for="municipio" class="form-label">
+                                    <i class="fas fa-map-marker-alt me-1"></i>Município
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="municipio" 
+                                       name="municipio" 
+                                       value="{{ credentials[5] if credentials and credentials|length > 5 else 'Cosmópolis' }}"
+                                       placeholder="Cosmópolis">
+                                <div class="form-text">Nome do município (opcional)</div>
+                            </div>
+
+                            <!-- Botões -->
+                            <div class="col-12">
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-1"></i>Salvar Configurações
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-outline-info" 
+                                            onclick="testConnection()"
+                                            id="testBtn">
+                                        <i class="fas fa-plug me-1"></i>Testar Conexão
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Status da Conexão -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Status da Conexão
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="connectionStatus" class="text-center">
+                        {% if credentials %}
+                            <div class="text-success mb-3">
+                                <i class="fas fa-check-circle fa-2x"></i>
+                            </div>
+                            <h6 class="text-success">Credenciais Configuradas</h6>
+                            <p class="text-muted small">
+                                Conectando em: <br>
+                                <strong>{{ credentials[3] }}:{{ credentials[4] }}</strong><br>
+                                Banco: <strong>{{ credentials[0] }}</strong>
+                            </p>
+                        {% else %}
+                            <div class="text-warning mb-3">
+                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                            </div>
+                            <h6 class="text-warning">Não Configurado</h6>
+                            <p class="text-muted small">Configure as credenciais acima para conectar ao e-SUS</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informações -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>Informações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="small">
+                        <p><strong>Requisitos:</strong></p>
+                        <ul class="ps-3">
+                            <li>PostgreSQL 9.4 ou superior</li>
+                            <li>Acesso de leitura à tabela <code>tb_cidadao</code></li>
+                            <li>Conectividade de rede com o servidor</li>
+                        </ul>
+                        
+                        <p class="mt-3"><strong>Campos utilizados:</strong></p>
+                        <ul class="ps-3 small">
+                            <li><code>nu_cpf</code> - CPF do cidadão</li>
+                            <li><code>nu_cns</code> - Cartão Nacional de Saúde</li>
+                            <li><code>no_cidadao</code> - Nome completo</li>
+                            <li><code>dt_nascimento</code> - Data de nascimento</li>
+                            <li><code>no_mae</code> - Nome da mãe</li>
+                            <li><code>no_pai</code> - Nome do pai</li>
+                            <li><code>no_sexo</code> - Sexo</li>
+                            <li><code>ds_logradouro</code> - Logradouro</li>
+                            <li><code>nu_numero</code> - Número</li>
+                            <li><code>no_bairro</code> - Bairro</li>
+                            <li><code>ds_cep</code> - CEP</li>
+                            <li><code>nu_telefone_*</code> - Telefones</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Teste -->
+<div class="modal fade" id="testModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plug me-2"></i>Teste de Conexão
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="testResult">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Testando...</span>
+                    </div>
+                    <p class="mt-2">Testando conexão...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePassword() {
+    const passwordField = document.getElementById('password');
+    const toggleIcon = document.getElementById('toggleIcon');
+    
+    if (passwordField.type === 'password') {
+        passwordField.type = 'text';
+        toggleIcon.className = 'fas fa-eye-slash';
+    } else {
+        passwordField.type = 'password';
+        toggleIcon.className = 'fas fa-eye';
+    }
+}
+
+function testConnection() {
+    const testBtn = document.getElementById('testBtn');
+    const modal = new bootstrap.Modal(document.getElementById('testModal'));
+    
+    // Desabilitar botão
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testando...';
+    
+    // Mostrar modal
+    modal.show();
+    
+    // Fazer requisição AJAX
+    fetch('{{ url_for("main.esus_test_connection") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const resultDiv = document.getElementById('testResult');
+        
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="text-center">
+                    <div class="text-success mb-3">
+                        <i class="fas fa-check-circle fa-3x"></i>
+                    </div>
+                    <h6 class="text-success">Conexão Bem-sucedida!</h6>
+                    <p class="text-muted">${data.message}</p>
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `
+                <div class="text-center">
+                    <div class="text-danger mb-3">
+                        <i class="fas fa-times-circle fa-3x"></i>
+                    </div>
+                    <h6 class="text-danger">Falha na Conexão</h6>
+                    <p class="text-muted">${data.message}</p>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        document.getElementById('testResult').innerHTML = `
+            <div class="text-center">
+                <div class="text-danger mb-3">
+                    <i class="fas fa-exclamation-triangle fa-3x"></i>
+                </div>
+                <h6 class="text-danger">Erro no Teste</h6>
+                <p class="text-muted">Erro: ${error.message}</p>
+            </div>
+        `;
+    })
+    .finally(() => {
+        // Reabilitar botão
+        testBtn.disabled = false;
+        testBtn.innerHTML = '<i class="fas fa-plug me-1"></i>Testar Conexão';
+    });
+}
+
+// Auto-esconder alertas
+setTimeout(function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        if (alert.classList.contains('alert-success')) {
+            setTimeout(() => {
+                alert.style.transition = 'opacity 0.5s';
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 500);
+            }, 3000);
+        }
+    });
+}, 100);
+</script>
+{% endblock %}

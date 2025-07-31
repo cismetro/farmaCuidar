@@ -1,0 +1,15 @@
+python scripts/sync_esus_patients.py --full
+
+========================================================
+
+2. Criar o ambiente virtual:
+python -m venv venv
+
+1. Ativar o ambiente virtual (se estiver usando):
+.\venv\Scripts\activate
+
+3.criar 
+pip freeze > requirements.txt
+
+4. Instalar as dependências de um requirements.txt:
+pip install -r requirements.txt

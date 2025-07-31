@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório de Vencimentos - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.reports_index') }}">Relatórios</a>
+                    </li>
+                    <li class="breadcrumb-item active">Vencimentos</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-calendar-times me-2 text-warning"></i>
+                Relatório de Vencimentos
+            </h1>
+            <p class="text-muted mb-0">Controle de validade dos medicamentos</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="exportReport('pdf')">
+                    <i class="fas fa-file-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-outline-success" onclick="exportReport('excel')">
+                    <i class="fas fa-file-excel me-1"></i>Excel
+                </button>
+                <button class="btn btn-outline-info" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas Críticos -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="alert alert-danger">
+                <h6 class="alert-heading">
+                    <i class="fas fa-times-circle me-2"></i>Medicamentos Vencidos
+                </h6>
+                <p class="mb-1">{{ expired_count or 0 }} medicamentos vencidos</p>
+                <small>Valor total: R$ {{ "{:,.2f}".format(expired_value or 0) }}</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="alert alert-warning">
+                <h6 class="alert-heading">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Vencem em 30 dias
+                </h6>
+                <p class="mb-1">{{ expiring_30_count or 0 }} medicamentos</p>
+                <small>Valor total: R$ {{ "{:,.2f}".format(expiring_30_value or 0) }}</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="alert alert-info">
+                <h6 class="alert-heading">
+                    <i class="fas fa-clock me-2"></i>Vencem em 90 dias
+                </h6>
+                <p class="mb-1">{{ expiring_90_count or 0 }} medicamentos</p>
+                <small>Valor total: R$ {{ "{:,.2f}".format(expiring_90_value or 0) }}</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-filter me-2"></i>Filtros
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Status:</label>
+                    <select name="status" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="expired" {% if request.args.get('status') == 'expired' %}selected{% endif %}>Vencidos</option>
+                        <option value="expiring_30" {% if request.args.get('status') == 'expiring_30' %}selected{% endif %}>Vencem em 30 dias</option>
+                        <option value="expiring_90" {% if request.args.get('status') == 'expiring_90' %}selected{% endif %}>Vencem em 90 dias</option>
+                        <option value="valid" {% if request.args.get('status') == 'valid' %}selected{% endif %}>Válidos</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Categoria:</label>
+                    <select name="category" class="form-select">
+                        <option value="">Todas</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}" 
+                                {% if request.args.get('category') == category %}selected{% endif %}>
+                            {{ category }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Buscar Medicamento:</label>
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Nome do medicamento..." 
+                           value="{{ request.args.get('search', '') }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Distribuição por Status</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="statusChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Vencimentos por Mês</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="timelineChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Medicamentos Vencidos (Crítico) -->
+    {% if expired_medications %}
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-times-circle me-2"></i>Medicamentos Vencidos - AÇÃO IMEDIATA
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Lote</th>
+                            <th>Data de Vencimento</th>
+                            <th>Dias Vencido</th>
+                            <th>Quantidade</th>
+                            <th>Valor Total</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medication in expired_medications %}
+                        <tr class="table-danger">
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ medication.commercial_name }}</div>
+                                    <small class="text-muted">{{ medication.generic_name }}</small>
+                                </div>
+                            </td>
+                            <td>{{ medication.batch_number or '--' }}</td>
+                            <td>{{ format_date(medication.expiry_date) }}</td>
+                            <td>
+                                <span class="badge bg-danger">{{ medication.days_expired }} dias</span>
+                            </td>
+                            <td>{{ medication.quantity }}</td>
+                            <td>R$ {{ "{:,.2f}".format(medication.total_value or 0) }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger" onclick="markForDisposal({{ medication.id }})">
+                                    <i class="fas fa-trash me-1"></i>Descartar
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Próximos ao Vencimento -->
+    {% if expiring_soon_medications %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>Próximos ao Vencimento (30 dias)
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Lote</th>
+                            <th>Data de Vencimento</th>
+                            <th>Dias Restantes</th>
+                            <th>Quantidade</th>
+                            <th>Valor Total</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medication in expiring_soon_medications %}
+                        <tr class="table-warning">
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ medication.commercial_name }}</div>
+                                    <small class="text-muted">{{ medication.generic_name }}</small>
+                                </div>
+                            </td>
+                            <td>{{ medication.batch_number or '--' }}</td>
+                            <td>{{ format_date(medication.expiry_date) }}</td>
+                            <td>
+                                <span class="badge bg-warning text-dark">{{ medication.days_to_expire }} dias</span>
+                            </td>
+                            <td>{{ medication.quantity }}</td>
+                            <td>R$ {{ "{:,.2f}".format(medication.total_value or 0) }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" onclick="prioritizeDispensation({{ medication.id }})">
+                                    <i class="fas fa-exclamation me-1"></i>Priorizar
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabela Principal -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-table me-2"></i>Controle de Validade
+            </h5>
+        </div>
+        
+        <div class="card-body p-0">
+            {% if medications %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="expiryTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Lote</th>
+                            <th>Data de Vencimento</th>
+                            <th>Status</th>
+                            <th>Quantidade</th>
+                            <th>Valor Unitário</th>
+                            <th>Valor Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medication in medications %}
+                        <tr>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ medication.commercial_name }}</div>
+                                    <small class="text-muted">{{ medication.generic_name }}</small>
+                                </div>
+                            </td>
+                            <td>{{ medication.batch_number or '--' }}</td>
+                            <td>{{ format_date(medication.expiry_date) }}</td>
+                            <td>
+                                {% if medication.is_expired %}
+                                <span class="badge bg-danger">Vencido</span>
+                                {% elif medication.days_to_expire <= 30 %}
+                                <span class="badge bg-warning text-dark">Vence em {{ medication.days_to_expire }} dias</span>
+                                {% elif medication.days_to_expire <= 90 %}
+                                <span class="badge bg-info">Vence em {{ medication.days_to_expire }} dias</span>
+                                {% else %}
+                                <span class="badge bg-success">Válido</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ medication.quantity }}</td>
+                            <td>R$ {{ "{:,.2f}".format(medication.unit_price or 0) }}</td>
+                            <td>R$ {{ "{:,.2f}".format((medication.quantity or 0) * (medication.unit_price or 0)) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-calendar-check fa-3x text-muted mb-3"></i>
+                <h5>Nenhum medicamento encontrado</h5>
+                <p class="text-muted">Ajuste os filtros para ver os dados.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.alert {
+    border-radius: 0.5rem;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.table-danger {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.1);
+}
+
+canvas {
+    max-height: 300px;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable
+    $('#expiryTable').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+        },
+        pageLength: 25,
+        order: [[2, 'asc']], // Ordenar por data de vencimento
+        columnDefs: [
+            { orderable: false, targets: [6] }
+        ]
+    });
+    
+    // Gráfico de Status
+    const ctxStatus = document.getElementById('statusChart').getContext('2d');
+    new Chart(ctxStatus, {
+        type: 'doughnut',
+        data: {
+            labels: ['Vencidos', 'Vencem em 30 dias', 'Vencem em 90 dias', 'Válidos'],
+            datasets: [{
+                data: [
+                    {{ expired_count or 0 }},
+                    {{ expiring_30_count or 0 }},
+                    {{ expiring_90_count or 0 }},
+                    {{ valid_count or 0 }}
+                ],
+                backgroundColor: ['#dc3545', '#ffc107', '#17a2b8', '#28a745']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+    
+    // Gráfico de Timeline
+    const ctxTimeline = document.getElementById('timelineChart').getContext('2d');
+    new Chart(ctxTimeline, {
+        type: 'bar',
+        data: {
+            labels: {{ timeline_labels|safe if timeline_labels else '[]' }},
+            datasets: [{
+                label: 'Medicamentos',
+                data: {{ timeline_data|safe if timeline_data else '[]' }},
+                backgroundColor: function(context) {
+                    const index = context.dataIndex;
+                    const label = context.chart.data.labels[index];
+                    if (label.includes('Vencidos')) return '#dc3545';
+                    if (label.includes('30 dias')) return '#ffc107';
+                    if (label.includes('90 dias')) return '#17a2b8';
+                    return '#28a745';
+                }
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+
+function markForDisposal(medicationId) {
+    if (confirm('Confirma o descarte deste medicamento vencido?')) {
+        // Implementar descarte
+        alert('Funcionalidade de descarte em desenvolvimento');
+    }
+}
+
+function prioritizeDispensation(medicationId) {
+    // Implementar priorização
+    alert('Medicamento marcado como prioridade para dispensação');
+}
+
+function exportReport(format) {
+    const status = $('select[name="status"]').val();
+    const category = $('select[name="category"]').val();
+    const search = $('input[name="search"]').val();
+    
+    const params = new URLSearchParams({
+        format: format,
+        status: status,
+        category: category,
+        search: search
+    });
+    
+    window.open(`/reports/expiry/export?${params.toString()}`, '_blank');
+}
+</script>
+{% endblock %}

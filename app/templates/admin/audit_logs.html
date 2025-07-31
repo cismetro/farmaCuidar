@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Logs de Auditoria - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.admin_index') }}">Administração</a>
+                    </li>
+                    <li class="breadcrumb-item active">Auditoria</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-search me-2 text-warning"></i>
+                Logs de Auditoria
+            </h1>
+            <p class="text-muted mb-0">Rastreamento de ações realizadas no sistema</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="exportLogs()">
+                    <i class="fas fa-download me-1"></i>Exportar
+                </button>
+                <a href="{{ url_for('main.admin_index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Ação:</label>
+                    <input type="text" name="action" class="form-control" 
+                           placeholder="LOGIN, CREATE, UPDATE..." 
+                           value="{{ action_filter }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tabela:</label>
+                    <select name="table" class="form-select">
+                        <option value="">Todas as tabelas</option>
+                        <option value="users" {% if table_filter == 'users' %}selected{% endif %}>Usuários</option>
+                        <option value="patients" {% if table_filter == 'patients' %}selected{% endif %}>Pacientes</option>
+                        <option value="medications" {% if table_filter == 'medications' %}selected{% endif %}>Medicamentos</option>
+                        <option value="dispensations" {% if table_filter == 'dispensations' %}selected{% endif %}>Dispensações</option>
+                        <option value="high_cost_processes" {% if table_filter == 'high_cost_processes' %}selected{% endif %}>Alto Custo</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Usuário:</label>
+                    <select name="user" class="form-select">
+                        <option value="">Todos os usuários</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}" {% if user_filter == user.id %}selected{% endif %}>
+                            {{ user.full_name }} ({{ user.username }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Logs -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-list me-2"></i>
+                Logs de Auditoria
+                <small class="text-muted">({{ logs.total }} registros)</small>
+            </h5>
+        </div>
+        
+        {% if logs.items %}
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data/Hora</th>
+                            <th>Usuário</th>
+                            <th>Ação</th>
+                            <th>Tabela</th>
+                            <th>Registro</th>
+                            <th>IP</th>
+                            <th width="80">Detalhes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs.items %}
+                        <tr>
+                            <td>
+                                <small>{{ format_datetime(log.created_at) }}</small>
+                            </td>
+                            <td>
+                                {% if log.user %}
+                                    <div>
+                                        <small class="fw-semibold">{{ log.user.full_name }}</small>
+                                        <br><small class="text-muted">{{ log.user.username }}</small>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">Sistema</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set action_class = {
+                                    'LOGIN': 'success',
+                                    'LOGOUT': 'secondary',
+                                    'CREATE': 'primary',
+                                    'UPDATE': 'warning',
+                                    'DELETE': 'danger',
+                                    'DOWNLOAD': 'info',
+                                    'STOCK_ENTRY': 'success',
+                                    'DISPENSATION': 'primary'
+                                }.get(log.action, 'secondary') %}
+                                <span class="badge bg-{{ action_class }}">{{ log.action }}</span>
+                            </td>
+                            <td>
+                                <code class="small">{{ log.table_name or '—' }}</code>
+                            </td>
+                            <td>
+                                {% if log.record_id %}
+                                    <span class="badge bg-light text-dark">#{{ log.record_id }}</span>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ log.ip_address or '—' }}</small>
+                            </td>
+                            <td>
+                                {% if log.old_values or log.new_values %}
+                                <button class="btn btn-outline-info btn-sm" 
+                                        onclick="showLogDetails({{ log.id }})" title="Ver detalhes">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Paginação -->
+        {% if logs.pages > 1 %}
+        <div class="card-footer">
+            <nav aria-label="Paginação de logs">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if logs.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.admin_audit_logs', page=logs.prev_num, action=action_filter, table=table_filter, user=user_filter) }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for page_num in logs.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != logs.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.admin_audit_logs', page=page_num, action=action_filter, table=table_filter, user=user_filter) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if logs.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.admin_audit_logs', page=logs.next_num, action=action_filter, table=table_filter, user=user_filter) }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Estado vazio -->
+        <div class="card-body text-center py-5">
+            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+            <h5>Nenhum log encontrado</h5>
+            {% if action_filter or table_filter or user_filter %}
+            <p class="text-muted">Nenhum log corresponde aos filtros aplicados.</p>
+            <a href="{{ url_for('main.admin_audit_logs') }}" class="btn btn-outline-primary">
+                <i class="fas fa-times me-1"></i>Limpar Filtros
+            </a>
+            {% else %}
+            <p class="text-muted">Ainda não há logs de auditoria registrados.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal de Detalhes do Log -->
+<div class="modal fade" id="logDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do Log de Auditoria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="logDetailsContent">
+                    <!-- Conteúdo carregado via AJAX -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showLogDetails(logId) {
+    const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
+    const content = document.getElementById('logDetailsContent');
+    
+    content.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
+    modal.show();
+    
+    // Implementar carregamento de detalhes via AJAX
+    setTimeout(() => {
+        content.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Funcionalidade de detalhes em desenvolvimento. 
+                Em breve será possível visualizar as alterações completas do registro.
+            </div>
+            <p><strong>Log ID:</strong> ${logId}</p>
+        `;
+    }, 1000);
+}
+
+function exportLogs() {
+    // Implementar exportação de logs
+    alert('Funcionalidade de exportação em desenvolvimento.');
+}
+
+$(document).ready(function() {
+    // Auto-refresh a cada 30 segundos para logs em tempo real
+    setInterval(function() {
+        // Verificar se há novos logs
+        const currentUrl = window.location.href;
+        if (currentUrl.indexOf('page=1') !== -1 || currentUrl.indexOf('page=') === -1) {
+            // Recarregar apenas se estiver na primeira página
+            // location.reload();
+        }
+    }, 30000);
+    
+    // Destacar logs de ações críticas
+    $('tbody tr').each(function() {
+        const action = $(this).find('.badge').text();
+        if (['DELETE', 'UPDATE'].includes(action)) {
+            $(this).addClass('table-warning');
+        }
+    });
+});
+</script>
+{% endblock %}

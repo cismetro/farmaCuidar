@@ -1,0 +1,687 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmar Dispensação - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.dispensation_index') }}">Dispensações</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.dispensation_select_medications', patient_id=patient.id) }}">Selecionar Medicamentos</a>
+                    </li>
+                    <li class="breadcrumb-item active">Confirmar Dispensação</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-check-circle me-2 text-success"></i>
+                Confirmar Dispensação
+            </h1>
+            <p class="text-muted mb-0">Revise os dados antes de finalizar a dispensação</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informações do Paciente -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user me-2"></i>Dados do Paciente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="avatar-xl bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3">
+                            {{ patient.full_name[0].upper() if patient.full_name else 'P' }}
+                        </div>
+                        <h5 class="mb-1">{{ patient.full_name }}</h5>
+                        <p class="text-muted mb-0">{{ calculate_age(patient.birth_date) }} anos</p>
+                    </div>
+                    
+                    <hr>
+                    
+                    <dl class="row mb-0">
+                        <dt class="col-5">CPF:</dt>
+                        <dd class="col-7">{{ format_cpf(patient.cpf) }}</dd>
+                        
+                        {% if patient.cns %}
+                        <dt class="col-5">CNS:</dt>
+                        <dd class="col-7">{{ format_cns(patient.cns) }}</dd>
+                        {% endif %}
+                        
+                        <dt class="col-5">Gênero:</dt>
+                        <dd class="col-7">{{ format_gender(patient.gender) }}</dd>
+                        
+                        {% if patient.phone %}
+                        <dt class="col-5">Telefone:</dt>
+                        <dd class="col-7">{{ format_phone(patient.phone) }}</dd>
+                        {% endif %}
+                        
+                        {% if patient.email %}
+                        <dt class="col-5">Email:</dt>
+                        <dd class="col-7">{{ patient.email }}</dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Resumo da Dispensação -->
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-clipboard-list me-2"></i>Resumo da Dispensação
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Total de Medicamentos:</span>
+                        <span class="badge bg-primary" id="totalMedications">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Total de Unidades:</span>
+                        <span class="badge bg-success" id="totalUnits">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Valor Total:</span>
+                        <span class="badge bg-warning text-dark" id="totalValue">R$ 0,00</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span>Farmacêutico:</span>
+                        <span class="badge bg-secondary">{{ current_user.full_name }}</span>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">Data/Hora:</span>
+                        <span class="fw-bold" id="currentDateTime"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Medicamentos Selecionados -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-pills me-2"></i>Medicamentos Selecionados
+                        <span class="badge bg-light text-dark ms-2" id="medicationCount">0 itens</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0" id="medicationsContainer">
+                    <!-- Será preenchido via JavaScript -->
+                    <div class="text-center py-5" id="loadingMedications">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-2 mb-0 text-muted">Carregando medicamentos...</p>
+                    </div>
+                </div>
+                
+                <div class="card-footer" id="confirmFooter" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Observações Gerais:</label>
+                            <textarea class="form-control" id="generalObservations" rows="3" 
+                                      placeholder="Observações gerais sobre a dispensação..."></textarea>
+                        </div>
+                        <div class="col-md-6 d-flex flex-column justify-content-end">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-secondary" onclick="goBack()">
+                                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                                </button>
+                                <button class="btn btn-success btn-lg" id="confirmBtn" onclick="confirmDispensation()">
+                                    <i class="fas fa-check me-1"></i>Confirmar Dispensação
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>Confirmar Dispensação
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                    <h5>Atenção!</h5>
+                    <p>Tem certeza que deseja confirmar esta dispensação?</p>
+                </div>
+                
+                <div class="alert alert-info">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-info-circle me-2"></i>Dados da Dispensação:
+                    </h6>
+                    <ul class="mb-0">
+                        <li><strong>Paciente:</strong> {{ patient.full_name }}</li>
+                        <li><strong>Medicamentos:</strong> <span id="modalMedicationCount">0</span> itens</li>
+                        <li><strong>Total de Unidades:</strong> <span id="modalTotalUnits">0</span></li>
+                        <li><strong>Valor Total:</strong> <span id="modalTotalValue">R$ 0,00</span></li>
+                        <li><strong>Data/Hora:</strong> <span id="modalDateTime"></span></li>
+                    </ul>
+                </div>
+                
+                <p class="text-muted small mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Esta ação não poderá ser desfeita. O estoque será atualizado automaticamente.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="processDispensation()">
+                    <i class="fas fa-check me-1"></i>Sim, Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Sucesso -->
+<div class="modal fade" id="successModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-5">
+                <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                <h3 class="text-success">Dispensação Realizada!</h3>
+                <p class="text-muted mb-4">A dispensação foi processada com sucesso.</p>
+                
+                <div class="d-grid gap-2 col-8 mx-auto">
+                    <button class="btn btn-primary" onclick="viewDispensation()">
+                        <i class="fas fa-eye me-1"></i>Ver Dispensação
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="newDispensation()">
+                        <i class="fas fa-plus me-1"></i>Nova Dispensação
+                    </button>
+                    <button class="btn btn-outline-info" onclick="printDispensation()">
+                        <i class="fas fa-print me-1"></i>Imprimir Comprovante
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Erro -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Dados não encontrados
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center py-3">
+                    <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                    <h5>Dados da dispensação não encontrados</h5>
+                    <p class="text-muted">Os dados dos medicamentos selecionados não foram encontrados. Você será redirecionado para selecionar os medicamentos novamente.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="redirectToSelection()">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar à Seleção
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.avatar-xl {
+    width: 80px;
+    height: 80px;
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.quantity-input {
+    max-width: 70px;
+}
+
+.observations-input {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.input-group-sm .btn {
+    font-size: 0.75rem;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+dl dt {
+    font-weight: 600;
+    color: #495057;
+}
+
+dl dd {
+    margin-bottom: 0.5rem;
+}
+
+.modal-body .fa-4x {
+    font-size: 4rem;
+}
+
+.medication-row {
+    transition: all 0.3s ease;
+}
+
+.medication-row:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+@media print {
+    .btn, .card-footer, .modal {
+        display: none !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Dados da dispensação vindos do sessionStorage
+let dispensationData = {
+    patient_id: {{ patient.id }},
+    patient_name: "{{ patient.full_name }}",
+    medications: [],
+    general_observations: ""
+};
+
+$(document).ready(function() {
+    // Definir data/hora atual
+    updateDateTime();
+    
+    // Recuperar dados do sessionStorage
+    loadDispensationData();
+});
+
+function updateDateTime() {
+    const now = new Date();
+    const dateTimeString = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    $('#currentDateTime').text(dateTimeString);
+    $('#modalDateTime').text(dateTimeString);
+}
+
+function loadDispensationData() {
+    const storedData = sessionStorage.getItem('dispensationData');
+    
+    if (storedData) {
+        try {
+            const data = JSON.parse(storedData);
+            
+            // Validar dados
+            if (data.patient_id && data.medications && data.medications.length > 0) {
+                dispensationData = {
+                    patient_id: data.patient_id,
+                    patient_name: data.patient_name || "{{ patient.full_name }}",
+                    medications: data.medications,
+                    general_observations: data.general_observations || ""
+                };
+                
+                // Popular interface
+                populateConfirmationPage();
+                
+                // Limpar sessionStorage após uso
+                sessionStorage.removeItem('dispensationData');
+            } else {
+                showNoDataModal();
+            }
+        } catch (error) {
+            console.error('Erro ao parsing dos dados:', error);
+            showNoDataModal();
+        }
+    } else {
+        showNoDataModal();
+    }
+}
+
+function populateConfirmationPage() {
+    // Esconder loading
+    $('#loadingMedications').hide();
+    
+    // Criar tabela de medicamentos
+    createMedicationsTable();
+    
+    // Atualizar resumo
+    updateSummary();
+    
+    // Mostrar footer
+    $('#confirmFooter').show();
+}
+
+function createMedicationsTable() {
+    if (dispensationData.medications.length === 0) {
+        showNoMedicationsMessage();
+        return;
+    }
+    
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Medicamento</th>
+                        <th width="120">Quantidade</th>
+                        <th width="100">Valor Unit.</th>
+                        <th width="100">Subtotal</th>
+                        <th>Observações</th>
+                        <th width="80">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="medicationsTable">
+    `;
+    
+    dispensationData.medications.forEach((medication, index) => {
+        const subtotal = (medication.unit_cost || 0) * medication.quantity;
+        html += `
+            <tr class="medication-row" data-medication-index="${index}">
+                <td>
+                    <div>
+                        <div class="fw-semibold">${medication.medication_name}</div>
+                        <small class="text-muted">ID: ${medication.medication_id}</small>
+                    </div>
+                </td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <button class="btn btn-outline-secondary" type="button" 
+                                onclick="changeQuantity(${index}, -1)">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <input type="number" class="form-control text-center quantity-input" 
+                               value="${medication.quantity}" min="1" max="999"
+                               onchange="updateQuantity(${index}, this.value)">
+                        <button class="btn btn-outline-secondary" type="button" 
+                                onclick="changeQuantity(${index}, 1)">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </td>
+                <td>R$ ${(medication.unit_cost || 0).toFixed(2)}</td>
+                <td class="fw-semibold">R$ ${subtotal.toFixed(2)}</td>
+                <td>
+                    <textarea class="form-control form-control-sm observations-input" 
+                              rows="2" placeholder="Observações..."
+                              onchange="updateObservations(${index}, this.value)">${medication.observations || ''}</textarea>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" 
+                            onclick="removeMedication(${index})" 
+                            title="Remover">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    
+    $('#medicationsContainer').html(html);
+}
+
+function showNoMedicationsMessage() {
+    $('#medicationsContainer').html(`
+        <div class="text-center py-5">
+            <i class="fas fa-pills fa-3x text-muted mb-3"></i>
+            <h5>Nenhum medicamento selecionado</h5>
+            <p class="text-muted">Volte e selecione pelo menos um medicamento.</p>
+            <button class="btn btn-primary" onclick="redirectToSelection()">
+                <i class="fas fa-arrow-left me-1"></i>Voltar à Seleção
+            </button>
+        </div>
+    `);
+}
+
+function showNoDataModal() {
+    new bootstrap.Modal(document.getElementById('errorModal')).show();
+}
+
+function redirectToSelection() {
+    window.location.href = '{{ url_for("main.dispensation_select_medications", patient_id=patient.id) }}';
+}
+
+function changeQuantity(index, delta) {
+    const medication = dispensationData.medications[index];
+    if (!medication) return;
+    
+    const newQuantity = medication.quantity + delta;
+    
+    if (newQuantity >= 1) {
+        updateQuantity(index, newQuantity);
+    }
+}
+
+function updateQuantity(index, newQuantity) {
+    newQuantity = parseInt(newQuantity);
+    
+    if (newQuantity < 1) {
+        showAlert('Quantidade deve ser maior que zero.', 'warning');
+        return;
+    }
+    
+    const medication = dispensationData.medications[index];
+    if (!medication) return;
+    
+    medication.quantity = newQuantity;
+    
+    // Atualizar display da linha
+    const row = $(`tr[data-medication-index="${index}"]`);
+    row.find('.quantity-input').val(newQuantity);
+    
+    // Atualizar subtotal
+    const subtotal = (medication.unit_cost || 0) * newQuantity;
+    row.find('td:nth-child(4)').text(`R$ ${subtotal.toFixed(2)}`);
+    
+    updateSummary();
+}
+
+function updateObservations(index, observations) {
+    const medication = dispensationData.medications[index];
+    if (medication) {
+        medication.observations = observations;
+    }
+}
+
+function removeMedication(index) {
+    if (confirm('Tem certeza que deseja remover este medicamento da dispensação?')) {
+        // Remover do array
+        dispensationData.medications.splice(index, 1);
+        
+        // Recriar tabela
+        createMedicationsTable();
+        updateSummary();
+        
+        // Verificar se ainda há medicamentos
+        if (dispensationData.medications.length === 0) {
+            $('#confirmBtn').prop('disabled', true);
+            showNoMedicationsMessage();
+        }
+        
+        showAlert('Medicamento removido da dispensação.', 'info');
+    }
+}
+
+function updateSummary() {
+    const totalMedications = dispensationData.medications.length;
+    const totalUnits = dispensationData.medications.reduce((sum, med) => sum + med.quantity, 0);
+    const totalValue = dispensationData.medications.reduce((sum, med) => sum + ((med.unit_cost || 0) * med.quantity), 0);
+    
+    $('#totalMedications').text(totalMedications);
+    $('#totalUnits').text(totalUnits);
+    $('#totalValue').text(`R$ ${totalValue.toFixed(2)}`);
+    $('#medicationCount').text(`${totalMedications} itens`);
+    
+    // Atualizar modal
+    $('#modalMedicationCount').text(totalMedications);
+    $('#modalTotalUnits').text(totalUnits);
+    $('#modalTotalValue').text(`R$ ${totalValue.toFixed(2)}`);
+    
+    // Habilitar/desabilitar botão
+    $('#confirmBtn').prop('disabled', totalMedications === 0);
+}
+
+function confirmDispensation() {
+    if (dispensationData.medications.length === 0) {
+        showAlert('Selecione pelo menos um medicamento para dispensar.', 'warning');
+        return;
+    }
+    
+    // Capturar observações gerais
+    dispensationData.general_observations = $('#generalObservations').val();
+    
+    // Atualizar observações dos medicamentos
+    dispensationData.medications.forEach((med, index) => {
+        const observations = $(`tr[data-medication-index="${index}"] .observations-input`).val();
+        med.observations = observations;
+    });
+    
+    // Mostrar modal de confirmação
+    new bootstrap.Modal(document.getElementById('confirmModal')).show();
+}
+
+function processDispensation() {
+    // Fechar modal de confirmação
+    bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+    
+    // Mostrar loading no botão
+    $('#confirmBtn').html('<i class="fas fa-spinner fa-spin me-1"></i>Processando...').prop('disabled', true);
+    
+    // Preparar dados para envio
+    const postData = {
+        patient_id: dispensationData.patient_id,
+        general_observations: dispensationData.general_observations,
+        medications: dispensationData.medications.map(med => ({
+            medication_id: med.medication_id,
+            quantity: med.quantity,
+            observations: med.observations || ''
+        }))
+    };
+    
+    // Enviar dispensação
+    $.ajax({
+        url: '/dispensation/create',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(postData),
+        success: function(response) {
+            if (response.success) {
+                // Armazenar ID da dispensação
+                window.dispensationId = response.dispensation_id;
+                
+                // Mostrar modal de sucesso
+                setTimeout(() => {
+                    new bootstrap.Modal(document.getElementById('successModal')).show();
+                }, 500);
+            } else {
+                showAlert('Erro ao processar dispensação: ' + (response.message || 'Erro desconhecido'), 'danger');
+                resetConfirmButton();
+            }
+        },
+        error: function(xhr) {
+            const response = xhr.responseJSON;
+            showAlert('Erro: ' + (response ? response.message || response.error : 'Erro de conexão'), 'danger');
+            resetConfirmButton();
+        }
+    });
+}
+
+function resetConfirmButton() {
+    $('#confirmBtn').html('<i class="fas fa-check me-1"></i>Confirmar Dispensação').prop('disabled', false);
+}
+
+function goBack() {
+    // Salvar dados atuais no sessionStorage antes de voltar
+    sessionStorage.setItem('dispensationData', JSON.stringify(dispensationData));
+    window.location.href = '{{ url_for("main.dispensation_select_medications", patient_id=patient.id) }}';
+}
+
+function viewDispensation() {
+    if (window.dispensationId) {
+        window.location.href = `/dispensations/${window.dispensationId}`;
+    } else {
+        window.location.href = '{{ url_for("main.dispensation_index") }}';
+    }
+}
+
+function newDispensation() {
+    // Limpar sessionStorage
+    sessionStorage.removeItem('dispensationData');
+    window.location.href = '{{ url_for("main.dispensation_index") }}';
+}
+
+function printDispensation() {
+    if (window.dispensationId) {
+        window.open(`/dispensations/${window.dispensationId}/print`, '_blank');
+    } else {
+        window.print();
+    }
+}
+
+function showAlert(message, type = 'info') {
+    const alertClass = {
+        'success': 'alert-success',
+        'warning': 'alert-warning', 
+        'danger': 'alert-danger',
+        'info': 'alert-info'
+    }[type] || 'alert-info';
+    
+    const alert = $(`
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    
+    $('.container-fluid').prepend(alert);
+    
+    setTimeout(() => {
+        alert.fadeOut();
+    }, 5000);
+}
+
+// CSRF Token para AJAX
+$.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+            xhr.setRequestHeader("X-CSRFToken", $('meta[name=csrf-token]').attr('content'));
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,682 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório Alto Custo - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.reports_index') }}">Relatórios</a>
+                    </li>
+                    <li class="breadcrumb-item active">Alto Custo</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-star me-2 text-danger"></i>
+                Relatório de Alto Custo
+            </h1>
+            <p class="text-muted mb-0">
+                Processos e medicamentos de alto custo
+                {% if start_date and end_date %}
+                - Período: {{ format_date(start_date) }} a {{ format_date(end_date) }}
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="exportReport('pdf')">
+                    <i class="fas fa-file-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-outline-success" onclick="exportReport('excel')">
+                    <i class="fas fa-file-excel me-1"></i>Excel
+                </button>
+                <button class="btn btn-outline-info" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas Reais -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Total de Processos</div>
+                            <div class="fs-4 fw-bold">{{ stats.total }}</div>
+                        </div>
+                        <i class="fas fa-file-medical fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Pendentes</div>
+                            <div class="fs-4 fw-bold">{{ stats.pending }}</div>
+                        </div>
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Avaliação</div>
+                            <div class="fs-4 fw-bold">{{ stats.under_evaluation }}</div>
+                        </div>
+                        <i class="fas fa-search fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Aprovados</div>
+                            <div class="fs-4 fw-bold">{{ stats.approved }}</div>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-2">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Negados</div>
+                            <div class="fs-4 fw-bold">{{ stats.denied }}</div>
+                        </div>
+                        <i class="fas fa-times-circle fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-1">
+            <div class="card bg-secondary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Outros</div>
+                            <div class="fs-4 fw-bold">{{ stats.dispensed + stats.completed + stats.cancelled }}</div>
+                        </div>
+                        <i class="fas fa-list fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros Funcionais - CORRIGIDO SEM CSRF -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-filter me-2"></i>Filtros
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('main.reports_generate') }}" class="row g-3">
+                <input type="hidden" name="report_type" value="high_cost">
+                
+                <div class="col-md-2">
+                    <label class="form-label">Status:</label>
+                    <select name="status" class="form-select">
+                        <option value="">Todos os Status</option>
+                        <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>
+                            Pendente Avaliação
+                        </option>
+                        <option value="under_evaluation" {% if request.args.get('status') == 'under_evaluation' %}selected{% endif %}>
+                            Em Avaliação
+                        </option>
+                        <option value="approved" {% if request.args.get('status') == 'approved' %}selected{% endif %}>
+                            Aprovado
+                        </option>
+                        <option value="denied" {% if request.args.get('status') == 'denied' %}selected{% endif %}>
+                            Negado
+                        </option>
+                        <option value="dispensed" {% if request.args.get('status') == 'dispensed' %}selected{% endif %}>
+                            Dispensado
+                        </option>
+                        <option value="completed" {% if request.args.get('status') == 'completed' %}selected{% endif %}>
+                            Concluído
+                        </option>
+                        <option value="cancelled" {% if request.args.get('status') == 'cancelled' %}selected{% endif %}>
+                            Cancelado
+                        </option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label">Data Início:</label>
+                    <input type="date" name="start_date" class="form-control" 
+                           value="{{ request.args.get('start_date', '') }}">
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label">Data Fim:</label>
+                    <input type="date" name="end_date" class="form-control" 
+                           value="{{ request.args.get('end_date', '') }}">
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label">Formato:</label>
+                    <select name="format_type" class="form-select">
+                        <option value="html" {% if request.args.get('format_type', 'html') == 'html' %}selected{% endif %}>
+                            Visualizar
+                        </option>
+                        <option value="pdf" {% if request.args.get('format_type') == 'pdf' %}selected{% endif %}>
+                            PDF
+                        </option>
+                        <option value="excel" {% if request.args.get('format_type') == 'excel' %}selected{% endif %}>
+                            Excel
+                        </option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>Filtrar
+                    </button>
+                </div>
+                
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{{ url_for('main.reports_generate') }}?report_type=high_cost&format_type=html" 
+                       class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-undo me-1"></i>Limpar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mostrar aviso quando não há dados -->
+    {% if stats.total == 0 %}
+    <div class="alert alert-info" role="alert">
+        <h5 class="alert-heading">
+            <i class="fas fa-info-circle me-2"></i>Nenhum processo encontrado
+        </h5>
+        <p>Não foram encontrados processos de alto custo {% if request.args.get('start_date') or request.args.get('end_date') %}no período selecionado{% endif %}.</p>
+        <hr>
+        <p class="mb-0">
+            <a href="{{ url_for('main.high_cost_new') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i>Novo Processo Alto Custo
+            </a>
+            {% if request.args.get('start_date') or request.args.get('end_date') %}
+            <a href="{{ url_for('main.reports_generate') }}?report_type=high_cost&format_type=html" class="btn btn-outline-secondary btn-sm ms-2">
+                <i class="fas fa-calendar me-1"></i>Ver Todos os Períodos
+            </a>
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Gráficos e conteúdo restante só se houver dados -->
+    {% if stats.total > 0 %}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Distribuição por Status</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="statusChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Evolução Mensal</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Análise de Processos -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-chart-pie me-2"></i>Análise de Processos
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    {% set approved_count = 0 %}
+                    {% for process in processes %}
+                        {% if process.status.value == 'approved' %}
+                            {% set approved_count = approved_count + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    <h3 class="text-info">{{ approved_count }}</h3>
+                    <p class="text-muted">Aprovados no período</p>
+                </div>
+                <div class="col-md-3">
+                    {% set pending_count = 0 %}
+                    {% for process in processes %}
+                        {% if process.status.value == 'pending' %}
+                            {% set pending_count = pending_count + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    <h3 class="text-warning">{{ pending_count }}</h3>
+                    <p class="text-muted">Aguardando avaliação</p>
+                </div>
+                <div class="col-md-3">
+                    {% if stats.total > 0 %}
+                        {% set approval_rate = (stats.approved / stats.total * 100) %}
+                        <h3 class="text-success">{{ "%.1f"|format(approval_rate) }}%</h3>
+                    {% else %}
+                        <h3 class="text-success">0%</h3>
+                    {% endif %}
+                    <p class="text-muted">Taxa de aprovação</p>
+                </div>
+                <div class="col-md-3">
+                    {% set unique_patients = [] %}
+                    {% for process in processes %}
+                        {% if process.patient.id not in unique_patients %}
+                            {% set _ = unique_patients.append(process.patient.id) %}
+                        {% endif %}
+                    {% endfor %}
+                    <h3 class="text-primary">{{ unique_patients|length }}</h3>
+                    <p class="text-muted">Pacientes únicos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Medicamentos e Médicos -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-pills me-2"></i>Medicamentos Mais Solicitados
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if processes %}
+                        <div class="list-group list-group-flush">
+                            {% set shown_meds = [] %}
+                            {% for process in processes %}
+                                {% if process.medication.commercial_name not in shown_meds %}
+                                    {% set _ = shown_meds.append(process.medication.commercial_name) %}
+                                    {% if shown_meds|length <= 5 %}
+                                        {% set med_count = 0 %}
+                                        {% for p in processes %}
+                                            {% if p.medication.commercial_name == process.medication.commercial_name %}
+                                                {% set med_count = med_count + 1 %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">{{ process.medication.commercial_name }}</h6>
+                                                <small class="text-muted">{{ process.medication.dosage }}</small>
+                                            </div>
+                                            <span class="badge bg-warning rounded-pill">{{ med_count }} processo{% if med_count != 1 %}s{% endif %}</span>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="p-3 text-center text-muted">
+                            <i class="fas fa-pills fa-2x mb-2"></i>
+                            <p class="mb-0">Nenhum medicamento encontrado</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-user-md me-2"></i>Médicos Solicitantes
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if processes %}
+                        <div class="list-group list-group-flush">
+                            {% set shown_doctors = [] %}
+                            {% for process in processes %}
+                                {% if process.doctor_name not in shown_doctors %}
+                                    {% set _ = shown_doctors.append(process.doctor_name) %}
+                                    {% if shown_doctors|length <= 5 %}
+                                        {% set doctor_count = 0 %}
+                                        {% for p in processes %}
+                                            {% if p.doctor_name == process.doctor_name %}
+                                                {% set doctor_count = doctor_count + 1 %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">{{ process.doctor_name }}</h6>
+                                                <small class="text-muted">CRM: {{ process.doctor_crm or 'N/A' }}</small>
+                                            </div>
+                                            <span class="badge bg-success rounded-pill">{{ doctor_count }} processo{% if doctor_count != 1 %}s{% endif %}</span>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="p-3 text-center text-muted">
+                            <i class="fas fa-user-md fa-2x mb-2"></i>
+                            <p class="mb-0">Nenhum médico encontrado</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Processos Reais -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-table me-2"></i>Processos de Alto Custo
+                {% if processes %}
+                    <span class="badge bg-primary ms-2">{{ processes|length }} registro{% if processes|length != 1 %}s{% endif %}</span>
+                {% endif %}
+            </h5>
+        </div>
+        
+        <div class="card-body p-0">
+            {% if processes %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="highCostTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Protocolo</th>
+                            <th>Paciente</th>
+                            <th>Medicamento</th>
+                            <th>Médico Solicitante</th>
+                            <th>Data Solicitação</th>
+                            <th>Status</th>
+                            <th>CID-10</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for process in processes %}
+                        <tr>
+                            <td>
+                                <code>{{ process.protocol_number }}</code>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ process.patient.full_name }}</div>
+                                    <small class="text-muted">CPF: {{ format_cpf(process.patient.cpf) }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ process.medication.commercial_name }}</div>
+                                    <small class="text-muted">{{ process.medication.dosage }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <div>{{ process.doctor_name }}</div>
+                                    <small class="text-muted">CRM: {{ process.doctor_crm or 'N/A' }}</small>
+                                </div>
+                            </td>
+                            <td>{{ format_date(process.request_date) }}</td>
+                            <td>
+                                {% if process.status.value == 'pending' %}
+                                    <span class="badge bg-warning">Pendente</span>
+                                {% elif process.status.value == 'under_evaluation' %}
+                                    <span class="badge bg-info">Em Avaliação</span>
+                                {% elif process.status.value == 'approved' %}
+                                    <span class="badge bg-success">Aprovado</span>
+                                {% elif process.status.value == 'denied' %}
+                                    <span class="badge bg-danger">Negado</span>
+                                {% elif process.status.value == 'dispensed' %}
+                                    <span class="badge bg-primary">Dispensado</span>
+                                {% elif process.status.value == 'completed' %}
+                                    <span class="badge bg-secondary">Concluído</span>
+                                {% elif process.status.value == 'cancelled' %}
+                                    <span class="badge bg-dark">Cancelado</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ format_process_status(process.status) }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <code>{{ process.cid10 }}</code>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}" 
+                                       class="btn btn-outline-primary" title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {% if process.status.value == 'pending' and has_permission('evaluate_high_cost') %}
+                                    <a href="{{ url_for('main.high_cost_evaluate', id=process.id) }}" 
+                                       class="btn btn-outline-success" title="Avaliar">
+                                        <i class="fas fa-clipboard-check"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum processo encontrado</h5>
+                <p class="text-muted">{% if request.args.get('start_date') or request.args.get('end_date') %}Ajuste o período ou {% endif %}verifique os critérios de busca.</p>
+                <a href="{{ url_for('main.high_cost_new') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Novo Processo
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0.5rem;
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+    background-color: #f8f9fa;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+code {
+    color: #e83e8c;
+    background-color: #f8f9fa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+@media print {
+    .btn, .card-header .btn-group, nav, .no-print {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #dee2e6 !important;
+        box-shadow: none !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable apenas se houver dados
+    {% if processes %}
+    $('#highCostTable').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+        },
+        pageLength: 25,
+        order: [[4, 'desc']],
+        columnDefs: [
+            { orderable: false, targets: [7] },
+            { className: "text-center", targets: [5, 6] }
+        ],
+        responsive: true
+    });
+    
+    // Gráfico de Status com dados reais
+    const ctxStatus = document.getElementById('statusChart').getContext('2d');
+    const statusData = [
+        {{ stats.pending }},
+        {{ stats.under_evaluation }},
+        {{ stats.approved }},
+        {{ stats.denied }},
+        {{ stats.dispensed + stats.completed + stats.cancelled }}
+    ];
+    
+    new Chart(ctxStatus, {
+        type: 'doughnut',
+        data: {
+            labels: ['Pendente', 'Em Avaliação', 'Aprovado', 'Negado', 'Outros'],
+            datasets: [{
+                data: statusData,
+                backgroundColor: ['#ffc107', '#17a2b8', '#28a745', '#dc3545', '#6c757d'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = statusData.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                            return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Gráfico Mensal simples
+    const ctxMonthly = document.getElementById('monthlyChart').getContext('2d');
+    new Chart(ctxMonthly, {
+        type: 'line',
+        data: {
+            labels: ['Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+            datasets: [{
+                label: 'Processos',
+                data: [0, 0, 0, 0, 0, {{ stats.total }}],
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                borderColor: '#dc3545',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+
+function exportReport(format) {
+    // Captura os parâmetros atuais da URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    const exportUrl = new URL('{{ url_for("main.reports_generate") }}', window.location.origin);
+    exportUrl.searchParams.set('report_type', 'high_cost');
+    exportUrl.searchParams.set('format_type', format);
+    
+    // Preservar filtros atuais
+    if (urlParams.get('status')) exportUrl.searchParams.set('status', urlParams.get('status'));
+    if (urlParams.get('start_date')) exportUrl.searchParams.set('start_date', urlParams.get('start_date'));
+    if (urlParams.get('end_date')) exportUrl.searchParams.set('end_date', urlParams.get('end_date'));
+    
+    // Redirecionar para download
+    window.location.href = exportUrl.toString();
+}
+</script>
+{% endblock %}

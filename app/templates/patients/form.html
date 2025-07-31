@@ -1,0 +1,820 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.patients_list') }}">Pacientes</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-user-plus me-2 text-primary"></i>
+                {{ title }}
+            </h1>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.patients_list') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-xl-10">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user me-2"></i>
+                        Dados do Paciente
+                    </h5>
+                </div>
+                
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="card-body">
+                        <!-- Dados Pessoais -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-id-card me-2"></i>Dados Pessoais
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.full_name.label(class="form-label required") }}
+                                    {{ form.full_name(class="form-control" + (" is-invalid" if form.full_name.errors else ""), id="full_name") }}
+                                    {% if form.full_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.full_name.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Nome e sobrenome completos</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.birth_date.label(class="form-label required") }}
+                                    {{ form.birth_date(class="form-control" + (" is-invalid" if form.birth_date.errors else ""), id="birth_date") }}
+                                    {% if form.birth_date.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.birth_date.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Formato: DD/MM/AAAA</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.cpf.label(class="form-label required") }}
+                                    {{ form.cpf(class="form-control" + (" is-invalid" if form.cpf.errors else ""), id="cpf") }}
+                                    {% if form.cpf.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.cpf.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Formato: 000.000.000-00</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.cns.label(class="form-label") }}
+                                    {{ form.cns(class="form-control" + (" is-invalid" if form.cns.errors else ""), id="cns") }}
+                                    {% if form.cns.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.cns.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Cartão Nacional de Saúde (opcional)</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.gender.label(class="form-label") }}
+                                    {{ form.gender(class="form-select" + (" is-invalid" if form.gender.errors else ""), id="gender") }}
+                                    {% if form.gender.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.gender.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ✅ Informações Familiares -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-users me-2"></i>Informações Familiares
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.mother_name.label(class="form-label") }}
+                                    {{ form.mother_name(class="form-control" + (" is-invalid" if form.mother_name.errors else ""), id="mother_name") }}
+                                    {% if form.mother_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.mother_name.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Nome completo da mãe (opcional)</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.father_name.label(class="form-label") }}
+                                    {{ form.father_name(class="form-control" + (" is-invalid" if form.father_name.errors else ""), id="father_name") }}
+                                    {% if form.father_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.father_name.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Nome completo do pai (opcional)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ✅ Contato (Atualizado) -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-phone me-2"></i>Contato
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.cell_phone.label(class="form-label") }}
+                                    {{ form.cell_phone(class="form-control" + (" is-invalid" if form.cell_phone.errors else ""), id="cell_phone") }}
+                                    {% if form.cell_phone.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.cell_phone.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Telefone celular principal</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.home_phone.label(class="form-label") }}
+                                    {{ form.home_phone(class="form-control" + (" is-invalid" if form.home_phone.errors else ""), id="home_phone") }}
+                                    {% if form.home_phone.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.home_phone.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Telefone residencial</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.contact_phone.label(class="form-label") }}
+                                    {{ form.contact_phone(class="form-control" + (" is-invalid" if form.contact_phone.errors else ""), id="contact_phone") }}
+                                    {% if form.contact_phone.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.contact_phone.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Telefone de contato alternativo</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.email.label(class="form-label") }}
+                                    {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), id="email") }}
+                                    {% if form.email.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.email.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">exemplo@email.com</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Endereço -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary border-bottom pb-2 mb-3">
+                                    <i class="fas fa-map-marker-alt me-2"></i>Endereço
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    {{ form.zip_code.label(class="form-label") }}
+                                    {{ form.zip_code(class="form-control" + (" is-invalid" if form.zip_code.errors else ""), id="zip_code") }}
+                                    {% if form.zip_code.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.zip_code.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Busca automática de endereço</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.address.label(class="form-label") }}
+                                    {{ form.address(class="form-control" + (" is-invalid" if form.address.errors else ""), id="address") }}
+                                    {% if form.address.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.address.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Rua, avenida, travessa, etc.</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    {{ form.number.label(class="form-label") }}
+                                    {{ form.number(class="form-control" + (" is-invalid" if form.number.errors else ""), id="number") }}
+                                    {% if form.number.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.number.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Nº da casa/apt</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.neighborhood.label(class="form-label") }}
+                                    {{ form.neighborhood(class="form-control" + (" is-invalid" if form.neighborhood.errors else ""), id="neighborhood") }}
+                                    {% if form.neighborhood.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.neighborhood.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Bairro ou distrito</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.city.label(class="form-label required") }}
+                                    {{ form.city(class="form-control" + (" is-invalid" if form.city.errors else ""), id="city") }}
+                                    {% if form.city.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.city.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    {{ form.state.label(class="form-label required") }}
+                                    {{ form.state(class="form-select" + (" is-invalid" if form.state.errors else ""), id="state") }}
+                                    {% if form.state.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.state.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Informações Adicionais -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <h6 class="alert-heading">
+                                        <i class="fas fa-info-circle me-2"></i>Informações Importantes
+                                    </h6>
+                                    <ul class="mb-0 small">
+                                        <li>Campos marcados com <span class="text-danger">*</span> são obrigatórios</li>
+                                        <li>O CPF deve ser único no sistema</li>
+                                        <li>Digite o CEP para preenchimento automático do endereço</li>
+                                        <li>O CNS é opcional, mas recomendado para pacientes do SUS</li>
+                                        <li>Dados familiares auxiliam na identificação do paciente</li>
+                                        <li>Telefones múltiplos aumentam a chance de contato</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="text-muted small">
+                                <i class="fas fa-shield-alt me-1"></i>
+                                Dados protegidos pela LGPD
+                            </div>
+                            <div class="btn-group">
+                                <a href="{{ url_for('main.patients_list') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-1"></i>Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-primary" id="submit-btn">
+                                    <i class="fas fa-save me-1"></i>Salvar Paciente
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.required:after {
+    content: " *";
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* Estilos para feedback visual */
+.is-valid {
+    border-color: #28a745;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path fill="%2328a745" d="m2.3 6.73.18-.13 2.77-2.77c.35-.35.35-.91 0-1.26-.35-.35-.91-.35-1.26 0l-2.09 2.09-.79-.79c-.35-.35-.91-.35-1.26 0-.35.35-.35.91 0 1.26l1.51 1.51z"/></svg>');
+    background-size: 16px 16px;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-repeat: no-repeat;
+}
+
+.loading {
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" fill="none" stroke="%23007bff" stroke-width="10" r="35" stroke-dasharray="164.93361431346415 56.97787143782138"><animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="1s" values="0 50 50;360 50 50"></animateTransform></circle></svg>');
+    background-size: 20px 20px;
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+}
+
+.valid-feedback {
+    color: #28a745;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.form-text {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+/* Animação suave para mudanças */
+.form-control, .form-select {
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* Melhorar aparência dos alertas */
+.alert {
+    border-radius: 0.5rem;
+    border: none;
+}
+
+.alert-info {
+    background-color: #e3f2fd;
+    color: #0277bd;
+}
+
+/* Responsividade melhorada */
+@media (max-width: 768px) {
+    .col-md-2, .col-md-3, .col-md-4 {
+        margin-bottom: 1rem;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Estilo do footer do card */
+.card-footer {
+    border-top: 1px solid #e9ecef;
+    background-color: #f8f9fa !important;
+}
+
+/* Melhorar visual dos campos obrigatórios */
+.form-label.required {
+    font-weight: 600;
+}
+
+/* Seções organizadas */
+.border-bottom {
+    border-color: #e9ecef !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // ✅ MÁSCARA PARA CPF (000.000.000-00)
+    $('#cpf').on('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.length > 11) value = value.substring(0, 11);
+        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+        value = value.replace(/(\d{3})(\d)/, '$1.$2');
+        value = value.replace(/(\d{3})(\d{1,2})/, '$1-$2');
+        this.value = value;
+        validateCPF(value);
+    });
+    
+    // ✅ MÁSCARA PARA CNS (000 0000 0000 0000)
+    $('#cns').on('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.length > 15) value = value.substring(0, 15);
+        value = value.replace(/(\d{3})(\d)/, '$1 $2');
+        value = value.replace(/(\d{4})(\d)/, '$1 $2');
+        value = value.replace(/(\d{4})(\d)/, '$1 $2');
+        this.value = value;
+        validateCNS(value);
+    });
+    
+    // ✅ MÁSCARA PARA TELEFONES (aplicar a todos os campos de telefone)
+    $('#cell_phone, #home_phone, #contact_phone').on('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.length > 11) value = value.substring(0, 11);
+        
+        if (value.length <= 10) {
+            value = value.replace(/(\d{2})(\d)/, '($1) $2');
+            value = value.replace(/(\d{4})(\d)/, '$1-$2');
+        } else {
+            value = value.replace(/(\d{2})(\d)/, '($1) $2');
+            value = value.replace(/(\d{5})(\d)/, '$1-$2');
+        }
+        this.value = value;
+        validatePhone($(this), value);
+    });
+    
+    // ✅ MÁSCARA PARA CEP (00000-000)
+    $('#zip_code').on('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.length > 8) value = value.substring(0, 8);
+        if (value.length > 5) {
+            value = value.replace(/(\d{5})(\d{1,3})/, '$1-$2');
+        }
+        this.value = value;
+        
+        const cleanCep = value.replace(/\D/g, '');
+        if (cleanCep.length === 8) {
+            validateAndFillAddress(cleanCep);
+        } else {
+            clearAddressValidation();
+        }
+    });
+    
+    // ✅ FORMATAÇÃO PARA NÚMERO
+    $('#number').on('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.length > 6) value = value.substring(0, 6);
+        this.value = value;
+        validateNumber(value);
+    });
+    
+    // ✅ FORMATAÇÃO AUTOMÁTICA DOS NOMES (todos os campos de nome)
+    $('#full_name, #mother_name, #father_name').on('blur', function() {
+        let value = this.value.trim();
+        value = value.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+        this.value = value;
+        
+        if (this.id === 'full_name') {
+            validateName(value);
+        } else {
+            validateParentName($(this), value);
+        }
+    });
+    
+    // ✅ VALIDAÇÃO DE EMAIL
+    $('#email').on('blur', function() {
+        validateEmail(this.value);
+    });
+    
+    // ✅ VALIDAÇÃO DE DATA DE NASCIMENTO
+    $('#birth_date').on('change', function() {
+        validateBirthDate(this.value);
+    });
+    
+    // Auto-focus no primeiro campo
+    $('#full_name').focus();
+    
+    // Validação do formulário antes do envio
+    $('form').on('submit', function(e) {
+        const submitBtn = $('#submit-btn');
+        submitBtn.prop('disabled', true)
+                 .html('<i class="fas fa-spinner fa-spin me-1"></i>Salvando...');
+        
+        if (!validateForm()) {
+            e.preventDefault();
+            showAlert('Por favor, corrija os erros no formulário antes de continuar.', 'warning');
+            submitBtn.prop('disabled', false)
+                     .html('<i class="fas fa-save me-1"></i>Salvar Paciente');
+        }
+    });
+});
+
+// ✅ FUNÇÃO PARA VALIDAR CPF
+function validateCPF(cpf) {
+    const field = $('#cpf');
+    const cleanCpf = cpf.replace(/\D/g, '');
+    
+    if (cleanCpf.length === 11) {
+        if (isValidCPF(cleanCpf)) {
+            setFieldValid(field, 'CPF válido ✓');
+        } else {
+            setFieldInvalid(field, 'CPF inválido');
+        }
+    } else if (cleanCpf.length > 0) {
+        setFieldNeutral(field);
+    }
+}
+
+// ✅ FUNÇÃO PARA VALIDAR CNS
+function validateCNS(cns) {
+    const field = $('#cns');
+    const cleanCns = cns.replace(/\D/g, '');
+    
+    if (cleanCns.length === 15) {
+        if (isValidCNS(cleanCns)) {
+            setFieldValid(field, 'CNS válido ✓');
+        } else {
+            setFieldInvalid(field, 'CNS inválido');
+        }
+    } else if (cleanCns.length > 0) {
+        setFieldNeutral(field);
+    }
+}
+
+// ✅ FUNÇÃO PARA VALIDAR TELEFONE (genérica para todos os telefones)
+function validatePhone(field, phone) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
+        setFieldValid(field, 'Telefone válido ✓');
+    } else if (cleanPhone.length > 0) {
+        setFieldNeutral(field);
+    }
+}
+
+// ✅ FUNÇÃO PARA VALIDAR NÚMERO
+function validateNumber(number) {
+    const field = $('#number');
+    
+    if (number && parseInt(number) > 0) {
+        setFieldValid(field, 'Número válido ✓');
+    } else if (number === '0') {
+        setFieldInvalid(field, 'Número deve ser maior que zero');
+    } else {
+        setFieldNeutral(field);
+    }
+}
+
+// ✅ FUNÇÃO PARA VALIDAR NOME COMPLETO
+function validateName(name) {
+    const field = $('#full_name');
+    
+    if (name.length >= 2 && name.includes(' ')) {
+        setFieldValid(field, 'Nome completo válido ✓');
+    } else if (name.length >= 2) {
+        setFieldInvalid(field, 'Digite o nome completo (nome e sobrenome)');
+    }
+}
+
+// ✅ FUNÇÃO PARA VALIDAR NOMES DOS PAIS
+function validateParentName(field, name) {
+    if (name.length >= 2 && name.includes(' ')) {
+        setFieldValid(field, 'Nome válido ✓');
+    } else if (name.length >= 2) {
+        setFieldInvalid(field, 'Digite o nome completo');
+    } else {
+        setFieldNeutral(field);
+    }
+}
+
+// ✅ FUNÇÃO PARA VALIDAR EMAIL
+function validateEmail(email) {
+    const field = $('#email');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (email && emailRegex.test(email)) {
+        setFieldValid(field, 'Email válido ✓');
+    } else if (email) {
+        setFieldInvalid(field, 'Email inválido');
+    }
+}
+
+// ✅ FUNÇÃO PARA VALIDAR DATA DE NASCIMENTO
+function validateBirthDate(date) {
+    const field = $('#birth_date');
+    
+    if (date) {
+        const birthDate = new Date(date);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+        
+        if (birthDate > today) {
+            setFieldInvalid(field, 'Data não pode ser no futuro');
+        } else if (age > 150) {
+            setFieldInvalid(field, 'Data muito antiga');
+        } else {
+            setFieldValid(field, `${age} anos ✓`);
+        }
+    }
+}
+
+// ✅ FUNÇÃO PARA VALIDAR E BUSCAR ENDEREÇO POR CEP
+function validateAndFillAddress(cep) {
+    const zipField = $('#zip_code');
+    const addressField = $('#address');
+    const numberField = $('#number');
+    const neighborhoodField = $('#neighborhood');
+    const cityField = $('#city');
+    const stateField = $('#state');
+    
+    zipField.removeClass('is-invalid is-valid').addClass('loading');
+    
+    fetch(`https://viacep.com.br/ws/${cep}/json/`)
+        .then(response => response.json())
+        .then(data => {
+            zipField.removeClass('loading');
+            
+            if (data.erro) {
+                setFieldInvalid(zipField, 'CEP não encontrado');
+            } else {
+                setFieldValid(zipField, `${data.localidade}/${data.uf} ✓`);
+                
+                if (data.logradouro && !addressField.val()) {
+                    addressField.val(data.logradouro);
+                    setFieldValid(addressField, 'Preenchido automaticamente ✓');
+                }
+                
+                if (data.bairro && !neighborhoodField.val()) {
+                    neighborhoodField.val(data.bairro);
+                    setFieldValid(neighborhoodField, 'Preenchido automaticamente ✓');
+                }
+                
+                if (data.localidade) {
+                    cityField.val(data.localidade);
+                    setFieldValid(cityField, 'Preenchido automaticamente ✓');
+                }
+                
+                if (data.uf) {
+                    stateField.val(data.uf);
+                }
+                
+                if (data.logradouro && !numberField.val()) {
+                    numberField.focus();
+                } else if (!addressField.val()) {
+                    addressField.focus();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar CEP:', error);
+            zipField.removeClass('loading');
+            setFieldInvalid(zipField, 'Erro ao consultar CEP');
+        });
+}
+
+// ✅ ALGORITMO DE VALIDAÇÃO DE CPF
+function isValidCPF(cpf) {
+    if (/^(\d)\1{10}$/.test(cpf)) return false;
+    
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+        sum += parseInt(cpf[i]) * (10 - i);
+    }
+    let digit1 = 11 - (sum % 11);
+    if (digit1 >= 10) digit1 = 0;
+    
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+        sum += parseInt(cpf[i]) * (11 - i);
+    }
+    let digit2 = 11 - (sum % 11);
+    if (digit2 >= 10) digit2 = 0;
+    
+    return digit1 === parseInt(cpf[9]) && digit2 === parseInt(cpf[10]);
+}
+
+// ✅ VALIDAÇÃO BÁSICA DE CNS
+function isValidCNS(cns) {
+    if (cns.length !== 15) return false;
+    if (/^0+$/.test(cns)) return false;
+    if (/^(\d)\1{14}$/.test(cns)) return false;
+    return true;
+}
+
+// ✅ FUNÇÕES DE FEEDBACK VISUAL
+function setFieldValid(field, message) {
+    field.removeClass('is-invalid loading').addClass('is-valid');
+    clearFieldFeedback(field);
+    if (message) {
+        field.after(`<div class="valid-feedback field-feedback">${message}</div>`);
+    }
+}
+
+function setFieldInvalid(field, message) {
+    field.removeClass('is-valid loading').addClass('is-invalid');
+    clearFieldFeedback(field);
+    if (message) {
+        field.after(`<div class="invalid-feedback field-feedback">${message}</div>`);
+    }
+}
+
+function setFieldNeutral(field) {
+    field.removeClass('is-valid is-invalid loading');
+    clearFieldFeedback(field);
+}
+
+function clearFieldFeedback(field) {
+    field.siblings('.field-feedback').remove();
+}
+
+function clearAddressValidation() {
+    $('#zip_code, #address, #number, #neighborhood, #city').removeClass('is-valid is-invalid loading');
+    $('.field-feedback').remove();
+}
+
+// ✅ VALIDAÇÃO GERAL DO FORMULÁRIO
+function validateForm() {
+    let isValid = true;
+    
+    const requiredFields = [
+        { selector: '#full_name', message: 'Nome completo é obrigatório' },
+        { selector: '#birth_date', message: 'Data de nascimento é obrigatória' },
+        { selector: '#cpf', message: 'CPF é obrigatório' },
+        { selector: '#city', message: 'Cidade é obrigatória' },
+        { selector: '#state', message: 'Estado é obrigatório' }
+    ];
+    
+    requiredFields.forEach(field => {
+        const element = $(field.selector);
+        if (!element.val().trim()) {
+            setFieldInvalid(element, field.message);
+            isValid = false;
+        }
+    });
+    
+    const cpfValue = $('#cpf').val();
+    if (cpfValue && !isValidCPF(cpfValue.replace(/\D/g, ''))) {
+        setFieldInvalid($('#cpf'), 'CPF inválido');
+        isValid = false;
+    }
+    
+    return isValid;
+}
+
+// ✅ FUNÇÃO PARA MOSTRAR ALERTAS
+function showAlert(message, type = 'info') {
+    const alertClass = {
+        'success': 'alert-success',
+        'warning': 'alert-warning',
+        'danger': 'alert-danger',
+        'info': 'alert-info'
+    }[type] || 'alert-info';
+    
+    const icon = {
+        'success': 'fas fa-check-circle',
+        'warning': 'fas fa-exclamation-triangle',
+        'danger': 'fas fa-exclamation-circle',
+        'info': 'fas fa-info-circle'
+    }[type] || 'fas fa-info-circle';
+    
+    const alert = $(`
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            <i class="${icon} me-2"></i>${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    
+    $('.card-body').prepend(alert);
+    
+    $('html, body').animate({
+        scrollTop: $('.card').offset().top - 20
+    }, 300);
+    
+    setTimeout(() => {
+        alert.fadeOut();
+    }, 5000);
+}
+</script>
+{% endblock %}

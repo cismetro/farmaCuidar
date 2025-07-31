@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório Financeiro - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.reports_index') }}">Relatórios</a>
+                    </li>
+                    <li class="breadcrumb-item active">Financeiro</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-dollar-sign me-2 text-secondary"></i>
+                Relatório Financeiro
+            </h1>
+            <p class="text-muted mb-0">Análise financeira e custos operacionais</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="exportReport('pdf')">
+                    <i class="fas fa-file-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-outline-success" onclick="exportReport('excel')">
+                    <i class="fas fa-file-excel me-1"></i>Excel
+                </button>
+                <button class="btn btn-outline-info" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumo Financeiro -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Valor Total Dispensado</div>
+                            <div class="fs-4 fw-bold">R$ {{ "{:,.2f}".format(total_dispensed_value or 0) }}</div>
+                        </div>
+                        <i class="fas fa-hand-holding-usd fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Valor Médio/Dispensação</div>
+                            <div class="fs-4 fw-bold">R$ {{ "{:,.2f}".format(average_dispensation_value or 0) }}</div>
+                        </div>
+                        <i class="fas fa-calculator fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Estoque Total</div>
+                            <div class="fs-4 fw-bold">R$ {{ "{:,.2f}".format(total_stock_value or 0) }}</div>
+                        </div>
+                        <i class="fas fa-warehouse fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Perdas (Vencimentos)</div>
+                            <div class="fs-4 fw-bold">R$ {{ "{:,.2f}".format(total_losses or 0) }}</div>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-filter me-2"></i>Filtros
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Data Início:</label>
+                    <input type="date" name="start_date" class="form-control" 
+                           value="{{ request.args.get('start_date', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data Fim:</label>
+                    <input type="date" name="end_date" class="form-control" 
+                           value="{{ request.args.get('end_date', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipo de Análise:</label>
+                    <select name="analysis_type" class="form-select">
+                        <option value="dispensations" {% if request.args.get('analysis_type') == 'dispensations' %}selected{% endif %}>Dispensações</option>
+                        <option value="stock" {% if request.args.get('analysis_type') == 'stock' %}selected{% endif %}>Estoque</option>
+                        <option value="losses" {% if request.args.get('analysis_type') == 'losses' %}selected{% endif %}>Perdas</option>
+                        <option value="categories" {% if request.args.get('analysis_type') == 'categories' %}selected{% endif %}>Por Categoria</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>Atualizar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Evolução Financeira (Últimos 12 meses)</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="financialEvolutionChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Distribuição por Categoria</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="categoryDistributionChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Medicamentos por Valor -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-trophy me-2"></i>Top 10 - Maior Valor Dispensado
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if top_medications_by_value %}
+                    <div class="list-group list-group-flush">
+                        {% for medication in top_medications_by_value %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ medication.commercial_name }}</h6>
+                                <small class="text-muted">{{ medication.generic_name }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-primary rounded-pill">R$ {{ "{:,.2f}".format(medication.total_value) }}</span>
+                                <br>
+                                <small class="text-muted">{{ medication.total_quantity }} unidades</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-bar fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">Nenhum dado disponível</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Custos por Farmacêutico
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if costs_by_pharmacist %}
+                    <div class="list-group list-group-flush">
+                        {% for pharmacist in costs_by_pharmacist %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ pharmacist.full_name }}</h6>
+                                <small class="text-muted">{{ pharmacist.total_dispensations }} dispensações</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-success rounded-pill">R$ {{ "{:,.2f}".format(pharmacist.total_value) }}</span>
+                                <br>
+                                <small class="text-muted">Média: R$ {{ "{:,.2f}".format(pharmacist.average_value) }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-users fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">Nenhum dado disponível</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Análise de Tendências -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-trending-up me-2"></i>Análise de Tendências
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <i class="fas fa-arrow-trend-up fa-3x text-success mb-3"></i>
+                        <h5>Crescimento Mensal</h5>
+                        <h3 class="text-success">{{ "{:+.1f}".format(monthly_growth or 0) }}%</h3>
+                        <p class="text-muted">Em relação ao mês anterior</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <i class="fas fa-calendar-alt fa-3x text-info mb-3"></i>
+                        <h5>Projeção Anual</h5>
+                        <h3 class="text-info">R$ {{ "{:,.0f}".format(annual_projection or 0) }}</h3>
+                        <p class="text-muted">Baseado na tendência atual</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-center">
+                        <i class="fas fa-percentage fa-3x text-warning mb-3"></i>
+                        <h5>Taxa de Perdas</h5>
+                        <h3 class="text-warning">{{ "{:.2f}".format(loss_rate or 0) }}%</h3>
+                        <p class="text-muted">Do valor total em estoque</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela Detalhada -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-table me-2"></i>Detalhamento Financeiro
+            </h5>
+        </div>
+        
+        <div class="card-body p-0">
+            {% if financial_details %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="financialTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Período</th>
+                            <th>Dispensações</th>
+                            <th>Valor Total</th>
+                            <th>Valor Médio</th>
+                            <th>Qtd. Medicamentos</th>
+                            <th>Pacientes Únicos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detail in financial_details %}
+                        <tr>
+                            <td>{{ detail.period }}</td>
+                            <td>{{ detail.total_dispensations }}</td>
+                            <td>R$ {{ "{:,.2f}".format(detail.total_value) }}</td>
+                            <td>R$ {{ "{:,.2f}".format(detail.average_value) }}</td>
+                            <td>{{ detail.unique_medications }}</td>
+                            <td>{{ detail.unique_patients }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                <h5>Nenhum dado financeiro encontrado</h5>
+                <p class="text-muted">Selecione um período para ver os dados.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+canvas {
+    max-height: 400px;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+.text-info {
+    color: #17a2b8 !important;
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable
+    $('#financialTable').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+        },
+        pageLength: 25,
+        order: [[0, 'desc']],
+        columnDefs: [
+            { 
+                targets: [2, 3],
+                render: function(data, type, row) {
+                    if (type === 'display') {
+                        return 'R$ ' + parseFloat(data).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                    }
+                    return data;
+                }
+            }
+        ]
+    });
+    
+    // Gráfico de Evolução Financeira
+    const ctxEvolution = document.getElementById('financialEvolutionChart').getContext('2d');
+    new Chart(ctxEvolution, {
+        type: 'line',
+        data: {
+            labels: {{ evolution_labels|safe if evolution_labels else '[]' }},
+            datasets: [
+                {
+                    label: 'Valor Dispensado',
+                    data: {{ evolution_values|safe if evolution_values else '[]' }},
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Tendência',
+                    data: {{ trend_values|safe if trend_values else '[]' }},
+                    borderColor: '#28a745',
+                    backgroundColor: 'transparent',
+                    borderDash: [5, 5],
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value.toLocaleString('pt-BR');
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': R$ ' + 
+                                   context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Gráfico de Distribuição por Categoria
+    const ctxCategory = document.getElementById('categoryDistributionChart').getContext('2d');
+    new Chart(ctxCategory, {
+        type: 'doughnut',
+        data: {
+            labels: {{ category_labels|safe if category_labels else '[]' }},
+            datasets: [{
+                data: {{ category_values|safe if category_values else '[]' }},
+                backgroundColor: [
+                    '#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1',
+                    '#fd7e14', '#20c997', '#e83e8c', '#6c757d', '#17a2b8'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return context.label + ': R$ ' + 
+                                   context.parsed.toLocaleString('pt-BR', {minimumFractionDigits: 2}) +
+                                   ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Definir datas padrão (último mês)
+    if (!$('input[name="start_date"]').val()) {
+        const endDate = new Date();
+        const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 1, 1);
+        
+        $('input[name="start_date"]').val(startDate.toISOString().split('T')[0]);
+        $('input[name="end_date"]').val(endDate.toISOString().split('T')[0]);
+    }
+});
+
+function exportReport(format) {
+    const startDate = $('input[name="start_date"]').val();
+    const endDate = $('input[name="end_date"]').val();
+    const analysisType = $('select[name="analysis_type"]').val();
+    
+    const params = new URLSearchParams({
+        format: format,
+        start_date: startDate,
+        end_date: endDate,
+        analysis_type: analysisType
+    });
+    
+    window.open(`/reports/financial/export?${params.toString()}`, '_blank');
+}
+</script>
+{% endblock %}

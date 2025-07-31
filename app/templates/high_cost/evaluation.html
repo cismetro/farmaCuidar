@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+
+{% block title %}Avaliação Farmacêutica - Processo {{ process.protocol_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('main.high_cost_index') }}">Alto Custo</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}">{{ process.protocol_number }}</a>
+                </li>
+                <li class="breadcrumb-item active">Avaliação</li>
+            </ol>
+        </nav>
+        
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-user-md me-2 text-success"></i>
+                    Avaliação Farmacêutica
+                </h1>
+                <p class="text-muted mb-0">
+                    Processo: <strong>{{ process.protocol_number }}</strong> - 
+                    Paciente: <strong>{{ process.patient.full_name }}</strong>
+                </p>
+            </div>
+            <div class="col-auto">
+                {% set status_class = {
+                    'pending': 'warning',
+                    'under_evaluation': 'info'
+                }.get(process.status.value, 'secondary') %}
+                <span class="badge bg-{{ status_class }} fs-6">
+                    {{ format_process_status(process.status) }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Formulário de Avaliação -->
+        <div class="col-lg-8">
+            <form method="POST">
+                {{ form.hidden_tag() }}
+                
+                <!-- Parecer Técnico -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-clipboard-check me-2"></i>Parecer Técnico
+                        </h5>
+                        <small class="text-muted">Análise farmacêutica do processo</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-4">
+                            {{ form.technical_opinion.label(class="form-label fw-semibold") }}
+                            {{ form.technical_opinion(class="form-control", rows="6", placeholder="Descreva a análise técnica detalhada do medicamento solicitado...") }}
+                            <div class="form-text">
+                                Inclua adequação da indicação, dose, duração e conformidade com protocolos clínicos.
+                            </div>
+                            {% for error in form.technical_opinion.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Campo Destacado: Atende ao Protocolo -->
+                        <div class="mb-3">
+                            {{ form.meets_protocol.label(class="form-label fw-semibold mb-3") }}
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="card border-success protocol-option h-100" data-value="1">
+                                        <div class="card-body p-3 text-center">
+                                            <div class="protocol-option-content">
+                                                <i class="fas fa-check-circle text-success fa-3x mb-2"></i>
+                                                <h6 class="fw-bold text-success mb-1">SIM, ATENDE</h6>
+                                                <small class="text-muted">aos protocolos clínicos estabelecidos</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-danger protocol-option h-100" data-value="0">
+                                        <div class="card-body p-3 text-center">
+                                            <div class="protocol-option-content">
+                                                <i class="fas fa-times-circle text-danger fa-3x mb-2"></i>
+                                                <h6 class="fw-bold text-danger mb-1">NÃO ATENDE</h6>
+                                                <small class="text-muted">aos protocolos clínicos estabelecidos</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Campo original do form (oculto) -->
+                            <div style="display: none;">
+                                {{ form.meets_protocol(id="meets_protocol_hidden") }}
+                            </div>
+                            
+                            {% for error in form.meets_protocol.errors %}
+                                <div class="text-danger small mt-2">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recomendações -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-prescription-bottle-alt me-2"></i>Recomendações Farmacêuticas
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                {{ form.recommended_quantity.label(class="form-label fw-semibold") }}
+                                <div class="input-group">
+                                    {{ form.recommended_quantity(class="form-control", min="0") }}
+                                    <span class="input-group-text">unidades</span>
+                                </div>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Solicitado: <strong>{{ process.requested_quantity }}</strong> unidades
+                                </div>
+                                {% for error in form.recommended_quantity.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                {{ form.recommended_duration.label(class="form-label fw-semibold") }}
+                                <div class="input-group">
+                                    {{ form.recommended_duration(class="form-control", min="0") }}
+                                    <span class="input-group-text">dias</span>
+                                </div>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Solicitado: <strong>{{ process.treatment_duration }}</strong> dias
+                                </div>
+                                {% for error in form.recommended_duration.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.recommendation.label(class="form-label fw-semibold") }}
+                            {{ form.recommendation(class="form-select") }}
+                            {% for error in form.recommendation.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.observations.label(class="form-label fw-semibold") }}
+                            {{ form.observations(class="form-control", rows="4", placeholder="Observações adicionais, orientações especiais, condições para uso...") }}
+                            <div class="form-text">
+                                Campo opcional para observações adicionais sobre a avaliação
+                            </div>
+                            {% for error in form.observations.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
+                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}" 
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i>Salvar Avaliação
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Sidebar com Informações -->
+        <div class="col-lg-4">
+            <!-- Informações do Processo -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-file-medical me-2"></i>Informações do Processo
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <dt class="text-muted small">Medicamento</dt>
+                        <dd class="fw-semibold mb-0">{{ process.medication.commercial_name }}</dd>
+                        <dd class="text-muted small">{{ process.medication.dosage }}</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">CID-10</dt>
+                        <dd class="fw-semibold">
+                            <span class="badge bg-light text-dark">{{ process.cid10 }}</span>
+                        </dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Diagnóstico</dt>
+                        <dd class="fw-semibold">{{ process.diagnosis }}</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Médico Prescritor</dt>
+                        <dd class="fw-semibold mb-0">{{ process.doctor_name }}</dd>
+                        <dd class="text-muted small">{{ process.doctor_crm }}</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Nível de Urgência</dt>
+                        <dd>
+                            {% set urgency_class = {
+                                'low': 'secondary',
+                                'medium': 'primary',
+                                'high': 'warning',
+                                'urgent': 'danger'
+                            }.get(process.urgency_level, 'secondary') %}
+                            <span class="badge bg-{{ urgency_class }}">
+                                {% if process.urgency_level == 'low' %}Baixa
+                                {% elif process.urgency_level == 'medium' %}Média
+                                {% elif process.urgency_level == 'high' %}Alta
+                                {% elif process.urgency_level == 'urgent' %}Urgente
+                                {% else %}Não informado
+                                {% endif %}
+                            </span>
+                        </dd>
+                    </div>
+                    
+                    <div class="mb-0">
+                        <dt class="text-muted small">Solicitação</dt>
+                        <dd class="fw-semibold">
+                            {{ process.requested_quantity }} unidades<br>
+                            <small class="text-muted">{{ process.treatment_duration }} dias de tratamento</small>
+                        </dd>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Justificativa Clínica -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-notes-medical me-2"></i>Justificativa Clínica
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0 small">{{ process.justification }}</p>
+                </div>
+            </div>
+
+            <!-- Documentos -->
+            {% if process.documents %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-paperclip me-2"></i>Documentos Anexados
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for doc in process.documents %}
+                    <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-2">
+                        <div class="d-flex align-items-center">
+                            {% if doc.mime_type == 'application/pdf' %}
+                            <i class="fas fa-file-pdf text-danger me-2"></i>
+                            {% else %}
+                            <i class="fas fa-file-image text-primary me-2"></i>
+                            {% endif %}
+                            <span class="small">{{ doc.document_type.title() }}</span>
+                        </div>
+                        <a href="{{ url_for('main.download_document', doc_id=doc.id) }}" 
+                           class="btn btn-outline-primary btn-sm" title="Download">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Orientações -->
+            <div class="alert alert-info">
+                <h6 class="alert-heading">
+                    <i class="fas fa-lightbulb me-1"></i>Orientações para Avaliação
+                </h6>
+                <small>
+                    <ul class="mb-0 ps-3">
+                        <li>Verifique a adequação da indicação clínica</li>
+                        <li>Avalie a dose e duração propostas</li>
+                        <li>Confirme se atende aos protocolos vigentes</li>
+                        <li>Considere alternativas terapêuticas</li>
+                        <li>Documente todas as considerações técnicas</li>
+                    </ul>
+                </small>
+            </div>
+
+            <!-- Ações Rápidas -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>Ações Rápidas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('main.patient_view', id=process.patient.id) }}" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-user me-1"></i>Ver Paciente
+                        </a>
+                        <a href="{{ url_for('main.medication_view', id=process.medication.id) }}" 
+                           class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-pills me-1"></i>Ver Medicamento
+                        </a>
+                        <a href="{{ url_for('main.high_cost_index') }}" 
+                           class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-list me-1"></i>Lista de Processos
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Melhorias visuais para formulários */
+.card {
+    border: 1px solid rgba(0,0,0,.125);
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0,0,0,.125);
+}
+
+/* Estilo especial para as opções de protocolo */
+.protocol-option {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-width: 2px !important;
+}
+
+.protocol-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.protocol-option-content {
+    padding: 1rem 0;
+}
+
+/* Estado selecionado */
+.protocol-option.selected-yes {
+    background-color: rgba(25, 135, 84, 0.1);
+    border-color: #198754 !important;
+    box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+}
+
+.protocol-option.selected-no {
+    background-color: rgba(220, 53, 69, 0.1);
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* Cursor pointer para labels */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* Input group melhorado */
+.input-group-text {
+    background-color: #f8f9fa;
+    font-size: 0.875rem;
+}
+
+/* Badge customizado */
+.badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge.fs-6 {
+    font-size: 0.875rem !important;
+}
+
+/* Alert customizado */
+.alert-info {
+    border-left: 4px solid #0dcaf0;
+    background-color: rgba(13, 202, 240, 0.1);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .protocol-option-content {
+        padding: 0.5rem 0;
+    }
+    
+    .protocol-option .fa-3x {
+        font-size: 2rem !important;
+    }
+}
+
+/* Transições suaves */
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.card {
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+/* Melhor contraste para texto pequeno */
+.small, .form-text {
+    color: #6c757d;
+}
+
+/* Estilização dos documentos */
+.border.rounded.p-2 {
+    transition: all 0.2s ease;
+}
+
+.border.rounded.p-2:hover {
+    background-color: #f8f9fa;
+    border-color: #0d6efd !important;
+}
+
+/* Animações para os cards de protocolo */
+@keyframes pulseGreen {
+    0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
+}
+
+@keyframes pulseRed {
+    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+.protocol-option.selected-yes {
+    animation: pulseGreen 1s;
+}
+
+.protocol-option.selected-no {
+    animation: pulseRed 1s;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-focus no primeiro campo do formulário
+    $('textarea[name="technical_opinion"]').focus();
+    
+    // Gerenciar seleção das opções de protocolo
+    $('.protocol-option').on('click', function() {
+        const value = $(this).data('value');
+        const hiddenField = $('#meets_protocol_hidden');
+        
+        // Remover classes de seleção de todos os cards
+        $('.protocol-option').removeClass('selected-yes selected-no');
+        
+        // Definir valor no campo oculto
+        hiddenField.val(value);
+        
+        // Adicionar classe de seleção ao card clicado
+        if (value === '1') {
+            $(this).addClass('selected-yes');
+        } else {
+            $(this).addClass('selected-no');
+        }
+        
+        // Trigger change event para validação
+        hiddenField.trigger('change');
+        
+        console.log('Protocolo selecionado:', value);
+    });
+    
+    // Verificar estado inicial
+    const initialValue = $('#meets_protocol_hidden').val();
+    if (initialValue) {
+        $(`.protocol-option[data-value="${initialValue}"]`).click();
+    }
+    
+    // Validação em tempo real
+    const form = $('form');
+    const submitBtn = form.find('button[type="submit"]');
+    
+    // Validar campos obrigatórios
+    function validateForm() {
+        const technicalOpinion = $('textarea[name="technical_opinion"]').val().trim();
+        const meetsProtocol = $('#meets_protocol_hidden').val();
+        const recommendation = $('select[name="recommendation"]').val();
+        
+        console.log('=== DEBUG VALIDAÇÃO ===');
+        console.log('Parecer técnico:', technicalOpinion.length, 'caracteres');
+        console.log('Atende protocolo:', meetsProtocol);
+        console.log('Recomendação:', recommendation);
+        
+        // Critérios de validação
+        const hasOpinion = technicalOpinion.length >= 5;
+        const hasProtocol = meetsProtocol !== undefined && meetsProtocol !== '';
+        const hasRecommendation = recommendation && recommendation !== '';
+        
+        console.log('Validações:');
+        console.log('- Parecer OK:', hasOpinion);
+        console.log('- Protocolo OK:', hasProtocol);
+        console.log('- Recomendação OK:', hasRecommendation);
+        
+        const isValid = hasOpinion && hasProtocol && hasRecommendation;
+        console.log('FORMULÁRIO VÁLIDO:', isValid);
+        console.log('========================');
+        
+        // Atualizar visual do botão
+        if (isValid) {
+            submitBtn.removeClass('btn-outline-success').addClass('btn-success');
+            submitBtn.html('<i class="fas fa-save me-1"></i>Salvar Avaliação');
+            submitBtn.prop('disabled', false);
+        } else {
+            submitBtn.removeClass('btn-success').addClass('btn-outline-success');
+            submitBtn.html('<i class="fas fa-exclamation-triangle me-1"></i>Preencha os campos obrigatórios');
+            submitBtn.prop('disabled', true);
+        }
+    }
+    
+    // Eventos de validação
+    $('textarea[name="technical_opinion"], select[name="recommendation"]').on('input change keyup', validateForm);
+    $('#meets_protocol_hidden').on('change', validateForm);
+    
+    // Validação inicial
+    setTimeout(validateForm, 500);
+    
+    // Auto-save e outras funcionalidades...
+    let formChanged = false;
+    form.find('input, textarea, select').on('change input', function() {
+        formChanged = true;
+    });
+    
+    $('a[href*="cancel"], a[href*="view"]').on('click', function(e) {
+        if (formChanged) {
+            if (!confirm('Você tem alterações não salvas. Deseja realmente sair?')) {
+                e.preventDefault();
+            }
+        }
+    });
+    
+    // Efeito visual ao passar mouse nas opções de protocolo
+    $('.protocol-option').on('mouseenter', function() {
+        if (!$(this).hasClass('selected-yes') && !$(this).hasClass('selected-no')) {
+            $(this).addClass('border-secondary');
+        }
+    }).on('mouseleave', function() {
+        if (!$(this).hasClass('selected-yes') && !$(this).hasClass('selected-no')) {
+            $(this).removeClass('border-secondary');
+        }
+    });
+});
+</script>
+{% endblock %}

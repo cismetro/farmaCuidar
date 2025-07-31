@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block title %}Solicitar Alto Custo - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.high_cost_index') }}">Alto Custo</a>
+                    </li>
+                    <li class="breadcrumb-item active">Nova Solicitação</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-star me-2 text-primary"></i>
+                Solicitar Medicamento Alto Custo
+            </h1>
+            <p class="text-muted mb-0">Para: {{ patient.full_name }}</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.high_cost_index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informações do Paciente -->
+        <div class="col-xl-4">
+            <div class="card mb-4 sticky-top">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-user me-2"></i>Dados do Paciente
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="avatar-lg bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center">
+                            {{ patient.full_name[0].upper() }}
+                        </div>
+                        <h6 class="mt-2 mb-0">{{ patient.full_name }}</h6>
+                        <small class="text-muted">{{ patient.age }} anos</small>
+                    </div>
+                    
+                    <div class="row g-2 small">
+                        <div class="col-12"><strong>CPF:</strong> {{ format_cpf(patient.cpf) }}</div>
+                        {% if patient.cns %}
+                        <div class="col-12"><strong>CNS:</strong> {{ format_cns(patient.cns) }}</div>
+                        {% endif %}
+                        {% if patient.phone %}
+                        <div class="col-12"><strong>Telefone:</strong> {{ patient.phone }}</div>
+                        {% endif %}
+                        {% if patient.address %}
+                        <div class="col-12">
+                            <strong>Endereço:</strong> {{ patient.address }}
+                            {% if patient.neighborhood %}, {{ patient.neighborhood }}{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informações Importantes -->
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Documentos Obrigatórios
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-file-prescription text-danger me-2"></i>
+                            <strong>Receita Médica</strong> (obrigatório)
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-file-medical text-warning me-2"></i>
+                            <strong>Laudo Médico</strong> (recomendado)
+                        </li>
+                        <li class="mb-0">
+                            <i class="fas fa-file-alt text-info me-2"></i>
+                            <strong>Exames</strong> (se houver)
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formulário -->
+        <div class="col-xl-8">
+            <form method="POST" enctype="multipart/form-data" novalidate>
+                {{ form.hidden_tag() }}
+                
+                <!-- Dados Médicos -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-stethoscope me-2"></i>Dados Médicos
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.medication_id.label(class="form-label required") }}
+                                    {{ form.medication_id(class="form-select" + (" is-invalid" if form.medication_id.errors else "")) }}
+                                    {% if form.medication_id.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.medication_id.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.cid10.label(class="form-label required") }}
+                                    {{ form.cid10(class="form-control" + (" is-invalid" if form.cid10.errors else "")) }}
+                                    {% if form.cid10.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.cid10.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Formato: A10.1, E11.9, etc.</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    {{ form.diagnosis.label(class="form-label required") }}
+                                    {{ form.diagnosis(class="form-control" + (" is-invalid" if form.diagnosis.errors else ""), rows="4") }}
+                                    {% if form.diagnosis.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.diagnosis.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dados do Médico -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-user-md me-2"></i>Médico Responsável
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.doctor_name.label(class="form-label required") }}
+                                    {{ form.doctor_name(class="form-control" + (" is-invalid" if form.doctor_name.errors else "")) }}
+                                    {% if form.doctor_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.doctor_name.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.doctor_crm.label(class="form-label required") }}
+                                    {{ form.doctor_crm(class="form-control" + (" is-invalid" if form.doctor_crm.errors else "")) }}
+                                    {% if form.doctor_crm.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.doctor_crm.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalhes do Tratamento -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-pills me-2"></i>Detalhes do Tratamento
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.requested_quantity.label(class="form-label required") }}
+                                    {{ form.requested_quantity(class="form-control" + (" is-invalid" if form.requested_quantity.errors else "")) }}
+                                    {% if form.requested_quantity.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.requested_quantity.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.treatment_duration.label(class="form-label") }}
+                                    {{ form.treatment_duration(class="form-control" + (" is-invalid" if form.treatment_duration.errors else "")) }}
+                                    {% if form.treatment_duration.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.treatment_duration.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Duração estimada em dias</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.urgency_level.label(class="form-label required") }}
+                                    {{ form.urgency_level(class="form-select" + (" is-invalid" if form.urgency_level.errors else "")) }}
+                                    {% if form.urgency_level.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.urgency_level.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    {{ form.justification.label(class="form-label required") }}
+                                    {{ form.justification(class="form-control" + (" is-invalid" if form.justification.errors else ""), rows="6") }}
+                                    {% if form.justification.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.justification.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Descreva detalhadamente a justificativa médica para o medicamento</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload de Documentos -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-upload me-2"></i>Documentos Anexos
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    {{ form.prescription_file.label(class="form-label required") }}
+                                    {{ form.prescription_file(class="form-control" + (" is-invalid" if form.prescription_file.errors else ""), accept=".pdf,.png,.jpg,.jpeg") }}
+                                    {% if form.prescription_file.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.prescription_file.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Formatos aceitos: PDF, PNG, JPG (máx. 16MB)</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.medical_report_file.label(class="form-label") }}
+                                    {{ form.medical_report_file(class="form-control" + (" is-invalid" if form.medical_report_file.errors else ""), accept=".pdf") }}
+                                    {% if form.medical_report_file.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.medical_report_file.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Apenas PDF (opcional)</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.exam_file.label(class="form-label") }}
+                                    {{ form.exam_file(class="form-control" + (" is-invalid" if form.exam_file.errors else ""), accept=".pdf,.png,.jpg,.jpeg") }}
+                                    {% if form.exam_file.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.exam_file.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">PDF ou imagens (opcional)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="card">
+                    <div class="card-footer bg-light">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('main.high_cost_index') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-1"></i>Enviar Solicitação
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.required:after {
+    content: " *";
+    color: #dc3545;
+}
+
+.avatar-lg {
+    width: 64px;
+    height: 64px;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.sticky-top {
+    top: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Validação de arquivo
+    $('input[type="file"]').on('change', function() {
+        const file = this.files[0];
+        const maxSize = 16 * 1024 * 1024; // 16MB
+        
+        if (file && file.size > maxSize) {
+            alert('Arquivo muito grande! Tamanho máximo: 16MB');
+            $(this).val('');
+            return;
+        }
+        
+        // Mostrar nome do arquivo selecionado
+        const label = $(this).next('.form-text');
+        if (file) {
+            label.text(`Arquivo selecionado: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        }
+    });
+    
+    // Máscara para CID-10
+    $('#cid10').on('input', function() {
+        let value = this.value.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+        
+        // Formato: A10.1
+        if (value.length > 1) {
+            value = value.charAt(0) + value.slice(1).replace(/[^0-9.]/g, '');
+        }
+        if (value.length > 3 && value.charAt(3) !== '.') {
+            value = value.slice(0, 3) + '.' + value.slice(3);
+        }
+        if (value.length > 5) {
+            value = value.slice(0, 5);
+        }
+        
+        this.value = value;
+    });
+    
+    // Auto-focus no primeiro campo
+    $('#medication_id').focus();
+    
+    // Validação antes do submit
+    $('form').on('submit', function(e) {
+        const prescriptionFile = $('#prescription_file')[0].files[0];
+        
+        if (!prescriptionFile) {
+            e.preventDefault();
+            alert('É obrigatório anexar a receita médica!');
+            $('#prescription_file').focus();
+            return false;
+        }
+        
+        // Confirmar envio
+        if (!confirm('Confirma o envio da solicitação de medicamento alto custo?')) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Mostrar loading
+        $(this).find('button[type="submit"]').prop('disabled', true)
+            .html('<i class="fas fa-spinner fa-spin me-1"></i>Enviando...');
+    });
+});
+</script>
+{% endblock %}

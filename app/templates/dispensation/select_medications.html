@@ -1,0 +1,485 @@
+{% extends "base.html" %}
+
+{% block title %}Selecionar Medicamentos - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.dispensation_index') }}">Dispensação</a>
+                    </li>
+                    <li class="breadcrumb-item active">Selecionar Medicamentos</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-pills me-2 text-primary"></i>
+                Dispensação para {{ patient.full_name }}
+            </h1>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.dispensation_index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informações do Paciente -->
+        <div class="col-xl-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user me-2"></i>Dados do Paciente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="avatar-lg bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3">
+                            {{ patient.full_name[0].upper() }}
+                        </div>
+                        <div>
+                            <h6 class="mb-0">{{ patient.full_name }}</h6>
+                            <small class="text-muted">{{ calculate_age(patient.birth_date) }} anos</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-2 text-sm">
+                        <div class="col-12">
+                            <strong>CPF:</strong> {{ format_cpf(patient.cpf) }}
+                        </div>
+                        {% if patient.cns %}
+                        <div class="col-12">
+                            <strong>CNS:</strong> {{ format_cns(patient.cns) }}
+                        </div>
+                        {% endif %}
+                        {% if patient.phone %}
+                        <div class="col-12">
+                            <strong>Telefone:</strong> {{ format_phone(patient.phone) }}
+                        </div>
+                        {% endif %}
+                        {% if patient.address %}
+                        <div class="col-12">
+                            <strong>Endereço:</strong> {{ patient.address }}
+                            {% if patient.neighborhood %}, {{ patient.neighborhood }}{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prescrições Recentes -->
+            {% if recent_prescriptions %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-file-prescription me-2"></i>Prescrições Recentes
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for prescription in recent_prescriptions %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Dr. {{ prescription.doctor_name }}</h6>
+                                <small>{{ format_date(prescription.prescription_date) }}</small>
+                            </div>
+                            <p class="mb-1 small">CRM: {{ prescription.doctor_crm }}</p>
+                            {% if prescription.items %}
+                            <small class="text-muted">
+                                {{ prescription.items|length }} medicamento(s) prescrito(s)
+                            </small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Carrinho de Medicamentos -->
+            <div class="card" id="medicationCart">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-shopping-cart me-2"></i>
+                        Medicamentos Selecionados
+                        <span class="badge bg-primary ms-2" id="cartCount">0</span>
+                    </h6>
+                </div>
+                <div class="card-body" id="cartItems">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-shopping-cart fa-2x mb-2"></i>
+                        <p class="mb-0">Nenhum medicamento selecionado</p>
+                    </div>
+                </div>
+                <div class="card-footer" id="cartFooter" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Total:</strong>
+                        <strong id="cartTotal">R$ 0,00</strong>
+                    </div>
+                    <button type="button" class="btn btn-success w-100" id="confirmDispensation">
+                        <i class="fas fa-check me-1"></i>Confirmar Dispensação
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Medicamentos -->
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-pills me-2"></i>Medicamentos Disponíveis
+                            </h5>
+                        </div>
+                        <div class="col-auto">
+                            <input type="text" id="medicationFilter" class="form-control" 
+                                   placeholder="Filtrar medicamentos...">
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Medicamento</th>
+                                    <th>Dosagem</th>
+                                    <th>Forma</th>
+                                    <th>Estoque</th>
+                                    <th>Custo Unit.</th>
+                                    <th width="120">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="medicationsTable">
+                                {% for medication in available_medications %}
+                                <tr data-medication-id="{{ medication.id }}" 
+                                    data-medication-name="{{ medication.commercial_name }}"
+                                    data-medication-cost="{{ medication.unit_cost or 0 }}"
+                                    data-medication-stock="{{ medication.current_stock }}">
+                                    <td>
+                                        <div>
+                                            <div class="fw-semibold">{{ medication.commercial_name }}</div>
+                                            <small class="text-muted">{{ medication.generic_name }}</small>
+                                        </div>
+                                    </td>
+                                    <td>{{ medication.dosage or '--' }}</td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ medication.pharmaceutical_form or '--' }}</span>
+                                    </td>
+                                    <td>
+                                        {% if medication.current_stock <= medication.minimum_stock %}
+                                        <span class="badge bg-danger">{{ medication.current_stock or 0 }}</span>
+                                        {% elif medication.current_stock <= (medication.minimum_stock or 0) * 2 %}
+                                        <span class="badge bg-warning">{{ medication.current_stock or 0 }}</span>
+                                        {% else %}
+                                        <span class="badge bg-success">{{ medication.current_stock or 0 }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>R$ {{ "{:,.2f}".format(medication.unit_cost or 0) }}</td>
+                                    <td>
+                                        {% if medication.current_stock and medication.current_stock > 0 %}
+                                        <button type="button" class="btn btn-sm btn-outline-primary add-medication" 
+                                                data-medication-id="{{ medication.id }}">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                        {% else %}
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Quantidade -->
+<div class="modal fade" id="quantityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-pills me-2"></i>Definir Quantidade
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Medicamento:</label>
+                    <div id="selectedMedicationName" class="fw-semibold"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="medicationQuantity" class="form-label">Quantidade:</label>
+                    <input type="number" id="medicationQuantity" class="form-control" min="1" max="999" value="1">
+                    <div class="form-text">
+                        Estoque disponível: <span id="availableStock"></span> unidades
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="medicationObservations" class="form-label">Observações (opcional):</label>
+                    <textarea id="medicationObservations" class="form-control" rows="2" 
+                              placeholder="Instruções de uso, observações..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="addToCart">Adicionar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.avatar-lg {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.text-sm {
+    font-size: 0.875rem;
+}
+
+#medicationsTable tr {
+    cursor: pointer;
+}
+
+#medicationsTable tr:hover {
+    background-color: var(--bs-gray-100);
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Dados do paciente para uso no JavaScript
+    const patient = {
+        id: {{ patient.id }},
+        full_name: "{{ patient.full_name }}",
+        cpf: "{{ patient.cpf }}"
+    };
+    
+    let cart = [];
+    let selectedMedication = null;
+    
+    // Filtro de medicamentos
+    $('#medicationFilter').on('input', function() {
+        const filter = $(this).val().toLowerCase();
+        $('#medicationsTable tr').each(function() {
+            const text = $(this).text().toLowerCase();
+            $(this).toggle(text.includes(filter));
+        });
+    });
+    
+    // Adicionar medicamento
+    $('.add-medication').on('click', function() {
+        const row = $(this).closest('tr');
+        selectedMedication = {
+            id: parseInt(row.data('medication-id')),
+            name: row.data('medication-name'),
+            cost: parseFloat(row.data('medication-cost')),
+            stock: parseInt(row.data('medication-stock'))
+        };
+        
+        $('#selectedMedicationName').text(selectedMedication.name);
+        $('#availableStock').text(selectedMedication.stock);
+        $('#medicationQuantity').attr('max', selectedMedication.stock).val(1);
+        $('#medicationObservations').val('');
+        
+        $('#quantityModal').modal('show');
+    });
+    
+    // Adicionar ao carrinho
+    $('#addToCart').on('click', function() {
+        const quantity = parseInt($('#medicationQuantity').val());
+        const observations = $('#medicationObservations').val();
+        
+        if (quantity < 1 || quantity > selectedMedication.stock) {
+            showAlert('Quantidade inválida! Deve ser entre 1 e ' + selectedMedication.stock, 'warning');
+            return;
+        }
+        
+        // Verificar se já existe no carrinho
+        const existingIndex = cart.findIndex(item => item.id === selectedMedication.id);
+        
+        if (existingIndex >= 0) {
+            cart[existingIndex].quantity += quantity;
+            if (observations) {
+                cart[existingIndex].observations = observations;
+            }
+        } else {
+            cart.push({
+                id: selectedMedication.id,
+                name: selectedMedication.name,
+                cost: selectedMedication.cost,
+                quantity: quantity,
+                observations: observations
+            });
+        }
+        
+        updateCart();
+        $('#quantityModal').modal('hide');
+        showAlert('Medicamento adicionado ao carrinho!', 'success');
+    });
+    
+    // Atualizar carrinho
+    function updateCart() {
+        const cartItems = $('#cartItems');
+        const cartCount = $('#cartCount');
+        const cartTotal = $('#cartTotal');
+        const cartFooter = $('#cartFooter');
+        
+        if (cart.length === 0) {
+            cartItems.html(`
+                <div class="text-center text-muted py-3">
+                    <i class="fas fa-shopping-cart fa-2x mb-2"></i>
+                    <p class="mb-0">Nenhum medicamento selecionado</p>
+                </div>
+            `);
+            cartFooter.hide();
+            cartCount.text('0');
+            return;
+        }
+        
+        let html = '<div class="list-group list-group-flush">';
+        let total = 0;
+        
+        cart.forEach((item, index) => {
+            const itemTotal = item.cost * item.quantity;
+            total += itemTotal;
+            
+            html += `
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">${item.name}</div>
+                            <small class="text-muted">
+                                ${item.quantity} × R$ ${item.cost.toFixed(2)} = R$ ${itemTotal.toFixed(2)}
+                            </small>
+                            ${item.observations ? `<br><small class="text-info">Obs: ${item.observations}</small>` : ''}
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary decrease-qty" data-index="${index}">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger remove-item" data-index="${index}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        
+        cartItems.html(html);
+        cartCount.text(cart.length);
+        cartTotal.text('R$ ' + total.toFixed(2));
+        cartFooter.show();
+        
+        // Event listeners para botões do carrinho
+        $('.decrease-qty').on('click', function() {
+            const index = $(this).data('index');
+            if (cart[index].quantity > 1) {
+                cart[index].quantity--;
+            } else {
+                cart.splice(index, 1);
+            }
+            updateCart();
+        });
+        
+        $('.remove-item').on('click', function() {
+            const index = $(this).data('index');
+            cart.splice(index, 1);
+            updateCart();
+            showAlert('Medicamento removido do carrinho.', 'info');
+        });
+    }
+    
+    // Ir para página de confirmação
+    $('#confirmDispensation').on('click', function() {
+        if (cart.length === 0) {
+            showAlert('Adicione pelo menos um medicamento!', 'warning');
+            return;
+        }
+        
+        // Armazenar dados no sessionStorage para passar para a próxima página
+        const dispensationData = {
+            patient_id: patient.id,
+            patient_name: patient.full_name,
+            medications: cart.map(item => ({
+                medication_id: item.id,
+                medication_name: item.name,
+                quantity: item.quantity,
+                observations: item.observations || '',
+                unit_cost: item.cost
+            }))
+        };
+        
+        sessionStorage.setItem('dispensationData', JSON.stringify(dispensationData));
+        
+        // Redirecionar para página de confirmação
+        window.location.href = `/dispensation/confirm?patient_id=${patient.id}`;
+    });
+    
+    // Função para mostrar alertas
+    function showAlert(message, type = 'info') {
+        const alertClass = {
+            'success': 'alert-success',
+            'warning': 'alert-warning', 
+            'danger': 'alert-danger',
+            'info': 'alert-info'
+        }[type] || 'alert-info';
+        
+        const alert = $(`
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `);
+        
+        $('.container-fluid').prepend(alert);
+        
+        setTimeout(() => {
+            alert.fadeOut();
+        }, 5000);
+    }
+    
+    // CSRF Token
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", $('meta[name=csrf-token]').attr('content'));
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

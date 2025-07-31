@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block title %}Acompanhamento - {{ patient.full_name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- Header -->
+    <div class="mb-6">
+        <nav class="flex" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="{{ url_for('main.high_cost_index') }}" class="text-gray-700 hover:text-blue-600 dark:text-gray-300">
+                        Alto Custo
+                    </a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        <a href="{{ url_for('main.high_cost_view', id=process.id) }}" class="ml-1 text-gray-700 hover:text-blue-600 dark:text-gray-300">
+                            {{ process.protocol_number }}
+                        </a>
+                    </div>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="ml-1 text-gray-500 dark:text-gray-400">Acompanhamento</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
+        <div class="mt-4">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                <svg class="w-8 h-8 mr-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                Acompanhamento Farmacoterapêutico
+            </h1>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Processo: <span class="font-medium">{{ process.protocol_number }}</span> - 
+                Paciente: <span class="font-medium">{{ patient.full_name }}</span>
+            </p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Novo Registro de Acompanhamento -->
+        <div class="lg:col-span-2">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-600">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Novo Registro de Acompanhamento</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Registre informações sobre o acompanhamento do paciente</p>
+                </div>
+                <div class="px-6 py-4">
+                    <form method="POST" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de Acompanhamento</label>
+                            <select name="tracking_type" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-base focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="">Selecione o tipo</option>
+                                <option value="consultation">Consulta Farmacêutica</option>
+                                <option value="phone_call">Ligação Telefônica</option>
+                                <option value="adverse_reaction">Reação Adversa</option>
+                                <option value="effectiveness">Avaliação de Efetividade</option>
+                                <option value="adherence">Avaliação de Adesão</option>
+                                <option value="laboratory">Resultados Laboratoriais</option>
+                                <option value="medical_visit">Consulta Médica</option>
+                                <option value="other">Outros</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Resposta Clínica</label>
+                            <select name="clinical_response" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-base focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Selecione</option>
+                                <option value="excellent">Excelente</option>
+                                <option value="good">Boa</option>
+                                <option value="partial">Parcial</option>
+                                <option value="poor">Inadequada</option>
+                                <option value="unknown">Não avaliada</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reações Adversas</label>
+                            <textarea name="adverse_reactions" 
+                                      class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-base focus:ring-blue-500 focus:border-blue-500" 
+                                      rows="3" 
+                                      placeholder="Descreva qualquer reação adversa observada ou relatada pelo paciente"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observações e Notas</label>
+                            <textarea name="notes" 
+                                      class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-base focus:ring-blue-500 focus:border-blue-500" 
+                                      rows="4" 
+                                      placeholder="Observações gerais, orientações fornecidas, ajustes necessários, etc." 
+                                      required></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Próximo Acompanhamento</label>
+                            <input type="date" 
+                                   name="next_tracking_date" 
+                                   class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-base focus:ring-blue-500 focus:border-blue-500">
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Data sugerida para próximo contato (opcional)</p>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button type="submit" 
+                                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                </svg>
+                                Salvar Registro
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Histórico de Acompanhamentos -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-600">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Histórico de Acompanhamentos</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Registros anteriores de acompanhamento deste paciente</p>
+                </div>
+                <div class="px-6 py-4">
+                    {% if tracking_records %}
+                    <div class="space-y-6">
+                        {% for record in tracking_records %}
+                        <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        {% set type_class = {
+                                            'consultation': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
+                                            'phone_call': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
+                                            'adverse_reaction': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
+                                            'effectiveness': 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400',
+                                            'adherence': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
+                                            'laboratory': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400',
+                                            'medical_visit': 'bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-400',
+                                            'other': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                        } %}
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ type_class.get(record.tracking_type, 'bg-gray-100 text-gray-800') }}">
+                                            {% if record.tracking_type == 'consultation' %}Consulta
+                                            {% elif record.tracking_type == 'phone_call' %}Ligação
+                                            {% elif record.tracking_type == 'adverse_reaction' %}Reação Adversa
+                                            {% elif record.tracking_type == 'effectiveness' %}Efetividade
+                                            {% elif record.tracking_type == 'adherence' %}Adesão
+                                            {% elif record.tracking_type == 'laboratory' %}Laboratorial
+                                            {% elif record.tracking_type == 'medical_visit' %}Consulta Médica
+                                            {% else %}Outros
+                                            {% endif %}
+                                        </span>
+                                        
+                                        {% if record.clinical_response %}
+                                        {% set response_class = {
+                                            'excellent': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
+                                            'good': 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
+                                            'partial': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
+                                            'poor': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
+                                            'unknown': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                        } %}
+                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ response_class.get(record.clinical_response, 'bg-gray-100 text-gray-800') }}">
+                                            {% if record.clinical_response == 'excellent' %}Excelente
+                                            {% elif record.clinical_response == 'good' %}Boa
+                                            {% elif record.clinical_response == 'partial' %}Parcial
+                                            {% elif record.clinical_response == 'poor' %}Inadequada
+                                            {% else %}Não avaliada
+                                            {% endif %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                        {{ format_date(record.tracking_date) }}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {% if record.notes %}
+                            <div class="mb-3">
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Observações:</dt>
+                                <dd class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ record.notes }}</dd>
+                            </div>
+                            {% endif %}
+                            
+                            {% if record.adverse_reactions %}
+                            <div class="mb-3">
+                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Reações Adversas:</dt>
+                                <dd class="mt-1 text-sm text-red-700 dark:text-red-400">{{ record.adverse_reactions }}</dd>
+                            </div>
+                            {% endif %}
+                            
+                            {% if record.next_tracking_date %}
+                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                                <strong>Próximo acompanhamento:</strong> {{ format_date(record.next_tracking_date) }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">Nenhum registro de acompanhamento</h3>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Este paciente ainda não possui registros de acompanhamento.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Informações do Paciente -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-600">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Informações do Paciente</h3>
+                </div>
+                <div class="px-6 py-4 space-y-3">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Nome</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ patient.full_name }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">CPF</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ format_cpf(patient.cpf) }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Idade</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ patient.age }} anos</dd>
+                    </div>
+                    {% if patient.phone %}
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Telefone</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ patient.phone }}</dd>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Informações do Processo -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-600">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Processo Alto Custo</h3>
+                </div>
+                <div class="px-6 py-4 space-y-3">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Protocolo</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ process.protocol_number }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Medicamento</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ process.medication.commercial_name }}</dd>
+                        <dd class="text-sm text-gray-500 dark:text-gray-400">{{ process.medication.dosage }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">CID-10</dt>
+                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ process.cid10 }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Status</dt>
+                        <dd class="mt-1">
+                            {% set status_class = {
+                                'approved': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
+                                'dispensed': 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
+                            } %}
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ status_class.get(process.status.value, 'bg-gray-100 text-gray-800') }}">
+                                {{ format_process_status(process.status) }}
+                            </span>
+                        </dd>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dispensações -->
+            {% if process.dispensations %}
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-600">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">Dispensações</h3>
+                </div>
+                <div class="px-6 py-4">
+                    <div class="space-y-3">
+                        {% for dispensation in process.dispensations %}
+                        <div class="border border-gray-200 dark:border-gray-600 rounded p-3">
+                            <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                {{ dispensation.quantity_dispensed }} unidades
+                            </div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                                {{ format_date(dispensation.dispensation_date) }}
+                            </div>
+                            {% if dispensation.next_dispensation_date %}
+                            <div class="text-sm text-blue-600 dark:text-blue-400">
+                                Próxima: {{ format_date(dispensation.next_dispensation_date) }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Orientações -->
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div class="flex">
+                    <svg class="w-5 h-5 text-blue-400 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <h3 class="text-sm font-medium text-blue-800 dark:text-blue-400">Orientações para Acompanhamento</h3>
+                        <div class="text-sm text-blue-700 dark:text-blue-300 mt-1 space-y-1">
+                            <p>• Avalie regularmente a efetividade do tratamento</p>
+                            <p>• Monitore possíveis reações adversas</p>
+                            <p>• Verifique a adesão ao tratamento</p>
+                            <p>• Documente todas as intervenções</p>
+                            <p>• Mantenha contato regular com o paciente</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sugerir data para próximo acompanhamento baseada no tipo
+    const trackingTypeSelect = document.querySelector('select[name="tracking_type"]');
+    const nextDateInput = document.querySelector('input[name="next_tracking_date"]');
+    
+    trackingTypeSelect.addEventListener('change', function() {
+        const nextDate = new Date();
+        
+        switch(this.value) {
+            case 'adverse_reaction':
+                nextDate.setDate(nextDate.getDate() + 7); // 1 semana
+                break;
+            case 'consultation':
+                nextDate.setDate(nextDate.getDate() + 30); // 1 mês
+                break;
+            case 'phone_call':
+                nextDate.setDate(nextDate.getDate() + 15); // 2 semanas
+                break;
+            case 'effectiveness':
+            case 'adherence':
+                nextDate.setDate(nextDate.getDate() + 21); // 3 semanas
+                break;
+            case 'laboratory':
+                nextDate.setDate(nextDate.getDate() + 90); // 3 meses
+                break;
+            default:
+                nextDate.setDate(nextDate.getDate() + 30); // 1 mês padrão
+        }
+        
+        if (this.value) {
+            nextDateInput.value = nextDate.toISOString().split('T')[0];
+        }
+    });
+});
+</script>
+{% endblock %}

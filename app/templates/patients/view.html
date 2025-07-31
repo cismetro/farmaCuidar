@@ -1,0 +1,939 @@
+{% extends "base.html" %}
+
+{% block title %}{{ patient.full_name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.patients_list') }}">Pacientes</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ patient.full_name }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-user me-2 text-primary"></i>
+                {{ patient.full_name }}
+            </h1>
+            <p class="text-muted mb-0">
+                {{ patient.age }} anos • {{ patient.gender_display }}
+                {% if patient.is_active %}
+                <span class="badge bg-success ms-2">Ativo</span>
+                {% else %}
+                <span class="badge bg-secondary ms-2">Inativo</span>
+                {% endif %}
+                <!-- ✅ Indicador de origem dos dados -->
+                {% if patient.source == 'imported' %}
+                <span class="badge bg-info ms-1" title="Dados importados do e-SUS">e-SUS</span>
+                {% else %}
+                <span class="badge bg-success ms-1" title="Cadastro local">Local</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                {% if current_user.role.value in ['admin', 'pharmacist'] %}
+                <a href="{{ url_for('main.patient_edit', id=patient.id) }}" class="btn btn-primary">
+                    <i class="fas fa-edit me-1"></i>Editar
+                </a>
+                {% endif %}
+                <a href="{{ url_for('main.dispensation_index') }}?patient_id={{ patient.id }}" class="btn btn-success">
+                    <i class="fas fa-pills me-1"></i>Dispensar
+                </a>
+                <a href="{{ url_for('main.patient_history', id=patient.id) }}" class="btn btn-info">
+                    <i class="fas fa-history me-1"></i>Histórico
+                </a>
+                <button class="btn btn-outline-secondary" onclick="printPatient()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informações Pessoais -->
+        <div class="col-xl-4">
+            <!-- Card Principal -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-id-card me-2"></i>Dados Pessoais
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <div class="avatar-xl bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center">
+                            {{ patient.full_name[0].upper() }}
+                        </div>
+                        <h5 class="mt-3 mb-1">{{ patient.full_name }}</h5>
+                        <p class="text-muted">
+                            {% if patient.is_active %}
+                                <span class="badge bg-success">Ativo</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inativo</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <dl class="row">
+                        <dt class="col-sm-4">CPF:</dt>
+                        <dd class="col-sm-8">
+                            <code>{{ patient.formatted_cpf }}</code>
+                            <button class="btn btn-sm btn-outline-secondary ms-1 copy-btn" onclick="copyToClipboard('{{ patient.cpf }}')" title="Copiar CPF">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </dd>
+                        
+                        <dt class="col-sm-4">CNS:</dt>
+                        <dd class="col-sm-8">
+                            {% if patient.cns %}
+                            <code>{{ patient.formatted_cns }}</code>
+                            <button class="btn btn-sm btn-outline-secondary ms-1 copy-btn" onclick="copyToClipboard('{{ patient.cns }}')" title="Copiar CNS">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            {% else %}
+                            <span class="text-muted">--</span>
+                            {% endif %}
+                        </dd>
+                        
+                        <dt class="col-sm-4">Nascimento:</dt>
+                        <dd class="col-sm-8">{{ format_date(patient.birth_date) }}</dd>
+                        
+                        <dt class="col-sm-4">Idade:</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge bg-light text-dark">{{ patient.age }} anos</span>
+                        </dd>
+                        
+                        <dt class="col-sm-4">Gênero:</dt>
+                        <dd class="col-sm-8">{{ patient.gender_display }}</dd>
+                        
+                        <dt class="col-sm-4">Cadastro:</dt>
+                        <dd class="col-sm-8">
+                            <small class="text-muted">{{ format_datetime(patient.created_at) }}</small>
+                            {% if patient.esus_sync_date %}
+                            <br><small class="text-info">Última sincronização e-SUS: {{ format_datetime(patient.esus_sync_date) }}</small>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- ✅ Informações Familiares -->
+            {% if patient.mother_name or patient.father_name %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>Informações Familiares
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        {% if patient.mother_name %}
+                        <dt class="col-sm-4">Mãe:</dt>
+                        <dd class="col-sm-8">
+                            {{ patient.mother_name }}
+                            <button class="btn btn-sm btn-outline-secondary ms-1 copy-btn" onclick="copyToClipboard('{{ patient.mother_name|replace("'", "\\'") }}')" title="Copiar nome da mãe">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </dd>
+                        {% endif %}
+                        
+                        {% if patient.father_name %}
+                        <dt class="col-sm-4">Pai:</dt>
+                        <dd class="col-sm-8">
+                            {{ patient.father_name }}
+                            <button class="btn btn-sm btn-outline-secondary ms-1 copy-btn" onclick="copyToClipboard('{{ patient.father_name|replace("'", "\\'") }}')" title="Copiar nome do pai">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ✅ Contato (Atualizado) -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-phone me-2"></i>Contato
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <!-- ✅ Telefone Celular -->
+                        <dt class="col-sm-4">Celular:</dt>
+                        <dd class="col-sm-8">
+                            {% if patient.cell_phone %}
+                                <a href="tel:{{ patient.cell_phone }}" class="text-decoration-none text-success">
+                                    <i class="fas fa-mobile-alt me-1"></i>{{ patient.formatted_cell_phone }}
+                                </a>
+                                <div class="btn-group btn-group-sm ms-1" role="group">
+                                    <button class="btn btn-outline-success" onclick="callPatient('{{ patient.cell_phone }}')" title="Ligar para celular">
+                                        <i class="fas fa-phone"></i>
+                                    </button>
+                                    <button class="btn btn-outline-info" onclick="sendWhatsApp('{{ patient.cell_phone }}')" title="WhatsApp">
+                                        <i class="fab fa-whatsapp"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyToClipboard('{{ patient.cell_phone }}')" title="Copiar celular">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">--</span>
+                            {% endif %}
+                        </dd>
+                        
+                        <!-- ✅ Telefone Residencial -->
+                        <dt class="col-sm-4">Residencial:</dt>
+                        <dd class="col-sm-8">
+                            {% if patient.home_phone %}
+                                <a href="tel:{{ patient.home_phone }}" class="text-decoration-none text-info">
+                                    <i class="fas fa-phone me-1"></i>{{ patient.formatted_home_phone }}
+                                </a>
+                                <div class="btn-group btn-group-sm ms-1" role="group">
+                                    <button class="btn btn-outline-info" onclick="callPatient('{{ patient.home_phone }}')" title="Ligar para residência">
+                                        <i class="fas fa-phone"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyToClipboard('{{ patient.home_phone }}')" title="Copiar telefone residencial">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">--</span>
+                            {% endif %}
+                        </dd>
+                        
+                        <!-- ✅ Telefone de Contato -->
+                        <dt class="col-sm-4">Contato:</dt>
+                        <dd class="col-sm-8">
+                            {% if patient.contact_phone %}
+                                <a href="tel:{{ patient.contact_phone }}" class="text-decoration-none text-warning">
+                                    <i class="fas fa-phone-alt me-1"></i>{{ patient.formatted_contact_phone }}
+                                </a>
+                                <div class="btn-group btn-group-sm ms-1" role="group">
+                                    <button class="btn btn-outline-warning" onclick="callPatient('{{ patient.contact_phone }}')" title="Ligar para contato">
+                                        <i class="fas fa-phone"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyToClipboard('{{ patient.contact_phone }}')" title="Copiar telefone de contato">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">--</span>
+                            {% endif %}
+                        </dd>
+                        
+                        <!-- ✅ Email -->
+                        <dt class="col-sm-4">Email:</dt>
+                        <dd class="col-sm-8">
+                            {% if patient.email %}
+                                <a href="mailto:{{ patient.email }}" class="text-decoration-none">
+                                    <i class="fas fa-envelope me-1"></i>{{ patient.email }}
+                                </a>
+                                <div class="btn-group btn-group-sm ms-1" role="group">
+                                    <button class="btn btn-outline-primary" onclick="emailPatient('{{ patient.email }}')" title="Enviar Email">
+                                        <i class="fas fa-envelope"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyToClipboard('{{ patient.email }}')" title="Copiar email">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">--</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Endereço -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-map-marker-alt me-2"></i>Endereço
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if patient.full_address != 'Endereço não informado' %}
+                    <address class="mb-3">{{ patient.full_address }}</address>
+                    {% if patient.zip_code %}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">CEP: {{ patient.zip_code[:5] }}-{{ patient.zip_code[5:] if patient.zip_code|length == 8 else patient.zip_code }}</small>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary copy-btn" onclick="copyToClipboard('{{ patient.full_address|replace("'", "\\'") }}')" title="Copiar endereço">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button class="btn btn-outline-success" onclick="openMaps()" title="Ver no Google Maps">
+                                <i class="fas fa-map-marked-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-muted mb-0">Endereço não informado</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Atividades e Histórico -->
+        <div class="col-xl-8">
+            <!-- Estatísticas Rápidas -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="fs-6 fw-bold">Dispensações</div>
+                                    <div class="fs-4 fw-bold">{{ patient.dispensations|length }}</div>
+                                </div>
+                                <i class="fas fa-pills fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="fs-6 fw-bold">Medicamentos</div>
+                                    <div class="fs-4 fw-bold">{{ stats.unique_medications if stats else 0 }}</div>
+                                </div>
+                                <i class="fas fa-capsules fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="fs-6 fw-bold">Alto Custo</div>
+                                    <div class="fs-4 fw-bold">{{ patient.high_cost_processes|length }}</div>
+                                </div>
+                                <i class="fas fa-star fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-grow-1">
+                                    <div class="fs-6 fw-bold">Última Visita</div>
+                                    <div class="fs-6 fw-bold">
+                                        {% if patient.dispensations %}
+                                            {{ format_date(patient.dispensations[-1].dispensation_date) }}
+                                        {% else %}
+                                            Nunca
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <i class="fas fa-calendar fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ações Rápidas -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>Ações Rápidas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <a href="{{ url_for('main.dispensation_index') }}?patient_id={{ patient.id }}" class="btn btn-outline-success w-100">
+                                <i class="fas fa-pills me-2"></i>Nova Dispensação
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            {% if has_permission('create_high_cost') %}
+                            <a href="{{ url_for('main.high_cost_request', patient_id=patient.id) }}" class="btn btn-outline-warning w-100">
+                                <i class="fas fa-star me-2"></i>Alto Custo
+                            </a>
+                            {% else %}
+                            <button class="btn btn-outline-warning w-100" disabled title="Sem permissão">
+                                <i class="fas fa-star me-2"></i>Alto Custo
+                            </button>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('main.patient_history', id=patient.id) }}" class="btn btn-outline-info w-100">
+                                <i class="fas fa-history me-2"></i>Ver Histórico
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-secondary w-100" onclick="generateReport()">
+                                <i class="fas fa-file-alt me-2"></i>Relatório
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dispensações Recentes -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-pills me-2"></i>Dispensações Recentes
+                        </h5>
+                        <a href="{{ url_for('main.patient_history', id=patient.id) }}" class="btn btn-sm btn-outline-primary">
+                            Ver Todas
+                        </a>
+                    </div>
+                </div>
+                
+                {% if patient.dispensations %}
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Medicamentos</th>
+                                    <th>Farmacêutico</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dispensation in patient.dispensations[:5] %}
+                                <tr>
+                                    <td>{{ format_date(dispensation.dispensation_date) }}</td>
+                                    <td>
+                                        {% if dispensation.items %}
+                                            {% for item in dispensation.items %}
+                                            <div class="mb-1">
+                                                <div class="fw-semibold">{{ item.medication.commercial_name }}</div>
+                                                <small class="text-muted">
+                                                    {{ item.quantity_dispensed }} unidades
+                                                    {% if item.total_cost %}
+                                                    • {{ item.formatted_total_cost }}
+                                                    {% endif %}
+                                                </small>
+                                                {% if item.observations %}
+                                                <div class="small text-muted">
+                                                    <em>{{ item.observations }}</em>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="text-muted">Sem itens</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ dispensation.dispenser.full_name }}</td>
+                                    <td>
+                                        {% if dispensation.status.value == 'completed' %}
+                                        <span class="badge bg-success">Concluída</span>
+                                        {% elif dispensation.status.value == 'pending' %}
+                                        <span class="badge bg-warning">Pendente</span>
+                                        {% elif dispensation.status.value == 'cancelled' %}
+                                        <span class="badge bg-danger">Cancelada</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info" 
+                                                onclick="showDispensationDetails({{ dispensation.id }})" 
+                                                title="Ver Detalhes">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% else %}
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-pills fa-2x text-muted mb-2"></i>
+                    <p class="text-muted mb-2">Nenhuma dispensação registrada</p>
+                    <a href="{{ url_for('main.dispensation_index') }}?patient_id={{ patient.id }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus me-1"></i>Primeira Dispensação
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Processos Alto Custo -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-star me-2"></i>Processos Alto Custo
+                        </h5>
+                        {% if has_permission('create_high_cost') %}
+                        <a href="{{ url_for('main.high_cost_request', patient_id=patient.id) }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-plus me-1"></i>Novo Processo
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if patient.high_cost_processes %}
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for process in patient.high_cost_processes[:3] %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">{{ process.protocol_number }}</div>
+                                <small class="text-muted">{{ process.medication.commercial_name }}</small>
+                            </div>
+                            <span class="badge bg-warning">{{ process.status.value|title }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-star fa-2x text-muted mb-2"></i>
+                    <p class="text-muted mb-2">Nenhum processo de alto custo</p>
+                    <small class="text-muted">Processos de alto custo aparecerão aqui quando criados</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Detalhes da Dispensação -->
+<div class="modal fade" id="dispensationDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes da Dispensação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="dispensationDetailsContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.avatar-xl {
+    width: 80px;
+    height: 80px;
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+address {
+    font-style: normal;
+    line-height: 1.5;
+}
+
+.btn-sm {
+    padding: 0.125rem 0.25rem;
+    font-size: 0.75rem;
+}
+
+/* ✅ Cores específicas para tipos de telefone */
+.text-success {
+    color: #198754 !important;
+}
+
+.text-info {
+    color: #0dcaf0 !important;
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+
+/* ✅ Botões de ação para telefone */
+.btn-outline-success:hover {
+    color: #fff;
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.btn-outline-info:hover {
+    color: #000;
+    background-color: #0dcaf0;
+    border-color: #0dcaf0;
+}
+
+.btn-outline-warning:hover {
+    color: #000;
+    background-color: #ffc107;
+    border-color: #ffc107;
+}
+
+/* ✅ ESTILOS PARA ALERTS DE COPY */
+.copy-alert {
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* ✅ MELHORAR BOTÕES DE COPY */
+.copy-btn {
+    transition: all 0.2s ease;
+}
+
+.copy-btn:hover {
+    transform: scale(1.1);
+}
+
+/* ✅ ANIMAÇÃO PARA ÍCONES */
+.fa-bounce {
+    animation: bounce 0.5s ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 20%, 60%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    80% {
+        transform: translateY(-5px);
+    }
+}
+
+/* ✅ EFEITO PARA BOTÕES ATIVOS */
+.btn.btn-success {
+    transition: all 0.3s ease;
+}
+
+/* ✅ FEEDBACK VISUAL PARA COPY */
+.copy-success {
+    background-color: #198754 !important;
+    border-color: #198754 !important;
+    color: white !important;
+}
+
+@media print {
+    .btn-group, .btn {
+        display: none !important;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.375em 0.75em;
+}
+
+dl.row dt {
+    font-weight: 600;
+    color: #495057;
+}
+
+dl.row dd {
+    margin-bottom: 0.5rem;
+}
+
+/* ✅ Melhorar aparência dos links de telefone */
+a[href^="tel:"] {
+    font-weight: 500;
+}
+
+a[href^="tel:"]:hover {
+    text-decoration: underline !important;
+}
+
+/* ✅ Responsividade para botões pequenos */
+@media (max-width: 768px) {
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function printPatient() {
+    window.print();
+}
+
+// ✅ FUNÇÃO DE COPY MELHORADA COM MÚLTIPLOS FALLBACKS
+function copyToClipboard(text) {
+    // Remover aspas extras que podem vir do template
+    const cleanText = text.replace(/['"]/g, '');
+    
+    // Método 1: API moderna do Navigator Clipboard
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(cleanText).then(() => {
+            showCopySuccess(cleanText);
+        }).catch(() => {
+            fallbackCopyTextToClipboard(cleanText);
+        });
+    } else {
+        // Método 2: Fallback para navegadores mais antigos
+        fallbackCopyTextToClipboard(cleanText);
+    }
+}
+
+// ✅ FALLBACK PARA NAVEGADORES ANTIGOS
+function fallbackCopyTextToClipboard(text) {
+    try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        
+        // Evitar scroll para o textarea
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        textArea.style.pointerEvents = "none";
+        
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        textArea.setSelectionRange(0, 99999); // Para mobile
+        
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (successful) {
+            showCopySuccess(text);
+        } else {
+            showCopyError();
+        }
+    } catch (err) {
+        console.error('Erro no fallback copy:', err);
+        showCopyError();
+    }
+}
+
+// ✅ FEEDBACK VISUAL DE SUCESSO
+function showCopySuccess(text) {
+    // Criar alert temporário
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show copy-alert';
+    alertDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    
+    // Truncar texto longo para exibição
+    const displayText = text.length > 25 ? text.substring(0, 25) + '...' : text;
+    
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        <strong>Copiado!</strong> ${displayText}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto-remover após 3 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 3000);
+}
+
+// ✅ FEEDBACK VISUAL DE ERRO
+function showCopyError() {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show copy-alert';
+    alertDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Erro!</strong> Não foi possível copiar
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 3000);
+}
+
+function callPatient(phone) {
+    window.location.href = `tel:${phone}`;
+}
+
+function emailPatient(email) {
+    window.location.href = `mailto:${email}`;
+}
+
+// ✅ Função para WhatsApp
+function sendWhatsApp(phone) {
+    // Remover formatação do telefone
+    const cleanPhone = phone.replace(/\D/g, '');
+    // Adicionar código do país se não tiver
+    const fullPhone = cleanPhone.startsWith('55') ? cleanPhone : '55' + cleanPhone;
+    window.open(`https://wa.me/${fullPhone}`, '_blank');
+}
+
+function openMaps() {
+    const address = `{{ patient.full_address|safe|replace("'", "\\'") }}`.replace(/\n/g, ' ');
+    const encodedAddress = encodeURIComponent(address);
+    window.open(`https://www.google.com/maps/search/${encodedAddress}`, '_blank');
+}
+
+function generateReport() {
+    showSimpleAlert('Funcionalidade de relatório em desenvolvimento', 'info');
+}
+
+function showDispensationDetails(dispensationId) {
+    const modal = new bootstrap.Modal(document.getElementById('dispensationDetailsModal'));
+    const content = document.getElementById('dispensationDetailsContent');
+    
+    // Simular carregamento de detalhes
+    content.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Dispensação #${dispensationId}</h6>
+                <p class="text-muted">Detalhes completos da dispensação aparecerão aqui quando a funcionalidade estiver implementada.</p>
+            </div>
+        </div>
+    `;
+    
+    modal.show();
+}
+
+// ✅ FUNÇÃO PARA ALERTS SIMPLES
+function showSimpleAlert(message, type = 'info') {
+    const alertClass = {
+        'success': 'alert-success',
+        'error': 'alert-danger',
+        'info': 'alert-info',
+        'warning': 'alert-warning'
+    }[type] || 'alert-info';
+    
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert ${alertClass} alert-dismissible fade show`;
+    alertDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    
+    alertDiv.innerHTML = `
+        <i class="fas fa-info-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 4000);
+}
+
+$(document).ready(function() {
+    // ✅ MELHORAR TOOLTIPS
+    $('[title]').tooltip({
+        placement: 'top',
+        trigger: 'hover'
+    });
+    
+    // ✅ Destacar telefone principal (celular)
+    $('a[href^="tel:"]').each(function() {
+        if ($(this).find('.fa-mobile-alt').length > 0) {
+            $(this).closest('dd').addClass('fw-bold');
+        }
+    });
+    
+    // ✅ MELHORAR BOTÕES DE COPY COM EFEITO VISUAL
+    $('.copy-btn').on('click', function() {
+        const $btn = $(this);
+        const originalIcon = $btn.find('i').attr('class');
+        const originalClass = $btn.attr('class');
+        
+        // Animação de feedback no botão
+        $btn.find('i').removeClass().addClass('fas fa-check text-success');
+        $btn.addClass('copy-success').removeClass('btn-outline-secondary');
+        
+        // Restaurar após 1.5 segundos
+        setTimeout(() => {
+            $btn.find('i').removeClass().addClass(originalIcon);
+            $btn.attr('class', originalClass);
+        }, 1500);
+    });
+    
+    // ✅ EFEITO HOVER NOS BOTÕES DE COPY
+    $('.copy-btn').hover(
+        function() {
+            $(this).find('i').addClass('fa-bounce');
+        },
+        function() {
+            $(this).find('i').removeClass('fa-bounce');
+        }
+    );
+    
+    // ✅ AUTO-FOCUS EM CAMPOS IMPORTANTES
+    $('.btn-outline-success').first().focus();
+});
+</script>
+{% endblock %}

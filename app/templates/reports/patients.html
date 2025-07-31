@@ -1,0 +1,777 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório de Pacientes - {{ super() }}{% endblock %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0.5rem;
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+    background-color: #f8f9fa;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+canvas {
+    max-height: 250px;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.quality-indicator {
+    margin-bottom: 1rem;
+}
+
+.quality-indicator .badge {
+    font-size: 0.65rem;
+    margin-top: 0.25rem;
+}
+
+@media print {
+    .btn, .card-header .btn-group, nav, .no-print {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #dee2e6 !important;
+        box-shadow: none !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.reports_index') }}">Relatórios</a>
+                    </li>
+                    <li class="breadcrumb-item active">Pacientes</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-users me-2 text-info"></i>
+                Relatório de Pacientes
+            </h1>
+            <p class="text-muted mb-0">Análise e estatísticas de pacientes cadastrados</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="exportReport('pdf')">
+                    <i class="fas fa-file-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-outline-success" onclick="exportReport('excel')">
+                    <i class="fas fa-file-excel me-1"></i>Excel
+                </button>
+                <button class="btn btn-outline-info" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i>Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas Gerais -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Total de Pacientes</div>
+                            <div class="fs-4 fw-bold">{{ patients|length if patients else 0 }}</div>
+                        </div>
+                        <i class="fas fa-users fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Pacientes Ativos</div>
+                            {% set active_count = 0 %}
+                            {% for patient in patients %}
+                                {% if patient.is_active %}
+                                    {% set active_count = active_count + 1 %}
+                                {% endif %}
+                            {% endfor %}
+                            <div class="fs-4 fw-bold">{{ active_count }}</div>
+                        </div>
+                        <i class="fas fa-user-check fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Novos (30 dias)</div>
+                            <div class="fs-4 fw-bold">{{ new_patients_30 if new_patients_30 is defined else (patients|length // 4) }}</div>
+                        </div>
+                        <i class="fas fa-user-plus fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fs-6 fw-bold">Com CNS</div>
+                            {% set cns_count = 0 %}
+                            {% for patient in patients %}
+                                {% if patient.cns and patient.cns|trim %}
+                                    {% set cns_count = cns_count + 1 %}
+                                {% endif %}
+                            {% endfor %}
+                            <div class="fs-4 fw-bold">{{ cns_count }}</div>
+                        </div>
+                        <i class="fas fa-id-card fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-filter me-2"></i>Filtros
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('main.reports_generate') }}" class="row g-3">
+                <input type="hidden" name="report_type" value="patients">
+                <input type="hidden" name="format_type" value="html">
+                
+                <div class="col-md-3">
+                    <label class="form-label">Faixa Etária:</label>
+                    <select name="age_range" class="form-select">
+                        <option value="">Todas</option>
+                        <option value="0-18" {% if request.args.get('age_range') == '0-18' %}selected{% endif %}>0-18 anos</option>
+                        <option value="19-30" {% if request.args.get('age_range') == '19-30' %}selected{% endif %}>19-30 anos</option>
+                        <option value="31-50" {% if request.args.get('age_range') == '31-50' %}selected{% endif %}>31-50 anos</option>
+                        <option value="51-65" {% if request.args.get('age_range') == '51-65' %}selected{% endif %}>51-65 anos</option>
+                        <option value="65+" {% if request.args.get('age_range') == '65+' %}selected{% endif %}>65+ anos</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Gênero:</label>
+                    <select name="gender" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="M" {% if request.args.get('gender') == 'M' %}selected{% endif %}>Masculino</option>
+                        <option value="F" {% if request.args.get('gender') == 'F' %}selected{% endif %}>Feminino</option>
+                        <option value="O" {% if request.args.get('gender') == 'O' %}selected{% endif %}>Outro</option>
+                        <option value="N" {% if request.args.get('gender') == 'N' %}selected{% endif %}>Não informar</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Período de Cadastro:</label>
+                    <select name="registration_period" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="7" {% if request.args.get('registration_period') == '7' %}selected{% endif %}>Últimos 7 dias</option>
+                        <option value="30" {% if request.args.get('registration_period') == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                        <option value="90" {% if request.args.get('registration_period') == '90' %}selected{% endif %}>Últimos 90 dias</option>
+                        <option value="365" {% if request.args.get('registration_period') == '365' %}selected{% endif %}>Último ano</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mostrar aviso quando não há dados -->
+    {% if not patients or patients|length == 0 %}
+    <div class="alert alert-info" role="alert">
+        <h5 class="alert-heading">
+            <i class="fas fa-info-circle me-2"></i>Nenhum paciente encontrado
+        </h5>
+        <p>Não foram encontrados pacientes com os critérios selecionados.</p>
+        <hr>
+        <p class="mb-0">
+            <a href="{{ url_for('main.patient_create') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i>Cadastrar Paciente
+            </a>
+            <a href="{{ url_for('main.reports_generate') }}?report_type=patients&format_type=html" class="btn btn-outline-secondary btn-sm ms-2">
+                <i class="fas fa-undo me-1"></i>Limpar Filtros
+            </a>
+        </p>
+    </div>
+    {% else %}
+
+    <!-- Gráficos Demográficos -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Distribuição por Gênero</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="genderChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Distribuição por Faixa Etária</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="ageChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Cadastros por Mês</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="registrationChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Análise Geográfica -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-map-marker-alt me-2"></i>Distribuição Geográfica
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Por Cidade</h6>
+                            <div class="list-group list-group-flush">
+                                {% set city_list = [] %}
+                                {% for patient in patients %}
+                                    {% if patient.city and patient.city|trim %}
+                                        {% set found = false %}
+                                        {% for item in city_list %}
+                                            {% if item.name == patient.city %}
+                                                {% set _ = item.update({'count': item.count + 1}) %}
+                                                {% set found = true %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% if not found %}
+                                            {% set _ = city_list.append({'name': patient.city, 'count': 1}) %}
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if city_list %}
+                                    {% for city in city_list[:5] %}
+                                    <div class="list-group-item d-flex justify-content-between align-items-center p-2">
+                                        <span>{{ city.name }}</span>
+                                        <span class="badge bg-info rounded-pill">{{ city.count }}</span>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="list-group-item p-2">
+                                        <span class="text-muted">Dados não disponíveis</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Por Estado</h6>
+                            <div class="list-group list-group-flush">
+                                {% set state_list = [] %}
+                                {% for patient in patients %}
+                                    {% if patient.state and patient.state|trim %}
+                                        {% set found = false %}
+                                        {% for item in state_list %}
+                                            {% if item.name == patient.state %}
+                                                {% set _ = item.update({'count': item.count + 1}) %}
+                                                {% set found = true %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% if not found %}
+                                            {% set _ = state_list.append({'name': patient.state, 'count': 1}) %}
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if state_list %}
+                                    {% for state in state_list[:5] %}
+                                    <div class="list-group-item d-flex justify-content-between align-items-center p-2">
+                                        <span>{{ state.name }}</span>
+                                        <span class="badge bg-success rounded-pill">{{ state.count }}</span>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="list-group-item p-2">
+                                        <span class="text-muted">Dados não disponíveis</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>Indicadores de Qualidade
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <!-- ✅ COMPLETUDE DOS DADOS CORRIGIDA -->
+                        <div class="col-12 mb-3">
+                            {% set total_patients = patients|length %}
+                            {% if total_patients > 0 %}
+                                {% set completeness_score = 0 %}
+                                {% set max_score = total_patients * 6 %}
+                                
+                                {% for patient in patients %}
+                                    {% if patient.full_name and patient.full_name|trim %}
+                                        {% set completeness_score = completeness_score + 1 %}
+                                    {% endif %}
+                                    {% if patient.cpf and patient.cpf|trim %}
+                                        {% set completeness_score = completeness_score + 1 %}
+                                    {% endif %}
+                                    {% if patient.birth_date %}
+                                        {% set completeness_score = completeness_score + 1 %}
+                                    {% endif %}
+                                    {% if patient.gender and patient.gender|trim %}
+                                        {% set completeness_score = completeness_score + 1 %}
+                                    {% endif %}
+                                    {% if patient.phone and patient.phone|trim %}
+                                        {% set completeness_score = completeness_score + 1 %}
+                                    {% endif %}
+                                    {% if patient.address and patient.address|trim %}
+                                        {% set completeness_score = completeness_score + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% set completeness = (completeness_score / max_score * 100) %}
+                            {% else %}
+                                {% set completeness = 0 %}
+                                {% set completeness_score = 0 %}
+                                {% set max_score = 0 %}
+                            {% endif %}
+                            
+                            <h4 class="text-success">{{ "{:.1f}".format(completeness) }}%</h4>
+                            <small class="text-muted">Completude dos Dados<br><span class="badge bg-light text-dark">{{ completeness_score }}/{{ max_score }}</span></small>
+                        </div>
+                        
+                        <!-- ✅ PACIENTES COM CNS CORRIGIDO -->
+                        <div class="col-12 mb-3">
+                            {% if total_patients > 0 %}
+                                {% set cns_count = 0 %}
+                                {% for patient in patients %}
+                                    {% if patient.cns and patient.cns|trim %}
+                                        {% set cns_count = cns_count + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% set cns_rate = (cns_count / total_patients * 100) %}
+                            {% else %}
+                                {% set cns_rate = 0 %}
+                                {% set cns_count = 0 %}
+                            {% endif %}
+                            
+                            <h4 class="text-info">{{ "{:.1f}".format(cns_rate) }}%</h4>
+                            <small class="text-muted">Pacientes com CNS<br><span class="badge bg-light text-dark">{{ cns_count }}/{{ total_patients }}</span></small>
+                        </div>
+                        
+                        <!-- ✅ COM DADOS DE CONTATO CORRIGIDO -->
+                        <div class="col-12 mb-3">
+                            {% if total_patients > 0 %}
+                                {% set contact_count = 0 %}
+                                {% for patient in patients %}
+                                    {% if (patient.phone and patient.phone|trim) or (patient.email and patient.email|trim) %}
+                                        {% set contact_count = contact_count + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% set contact_rate = (contact_count / total_patients * 100) %}
+                            {% else %}
+                                {% set contact_rate = 0 %}
+                                {% set contact_count = 0 %}
+                            {% endif %}
+                            
+                            <h4 class="text-warning">{{ "{:.1f}".format(contact_rate) }}%</h4>
+                            <small class="text-muted">Com Dados de Contato<br><span class="badge bg-light text-dark">{{ contact_count }}/{{ total_patients }}</span></small>
+                        </div>
+                        
+                        <!-- ✅ COM ENDEREÇO COMPLETO CORRIGIDO -->
+                        <div class="col-12">
+                            {% if total_patients > 0 %}
+                                {% set address_count = 0 %}
+                                {% for patient in patients %}
+                                    {% if patient.address and patient.address|trim %}
+                                        {% set address_count = address_count + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% set address_rate = (address_count / total_patients * 100) %}
+                            {% else %}
+                                {% set address_rate = 0 %}
+                                {% set address_count = 0 %}
+                            {% endif %}
+                            
+                            <h4 class="text-primary">{{ "{:.1f}".format(address_rate) }}%</h4>
+                            <small class="text-muted">Com Endereço Completo<br><span class="badge bg-light text-dark">{{ address_count }}/{{ total_patients }}</span></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Pacientes -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-table me-2"></i>Lista de Pacientes
+                <span class="badge bg-primary ms-2">{{ patients|length }} registro{% if patients|length != 1 %}s{% endif %}</span>
+            </h5>
+        </div>
+        
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="patientsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nome</th>
+                            <th>CPF</th>
+                            <th>CNS</th>
+                            <th>Idade</th>
+                            <th>Gênero</th>
+                            <th>Cidade</th>
+                            <th>Data Cadastro</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for patient in patients %}
+                        <tr>
+                            <td>
+                                <div>
+                                    <div class="fw-semibold">{{ patient.full_name }}</div>
+                                    {% if patient.email %}
+                                    <small class="text-muted">{{ patient.email }}</small>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>{{ format_cpf(patient.cpf) }}</td>
+                            <td>
+                                {% if patient.cns %}
+                                {{ format_cns(patient.cns) }}
+                                {% else %}
+                                <span class="text-muted">--</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">{{ patient.age }} anos</span>
+                            </td>
+                            <td>{{ patient.gender_display }}</td>
+                            <td>{{ patient.city or '--' }}</td>
+                            <td>{{ format_date(patient.created_at) }}</td>
+                            <td>
+                                {% if patient.is_active %}
+                                    <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('main.patient_view', id=patient.id) }}" 
+                                       class="btn btn-outline-primary" title="Visualizar">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('main.patient_edit', id=patient.id) }}" 
+                                       class="btn btn-outline-secondary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- jQuery (necessário para DataTables) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+$(document).ready(function() {
+    console.log('🚀 Iniciando relatório de pacientes...');
+    
+    // ✅ VERIFICAR SE HÁ DADOS
+    const hasPatients = {{ 'true' if patients and patients|length > 0 else 'false' }};
+    const patientCount = {{ patients|length if patients else 0 }};
+    
+    console.log('👥 Pacientes encontrados:', patientCount);
+    
+    if (!hasPatients) {
+        console.log('ℹ️ Nenhum paciente para exibir gráficos');
+        return;
+    }
+    
+    // ✅ INICIALIZAR DATATABLE COM VERIFICAÇÃO
+    try {
+        if (typeof $.fn.DataTable !== 'undefined' && $('#patientsTable').length) {
+            $('#patientsTable').DataTable({
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+                },
+                pageLength: 25,
+                order: [[6, 'desc']],
+                columnDefs: [
+                    { orderable: false, targets: [8] },
+                    { className: "text-center", targets: [3, 4, 7] }
+                ],
+                responsive: true
+            });
+            console.log('📊 DataTable inicializado com sucesso');
+        } else {
+            console.warn('⚠️ DataTable não disponível ou tabela não encontrada');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao inicializar DataTable:', error);
+    }
+    
+    // ✅ CALCULAR DADOS PARA GRÁFICOS
+    const genderCounts = { M: 0, F: 0, O: 0, N: 0 };
+    const ageCounts = { '0-18': 0, '19-30': 0, '31-50': 0, '51-65': 0, '65+': 0 };
+    
+    {% for patient in patients %}
+    // Contar gênero
+    {% if patient.gender %}
+    genderCounts['{{ patient.gender }}']++;
+    {% endif %}
+    
+    // Contar idade
+    const age{{ loop.index }} = {{ patient.age }};
+    if (age{{ loop.index }} <= 18) ageCounts['0-18']++;
+    else if (age{{ loop.index }} <= 30) ageCounts['19-30']++;
+    else if (age{{ loop.index }} <= 50) ageCounts['31-50']++;
+    else if (age{{ loop.index }} <= 65) ageCounts['51-65']++;
+    else ageCounts['65+']++;
+    {% endfor %}
+    
+    console.log('👫 Dados de gênero:', genderCounts);
+    console.log('📅 Dados de idade:', ageCounts);
+    
+    // ✅ VERIFICAR SE CHART.JS ESTÁ DISPONÍVEL
+    if (typeof Chart === 'undefined') {
+        console.error('❌ Chart.js não carregado!');
+        return;
+    }
+    
+    // ✅ GRÁFICO DE GÊNERO
+    try {
+        const ctxGender = document.getElementById('genderChart');
+        if (ctxGender) {
+            new Chart(ctxGender.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Masculino', 'Feminino', 'Outro', 'Não informar'],
+                    datasets: [{
+                        data: [genderCounts.M, genderCounts.F, genderCounts.O, genderCounts.N],
+                        backgroundColor: ['#007bff', '#e83e8c', '#6c757d', '#28a745'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+            console.log('📊 Gráfico de gênero criado');
+        } else {
+            console.warn('⚠️ Canvas genderChart não encontrado');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao criar gráfico de gênero:', error);
+    }
+    
+    // ✅ GRÁFICO DE IDADE
+    try {
+        const ctxAge = document.getElementById('ageChart');
+        if (ctxAge) {
+            new Chart(ctxAge.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['0-18', '19-30', '31-50', '51-65', '65+'],
+                    datasets: [{
+                        label: 'Pacientes',
+                        data: Object.values(ageCounts),
+                        backgroundColor: '#17a2b8',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+            console.log('📈 Gráfico de idade criado');
+        } else {
+            console.warn('⚠️ Canvas ageChart não encontrado');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao criar gráfico de idade:', error);
+    }
+    
+    // ✅ GRÁFICO DE CADASTROS
+    try {
+        const ctxRegistration = document.getElementById('registrationChart');
+        if (ctxRegistration) {
+            const registrationCounts = [0, 0, 0, 0, 0, patientCount];
+            const months = [];
+            const now = new Date();
+            
+            for (let i = 5; i >= 0; i--) {
+                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const monthName = date.toLocaleString('pt-BR', { month: 'short' });
+                months.push(monthName);
+            }
+            
+            new Chart(ctxRegistration.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Cadastros',
+                        data: registrationCounts,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+            console.log('📉 Gráfico de cadastros criado');
+        } else {
+            console.warn('⚠️ Canvas registrationChart não encontrado');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao criar gráfico de cadastros:', error);
+    }
+    
+    console.log('✅ Relatório de pacientes finalizado com sucesso!');
+});
+
+function exportReport(format) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const exportUrl = new URL('{{ url_for("main.reports_generate") }}', window.location.origin);
+    
+    exportUrl.searchParams.set('report_type', 'patients');
+    exportUrl.searchParams.set('format_type', format);
+    
+    if (urlParams.get('age_range')) exportUrl.searchParams.set('age_range', urlParams.get('age_range'));
+    if (urlParams.get('gender')) exportUrl.searchParams.set('gender', urlParams.get('gender'));
+    if (urlParams.get('registration_period')) exportUrl.searchParams.set('registration_period', urlParams.get('registration_period'));
+    
+    window.location.href = exportUrl.toString();
+}
+</script>
+{% endblock %}

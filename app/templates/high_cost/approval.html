@@ -1,0 +1,597 @@
+{% extends "base.html" %}
+
+{% block title %}Decisão - Processo {{ process.protocol_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('main.high_cost_index') }}">Alto Custo</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}">{{ process.protocol_number }}</a>
+                </li>
+                <li class="breadcrumb-item active">Decisão</li>
+            </ol>
+        </nav>
+        
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-gavel me-2 text-primary"></i>
+                    Decisão do Processo
+                </h1>
+                <p class="text-muted mb-0">
+                    Processo: <strong>{{ process.protocol_number }}</strong> - 
+                    Paciente: <strong>{{ process.patient.full_name }}</strong>
+                </p>
+            </div>
+            <div class="col-auto">
+                {% set status_class = {
+                    'under_evaluation': 'info'
+                }.get(process.status.value, 'secondary') %}
+                <span class="badge bg-{{ status_class }} fs-6">
+                    {{ format_process_status(process.status) }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Formulário de Decisão -->
+        <div class="col-lg-8">
+            <form method="POST">
+                {{ form.hidden_tag() }}
+                
+                <!-- Decisão -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-balance-scale me-2"></i>Decisão
+                        </h5>
+                        <small class="text-muted">Aprovar ou negar o processo</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-4">
+                            {{ form.decision.label(class="form-label fw-semibold mb-3") }}
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="card border-success decision-option h-100" data-value="approved">
+                                        <div class="card-body p-4 text-center">
+                                            <div class="decision-option-content">
+                                                <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                                                <h6 class="fw-bold text-success mb-2">APROVAR PROCESSO</h6>
+                                                <small class="text-muted">O processo atende aos critérios e será aprovado</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-danger decision-option h-100" data-value="denied">
+                                        <div class="card-body p-4 text-center">
+                                            <div class="decision-option-content">
+                                                <i class="fas fa-times-circle text-danger fa-3x mb-3"></i>
+                                                <h6 class="fw-bold text-danger mb-2">NEGAR PROCESSO</h6>
+                                                <small class="text-muted">O processo não atende aos critérios estabelecidos</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Campo original do form (oculto) -->
+                            <div style="display: none;">
+                                {{ form.decision(id="decision_hidden") }}
+                            </div>
+                            
+                            {% for error in form.decision.errors %}
+                                <div class="text-danger small mt-2">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.justification.label(class="form-label fw-semibold") }}
+                            {{ form.justification(class="form-control", rows="4", placeholder="Justifique detalhadamente a decisão tomada...") }}
+                            <div class="form-text text-danger">
+                                <i class="fas fa-exclamation-circle me-1"></i>
+                                <strong>Obrigatório</strong> - Justifique a decisão tomada
+                            </div>
+                            {% for error in form.justification.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parâmetros de Aprovação (mostrado quando aprovar) -->
+                <div id="approval-params" class="card mb-4" style="display: none;">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-cogs me-2"></i>Parâmetros da Aprovação
+                        </h5>
+                        <small class="text-white-50">Defina os termos da aprovação</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                {{ form.approved_quantity.label(class="form-label fw-semibold") }}
+                                <div class="input-group">
+                                    {{ form.approved_quantity(class="form-control", min="0") }}
+                                    <span class="input-group-text">unidades</span>
+                                </div>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Solicitado: <strong>{{ process.requested_quantity }}</strong> unidades
+                                </div>
+                                {% for error in form.approved_quantity.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="col-md-6">
+                                {{ form.approved_duration.label(class="form-label fw-semibold") }}
+                                <div class="input-group">
+                                    {{ form.approved_duration(class="form-control", min="0") }}
+                                    <span class="input-group-text">dias</span>
+                                </div>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Solicitado: <strong>{{ process.treatment_duration }}</strong> dias
+                                </div>
+                                {% for error in form.approved_duration.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.approval_expires_at.label(class="form-label fw-semibold") }}
+                            {{ form.approval_expires_at(class="form-control") }}
+                            <div class="form-text">
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                Data limite para dispensação do medicamento
+                            </div>
+                            {% for error in form.approval_expires_at.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.special_conditions.label(class="form-label fw-semibold") }}
+                            {{ form.special_conditions(class="form-control", rows="3", placeholder="Condições especiais, orientações específicas, restrições...") }}
+                            <div class="form-text">
+                                Campo opcional para condições especiais da dispensação
+                            </div>
+                            {% for error in form.special_conditions.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
+                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}" 
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary" id="submit-btn">
+                        <i class="fas fa-gavel me-1"></i>Confirmar Decisão
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Sidebar com Informações -->
+        <div class="col-lg-4">
+            <!-- Avaliação Farmacêutica -->
+            {% if process.evaluations %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-user-md me-2"></i>Avaliação Farmacêutica
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% set evaluation = process.evaluations[-1] %}
+                    <div class="mb-3">
+                        <dt class="text-muted small">Farmacêutico</dt>
+                        <dd class="fw-semibold">{{ evaluation.evaluator.full_name }}</dd>
+                    </div>
+                    <div class="mb-3">
+                        <dt class="text-muted small">Atende Protocolo</dt>
+                        <dd>
+                            {% if evaluation.meets_protocol %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check me-1"></i>Sim
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times me-1"></i>Não
+                            </span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <div class="mb-3">
+                        <dt class="text-muted small">Recomendação</dt>
+                        <dd class="fw-semibold">{{ evaluation.recommendation }}</dd>
+                    </div>
+                    {% if evaluation.recommended_quantity %}
+                    <div class="mb-3">
+                        <dt class="text-muted small">Quantidade Recomendada</dt>
+                        <dd class="fw-semibold">{{ evaluation.recommended_quantity }} unidades</dd>
+                    </div>
+                    {% endif %}
+                    <div class="mb-0">
+                        <dt class="text-muted small">Parecer Técnico</dt>
+                        <dd class="small">{{ evaluation.technical_opinion|truncate(200) }}</dd>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Informações do Processo -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-file-medical me-2"></i>Resumo do Processo
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <dt class="text-muted small">Medicamento</dt>
+                        <dd class="fw-semibold mb-0">{{ process.medication.commercial_name }}</dd>
+                        <dd class="text-muted small">{{ process.medication.dosage }}</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Quantidade Solicitada</dt>
+                        <dd class="fw-semibold">{{ process.requested_quantity }} unidades</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">Duração Solicitada</dt>
+                        <dd class="fw-semibold">{{ process.treatment_duration }} dias</dd>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <dt class="text-muted small">CID-10</dt>
+                        <dd>
+                            <span class="badge bg-light text-dark">{{ process.cid10 }}</span>
+                        </dd>
+                    </div>
+                    
+                    <div class="mb-0">
+                        <dt class="text-muted small">Médico Prescritor</dt>
+                        <dd class="fw-semibold mb-0">{{ process.doctor_name }}</dd>
+                        <dd class="text-muted small">{{ process.doctor_crm }}</dd>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alertas -->
+            <div class="alert alert-warning">
+                <h6 class="alert-heading">
+                    <i class="fas fa-exclamation-triangle me-1"></i>Atenção
+                </h6>
+                <small>
+                    Esta decisão é <strong>final</strong> e irá alterar definitivamente o status do processo. 
+                    Certifique-se de que todas as informações foram analisadas cuidadosamente.
+                </small>
+            </div>
+
+            <!-- Ações Rápidas -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>Ações Rápidas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('main.patient_view', id=process.patient.id) }}" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-user me-1"></i>Ver Paciente
+                        </a>
+                        <a href="{{ url_for('main.medication_view', id=process.medication.id) }}" 
+                           class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-pills me-1"></i>Ver Medicamento
+                        </a>
+                        <a href="{{ url_for('main.high_cost_index') }}" 
+                           class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-list me-1"></i>Lista de Processos
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Melhorias visuais para formulários */
+.card {
+    border: 1px solid rgba(0,0,0,.125);
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0,0,0,.125);
+}
+
+/* Estilo especial para as opções de decisão */
+.decision-option {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-width: 2px !important;
+}
+
+.decision-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.decision-option-content {
+    padding: 1rem 0;
+}
+
+/* Estado selecionado */
+.decision-option.selected-approved {
+    background-color: rgba(25, 135, 84, 0.1);
+    border-color: #198754 !important;
+    box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+}
+
+.decision-option.selected-denied {
+    background-color: rgba(220, 53, 69, 0.1);
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* Input group melhorado */
+.input-group-text {
+    background-color: #f8f9fa;
+    font-size: 0.875rem;
+}
+
+/* Badge customizado */
+.badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.badge.fs-6 {
+    font-size: 0.875rem !important;
+}
+
+/* Alert customizado */
+.alert-warning {
+    border-left: 4px solid #ffc107;
+    background-color: rgba(255, 193, 7, 0.1);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .decision-option-content {
+        padding: 0.5rem 0;
+    }
+    
+    .decision-option .fa-3x {
+        font-size: 2rem !important;
+    }
+}
+
+/* Transições suaves */
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.card {
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+/* Melhor contraste para texto pequeno */
+.small, .form-text {
+    color: #6c757d;
+}
+
+/* Animações para os cards de decisão */
+@keyframes pulseGreen {
+    0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
+}
+
+@keyframes pulseRed {
+    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+.decision-option.selected-approved {
+    animation: pulseGreen 1s;
+}
+
+.decision-option.selected-denied {
+    animation: pulseRed 1s;
+}
+
+/* Estilo especial para card de aprovação */
+.card-header.bg-success {
+    border-color: #198754;
+}
+
+/* Fade in animation para approval params */
+#approval-params {
+    transition: all 0.5s ease;
+}
+
+#approval-params.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-focus no primeiro campo
+    $('textarea[name="justification"]').focus();
+    
+    // Gerenciar seleção das opções de decisão
+    $('.decision-option').on('click', function() {
+        const value = $(this).data('value');
+        const hiddenField = $('#decision_hidden');
+        
+        // Remover classes de seleção de todos os cards
+        $('.decision-option').removeClass('selected-approved selected-denied');
+        
+        // Definir valor no campo oculto
+        hiddenField.val(value);
+        
+        // Adicionar classe de seleção ao card clicado
+        if (value === 'approved') {
+            $(this).addClass('selected-approved');
+        } else {
+            $(this).addClass('selected-denied');
+        }
+        
+        // Trigger change event
+        hiddenField.trigger('change');
+        toggleApprovalParams();
+        
+        console.log('Decisão selecionada:', value);
+    });
+    
+    // Verificar estado inicial
+    const initialValue = $('#decision_hidden').val();
+    if (initialValue) {
+        $(`.decision-option[data-value="${initialValue}"]`).click();
+    }
+    
+    // Preencher valores padrão baseados na avaliação
+    {% if process.evaluations %}
+    {% set evaluation = process.evaluations[-1] %}
+    $('input[name="approved_quantity"]').val({{ evaluation.recommended_quantity or process.requested_quantity }});
+    $('input[name="approved_duration"]').val({{ evaluation.recommended_duration or process.treatment_duration }});
+    {% else %}
+    $('input[name="approved_quantity"]').val({{ process.requested_quantity }});
+    $('input[name="approved_duration"]').val({{ process.treatment_duration }});
+    {% endif %}
+    
+    // Data de expiração padrão (6 meses)
+    const expiryDate = new Date();
+    expiryDate.setMonth(expiryDate.getMonth() + 6);
+    $('input[name="approval_expires_at"]').val(expiryDate.toISOString().split('T')[0]);
+    
+    function toggleApprovalParams() {
+        const approvedSelected = $('#decision_hidden').val() === 'approved';
+        const approvalParams = $('#approval-params');
+        
+        if (approvedSelected) {
+            approvalParams.show().addClass('fade-in');
+        } else {
+            approvalParams.hide().removeClass('fade-in');
+        }
+    }
+    
+    // Validação em tempo real
+    function validateForm() {
+        const decision = $('#decision_hidden').val();
+        const justification = $('textarea[name="justification"]').val().trim();
+        const submitBtn = $('#submit-btn');
+        
+        const isValid = decision && justification.length >= 10;
+        
+        if (isValid) {
+            submitBtn.prop('disabled', false);
+            if (decision === 'approved') {
+                submitBtn.removeClass('btn-outline-success btn-outline-danger').addClass('btn-success');
+                submitBtn.html('<i class="fas fa-check me-1"></i>Aprovar Processo');
+            } else {
+                submitBtn.removeClass('btn-outline-success btn-outline-danger').addClass('btn-danger');
+                submitBtn.html('<i class="fas fa-times me-1"></i>Negar Processo');
+            }
+        } else {
+            submitBtn.prop('disabled', true);
+            submitBtn.removeClass('btn-success btn-danger').addClass('btn-outline-secondary');
+            submitBtn.html('<i class="fas fa-exclamation-triangle me-1"></i>Preencha os campos');
+        }
+    }
+    
+    // Eventos de validação
+    $('#decision_hidden, textarea[name="justification"]').on('change input keyup', validateForm);
+    
+    // Validação inicial
+    setTimeout(validateForm, 500);
+    
+    // Confirmação antes de submeter
+    $('form').on('submit', function(e) {
+        const decision = $('#decision_hidden').val();
+        const decisionText = decision === 'approved' ? 'APROVAR' : 'NEGAR';
+        
+        if (!confirm(`Tem certeza que deseja ${decisionText} este processo?\n\nEsta ação é irreversível.`)) {
+            e.preventDefault();
+        }
+    });
+    
+    // Highlight campos obrigatórios
+    function highlightRequired() {
+        const justification = $('textarea[name="justification"]');
+        
+        if (!justification.val().trim()) {
+            justification.addClass('border-warning');
+        } else {
+            justification.removeClass('border-warning');
+        }
+        
+        if (!$('#decision_hidden').val()) {
+            $('.decision-option').addClass('border-warning');
+        } else {
+            $('.decision-option').removeClass('border-warning');
+        }
+    }
+    
+    // Verificar estado inicial
+    toggleApprovalParams();
+    
+    // Auto-save no localStorage
+    function saveFormData() {
+        const formData = {
+            decision: $('#decision_hidden').val(),
+            justification: $('textarea[name="justification"]').val(),
+            approved_quantity: $('input[name="approved_quantity"]').val(),
+            approved_duration: $('input[name="approved_duration"]').val(),
+            special_conditions: $('textarea[name="special_conditions"]').val()
+        };
+        localStorage.setItem('approval_backup_{{ process.id }}', JSON.stringify(formData));
+    }
+    
+    // Salvar a cada mudança
+    $('input, textarea, select').on('change', saveFormData);
+    
+    // Highlight inicial
+    setTimeout(highlightRequired, 1000);
+});
+</script>
+{% endblock %}

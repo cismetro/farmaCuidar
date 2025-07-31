@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Selecionar Paciente - Alto Custo{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.high_cost_index') }}">Alto Custo</a>
+                    </li>
+                    <li class="breadcrumb-item active">Nova Solicitação</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-user-plus me-2 text-primary"></i>
+                Selecionar Paciente para Alto Custo
+            </h1>
+            <p class="text-muted mb-0">Busque e selecione o paciente para criar a solicitação</p>
+        </div>
+    </div>
+
+    <!-- Busca -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-10">
+                    <label class="form-label">Buscar Paciente:</label>
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Digite o nome ou CPF do paciente..." 
+                           value="{{ search_term }}" 
+                           autofocus>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    {% if search_term %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-users me-2"></i>
+                Resultados da Busca
+                {% if patients %}
+                <span class="badge bg-secondary ms-2">{{ patients|length }} encontrado(s)</span>
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            {% if patients %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nome</th>
+                            <th>CPF</th>
+                            <th>Idade</th>
+                            <th>Telefone</th>
+                            <th width="120">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for patient in patients %}
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">{{ patient.full_name }}</div>
+                            </td>
+                            <td>{{ format_cpf(patient.cpf) }}</td>
+                            <td>{{ patient.age }} anos</td>
+                            <td>{{ patient.phone or '-' }}</td>
+                            <td>
+                                <a href="{{ url_for('main.high_cost_request', patient_id=patient.id) }}" 
+                                   class="btn btn-success btn-sm">
+                                    <i class="fas fa-check me-1"></i>Selecionar
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                <h5>Nenhum paciente encontrado</h5>
+                <p class="text-muted">Não encontramos pacientes com os termos "{{ search_term }}"</p>
+                <a href="{{ url_for('main.patient_create') }}" class="btn btn-primary">
+                    <i class="fas fa-user-plus me-1"></i>Cadastrar Novo Paciente
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <!-- Estado inicial -->
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+            <h4>Como Proceder</h4>
+            <p class="text-muted">Para criar uma solicitação de medicamento alto custo:</p>
+            <ol class="list-unstyled text-muted">
+                <li>1. Busque o paciente pelo nome ou CPF</li>
+                <li>2. Selecione o paciente desejado</li>
+                <li>3. Preencha o formulário de solicitação</li>
+            </ol>
+            <div class="mt-4">
+                <a href="{{ url_for('main.patient_create') }}" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-user-plus me-1"></i>Cadastrar Novo Paciente
+                </a>
+                <a href="{{ url_for('main.patients_list') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-list me-1"></i>Ver Todos os Pacientes
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-focus no campo de busca
+    $('input[name="search"]').focus();
+    
+    // Busca em tempo real (opcional)
+    let searchTimeout;
+    $('input[name="search"]').on('input', function() {
+        clearTimeout(searchTimeout);
+        const searchTerm = $(this).val();
+        
+        if (searchTerm.length >= 3) {
+            searchTimeout = setTimeout(function() {
+                // Submeter o formulário automaticamente
+                $('form').submit();
+            }, 1000);
+        }
+    });
+});
+</script>
+{% endblock %}

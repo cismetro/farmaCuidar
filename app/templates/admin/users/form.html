@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.admin_index') }}">Administração</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.admin_users_list') }}">Usuários</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-user-cog me-2 text-primary"></i>
+                {{ title }}
+            </h1>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.admin_users_list') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-xl-8">
+            <form method="POST" novalidate>
+                {{ form.hidden_tag() }}
+                
+                <!-- Dados Pessoais -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-user me-2"></i>Dados Pessoais
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.full_name.label(class="form-label required") }}
+                                    {{ form.full_name(class="form-control" + (" is-invalid" if form.full_name.errors else "")) }}
+                                    {% if form.full_name.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.full_name.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.username.label(class="form-label required") }}
+                                    {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else "")) }}
+                                    {% if form.username.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.username.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Nome de usuário para login</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.email.label(class="form-label required") }}
+                                    {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else "")) }}
+                                    {% if form.email.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.email.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.crf.label(class="form-label") }}
+                                    {{ form.crf(class="form-control" + (" is-invalid" if form.crf.errors else "")) }}
+                                    {% if form.crf.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.crf.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Apenas para farmacêuticos</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Perfil e Permissões -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-shield-alt me-2"></i>Perfil e Permissões
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.role.label(class="form-label required") }}
+                                    {{ form.role(class="form-select form-select-lg" + (" is-invalid" if form.role.errors else "")) }}
+                                    {% if form.role.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.role.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 d-flex align-items-center">
+                                <div class="form-check form-switch">
+                                    {{ form.is_active(class="form-check-input form-check-input-lg") }}
+                                    {{ form.is_active.label(class="form-check-label") }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Descrição dos Perfis -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title mb-3">Permissões por Perfil:</h6>
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <h6 class="text-danger"><i class="fas fa-crown me-2"></i>Administrador</h6>
+                                                <ul class="small">
+                                                    <li>Gestão completa de usuários</li>
+                                                    <li>Relatórios gerenciais</li>
+                                                    <li>Configurações do sistema</li>
+                                                    <li>Auditoria completa</li>
+                                                    <li>Todas as funcionalidades</li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <h6 class="text-success"><i class="fas fa-user-md me-2"></i>Farmacêutico</h6>
+                                                <ul class="small">
+                                                    <li>Gestão de inventário</li>
+                                                    <li>Dispensação de medicamentos</li>
+                                                    <li>Avaliação de processos</li>
+                                                    <li>Relatórios operacionais</li>
+                                                    <li>Gestão de pacientes</li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <h6 class="text-primary"><i class="fas fa-user me-2"></i>Atendente</h6>
+                                                <ul class="small">
+                                                    <li>Cadastro de pacientes</li>
+                                                    <li>Dispensação básica</li>
+                                                    <li>Consultas de informações</li>
+                                                    <li>Relatórios básicos</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Senha -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-key me-2"></i>
+                            {% if user %}Alterar Senha{% else %}Definir Senha{% endif %}
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.password.label(class="form-label" + (" required" if not user else "")) }}
+                                    {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+                                    {% if form.password.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.password.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    {% if user %}
+                                    <div class="form-text">Deixe em branco para manter a senha atual</div>
+                                    {% else %}
+                                    <div class="form-text">Deixe em branco para usar senha padrão: 123456</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.confirm_password.label(class="form-label") }}
+                                    {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else "")) }}
+                                    {% if form.confirm_password.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.confirm_password.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Regras de Senha -->
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle me-2"></i>Regras para Senha:</h6>
+                            <ul class="mb-0 small">
+                                <li>Mínimo de 6 caracteres</li>
+                                <li>Recomenda-se usar letras e números</li>
+                                <li>Evite senhas óbvias como 123456 ou admin</li>
+                                <li>O usuário poderá alterar a senha após o primeiro login</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões -->
+                <div class="card">
+                    <div class="card-footer bg-light">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('main.admin_users_list') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>
+                                {% if user %}Atualizar Usuário{% else %}Criar Usuário{% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.required:after {
+    content: " *";
+    color: #dc3545;
+}
+
+.form-check-input-lg {
+    width: 2.5rem;
+    height: 1.25rem;
+}
+
+.form-select-lg {
+    font-size: 1.1rem;
+    padding: 0.75rem 1rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-focus
+    $('#full_name').focus();
+    
+    // Mostrar/ocultar CRF baseado no perfil
+    $('#role').on('change', function() {
+        const role = $(this).val();
+        const crfField = $('#crf').closest('.col-md-4');
+        
+        if (role === 'pharmacist') {
+            crfField.show();
+            $('#crf').attr('required', true);
+        } else {
+            crfField.hide();
+            $('#crf').attr('required', false).val('');
+        }
+    });
+    
+    // Trigger inicial
+    $('#role').trigger('change');
+    
+    // Validação de senhas
+    $('#confirm_password').on('blur', function() {
+        const password = $('#password').val();
+        const confirmPassword = $(this).val();
+        
+        if (password && confirmPassword && password !== confirmPassword) {
+            $(this).addClass('is-invalid');
+            $(this).siblings('.invalid-feedback').remove();
+            $(this).after('<div class="invalid-feedback">As senhas não conferem</div>');
+        } else {
+            $(this).removeClass('is-invalid');
+            $(this).siblings('.invalid-feedback').remove();
+        }
+    });
+    
+    // Validação do formulário
+    $('form').on('submit', function(e) {
+        const password = $('#password').val();
+        const confirmPassword = $('#confirm_password').val();
+        
+        if (password && password !== confirmPassword) {
+            e.preventDefault();
+            alert('As senhas não conferem!');
+            $('#confirm_password').focus();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}
