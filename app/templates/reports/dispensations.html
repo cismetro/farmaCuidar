@@ -20,6 +20,12 @@
                 Relatório de Dispensações
             </h1>
             <p class="text-muted mb-0">Análise detalhada das dispensações de medicamentos</p>
+            {% if start_date and end_date %}
+            <small class="text-muted">
+                <i class="fas fa-calendar me-1"></i>
+                Período: {{ start_date.strftime('%d/%m/%Y') }} até {{ end_date.strftime('%d/%m/%Y') }}
+            </small>
+            {% endif %}
         </div>
         <div class="col-auto">
             <div class="btn-group">
@@ -40,37 +46,44 @@
     <div class="card mb-4">
         <div class="card-header">
             <h5 class="card-title mb-0">
-                <i class="fas fa-filter me-2"></i>Filtros
+                <i class="fas fa-filter me-2"></i>Filtros de Pesquisa
             </h5>
         </div>
         <div class="card-body">
-            <form method="GET" class="row g-3">
+            <form method="GET" class="row g-3" id="filterForm">
                 <div class="col-md-3">
                     <label class="form-label">Data Início:</label>
                     <input type="date" name="start_date" class="form-control" 
-                           value="{{ request.args.get('start_date', '') }}">
+                           value="{{ start_date.strftime('%Y-%m-%d') if start_date else '' }}"
+                           id="startDate">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Data Fim:</label>
                     <input type="date" name="end_date" class="form-control" 
-                           value="{{ request.args.get('end_date', '') }}">
+                           value="{{ end_date.strftime('%Y-%m-%d') if end_date else '' }}"
+                           id="endDate">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Farmacêutico:</label>
-                    <select name="pharmacist_id" class="form-select">
-                        <option value="">Todos</option>
+                    <label class="form-label">Farmacêutico/Atendente:</label>
+                    <select name="pharmacist_id" class="form-select" id="pharmacistSelect">
+                        <option value="">Todos os usuários</option>
                         {% for pharmacist in pharmacists %}
                         <option value="{{ pharmacist.id }}" 
-                                {% if request.args.get('pharmacist_id') == pharmacist.id|string %}selected{% endif %}>
-                            {{ pharmacist.full_name }}
+                                {% if pharmacist_id and pharmacist_id|string == pharmacist.id|string %}selected{% endif %}>
+                            {{ pharmacist.full_name }} ({{ pharmacist.role.value }})
                         </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="col-md-3 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-search me-1"></i>Filtrar
-                    </button>
+                    <div class="btn-group w-100">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-1"></i>Filtrar
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="clearFilters()">
+                            <i class="fas fa-times me-1"></i>Limpar
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -85,6 +98,7 @@
                         <div class="flex-grow-1">
                             <div class="fs-6 fw-bold">Total Dispensações</div>
                             <div class="fs-4 fw-bold">{{ total_dispensations or 0 }}</div>
+                            <small class="text-white-75">itens dispensados</small>
                         </div>
                         <i class="fas fa-pills fa-2x text-white-50"></i>
                     </div>
@@ -99,6 +113,7 @@
                         <div class="flex-grow-1">
                             <div class="fs-6 fw-bold">Pacientes Atendidos</div>
                             <div class="fs-4 fw-bold">{{ unique_patients or 0 }}</div>
+                            <small class="text-white-75">pessoas únicas</small>
                         </div>
                         <i class="fas fa-users fa-2x text-white-50"></i>
                     </div>
@@ -113,6 +128,7 @@
                         <div class="flex-grow-1">
                             <div class="fs-6 fw-bold">Medicamentos</div>
                             <div class="fs-4 fw-bold">{{ unique_medications or 0 }}</div>
+                            <small class="text-white-75">tipos diferentes</small>
                         </div>
                         <i class="fas fa-capsules fa-2x text-white-50"></i>
                     </div>
@@ -125,8 +141,9 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <div class="fs-6 fw-bold">Qtd. Total</div>
+                            <div class="fs-6 fw-bold">Quantidade Total</div>
                             <div class="fs-4 fw-bold">{{ total_quantity or 0 }}</div>
+                            <small class="opacity-75">unidades dispensadas</small>
                         </div>
                         <i class="fas fa-boxes fa-2x opacity-75"></i>
                     </div>
@@ -135,12 +152,14 @@
         </div>
     </div>
 
-    <!-- Gráficos -->
+    <!-- ✅ GRÁFICOS - SEMPRE VISÍVEIS -->
     <div class="row mb-4">
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h6 class="card-title mb-0">Dispensações por Dia</h6>
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Dispensações por Dia
+                    </h6>
                 </div>
                 <div class="card-body">
                     <canvas id="dispensationsChart" height="300"></canvas>
@@ -150,7 +169,9 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h6 class="card-title mb-0">Top 10 Medicamentos</h6>
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Top 10 Medicamentos
+                    </h6>
                 </div>
                 <div class="card-body">
                     <canvas id="medicationsChart" height="300"></canvas>
@@ -164,6 +185,9 @@
         <div class="card-header">
             <h5 class="card-title mb-0">
                 <i class="fas fa-table me-2"></i>Detalhes das Dispensações
+                {% if dispensations %}
+                <span class="badge bg-primary ms-2">{{ dispensations|length }} registros</span>
+                {% endif %}
             </h5>
         </div>
         
@@ -173,35 +197,57 @@
                 <table class="table table-hover mb-0" id="dispensationsTable">
                     <thead class="table-light">
                         <tr>
-                            <th>Data</th>
-                            <th>Paciente</th>
-                            <th>Medicamento</th>
-                            <th>Quantidade</th>
-                            <th>Farmacêutico</th>
+                            <th width="120">Data/Hora</th>
+                            <th width="200">Paciente</th>
+                            <th width="250">Medicamento</th>
+                            <th width="100" class="text-center">Quantidade</th>
+                            <th width="150">Dispensado por</th>
                             <th>Observações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for dispensation in dispensations %}
+                        {% for item in dispensations %}
                         <tr>
-                            <td>{{ format_datetime(dispensation.dispensation_date) }}</td>
+                            <td>
+                                <div class="fw-semibold">{{ item.dispensation_date.strftime('%d/%m/%Y') }}</div>
+                                <small class="text-muted">{{ item.dispensation_date.strftime('%H:%M') }}</small>
+                            </td>
                             <td>
                                 <div>
-                                    <div class="fw-semibold">{{ dispensation.patient.full_name }}</div>
-                                    <small class="text-muted">CPF: {{ dispensation.patient.formatted_cpf }}</small>
+                                    <div class="fw-semibold">{{ item.patient.full_name }}</div>
+                                    <small class="text-muted">
+                                        CPF: {{ item.patient.formatted_cpf if item.patient.formatted_cpf else item.patient.cpf[:3] + '.' + item.patient.cpf[3:6] + '.' + item.patient.cpf[6:9] + '-' + item.patient.cpf[9:] if item.patient.cpf else 'N/A' }}
+                                    </small>
                                 </div>
                             </td>
                             <td>
                                 <div>
-                                    <div class="fw-semibold">{{ dispensation.medication.commercial_name }}</div>
-                                    <small class="text-muted">{{ dispensation.medication.generic_name }}</small>
+                                    <div class="fw-semibold">{{ item.medication.commercial_name }}</div>
+                                    {% if item.medication.generic_name and item.medication.generic_name != item.medication.commercial_name %}
+                                    <small class="text-muted">{{ item.medication.generic_name }}</small>
+                                    {% endif %}
+                                    {% if item.medication.dosage %}
+                                    <small class="text-muted d-block">{{ item.medication.dosage }}</small>
+                                    {% endif %}
                                 </div>
                             </td>
-                            <td>
-                                <span class="badge bg-light text-dark">{{ dispensation.quantity }} unidades</span>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark fs-6">{{ item.quantity }}</span>
+                                <br><small class="text-muted">unidades</small>
                             </td>
-                            <td>{{ dispensation.dispensed_by.full_name }}</td>
-                            <td>{{ dispensation.observations or '--' }}</td>
+                            <td>
+                                <div class="fw-semibold">{{ item.dispensed_by.full_name }}</div>
+                                <small class="text-muted">{{ item.dispensed_by.role.value }}</small>
+                            </td>
+                            <td>
+                                {% if item.observations %}
+                                <div class="text-truncate" style="max-width: 200px;" title="{{ item.observations }}">
+                                    {{ item.observations }}
+                                </div>
+                                {% else %}
+                                <span class="text-muted">--</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -210,8 +256,20 @@
             {% else %}
             <div class="text-center py-5">
                 <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
-                <h5>Nenhuma dispensação encontrada</h5>
-                <p class="text-muted">Ajuste os filtros para ver os dados.</p>
+                <h5 class="text-muted">Nenhuma dispensação encontrada</h5>
+                <p class="text-muted">
+                    {% if start_date or end_date or pharmacist_id %}
+                    Ajuste os filtros para ver mais dados ou 
+                    <a href="{{ url_for('main.dispensations_report') }}" class="text-decoration-none">remova todos os filtros</a>.
+                    {% else %}
+                    Não há dispensações registradas no sistema.
+                    {% endif %}
+                </p>
+                <div class="mt-3">
+                    <a href="{{ url_for('main.dispensation_index') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Nova Dispensação
+                    </a>
+                </div>
             </div>
             {% endif %}
         </div>
@@ -223,27 +281,35 @@
 <style>
 .card {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: none;
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
 }
 
 .table th {
     border-top: none;
     font-weight: 600;
     font-size: 0.875rem;
+    background-color: #f8f9fa;
+}
+
+.table td {
+    vertical-align: middle;
 }
 
 canvas {
     max-height: 300px;
 }
 
-@media print {
-    .btn-group, .card-header .btn {
-        display: none !important;
-    }
-    
-    .card {
-        box-shadow: none;
-        border: 1px solid #000;
-    }
+.text-white-75 {
+    opacity: 0.75;
+}
+
+.badge {
+    font-size: 0.75em;
 }
 </style>
 {% endblock %}
@@ -252,92 +318,187 @@ canvas {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 $(document).ready(function() {
-    // Inicializar DataTable
-    $('#dispensationsTable').DataTable({
-        language: {
-            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
-        },
-        pageLength: 25,
-        order: [[0, 'desc']],
-        columnDefs: [
-            { orderable: false, targets: [5] }
-        ]
-    });
+    console.log('🚀 Inicializando relatório de dispensações...');
     
-    // Gráfico de Dispensações por Dia
-    const ctxDispensations = document.getElementById('dispensationsChart').getContext('2d');
-    new Chart(ctxDispensations, {
-        type: 'line',
-        data: {
-            labels: {{ chart_dates|safe if chart_dates else '[]' }},
-            datasets: [{
-                label: 'Dispensações',
-                data: {{ chart_dispensations|safe if chart_dispensations else '[]' }},
-                borderColor: '#007bff',
-                backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
+    // ✅ DADOS DOS GRÁFICOS - FORÇADOS DO BACKEND
+    const chartDatesData = {{ chart_dates|tojson|safe }};
+    const chartDispensationsData = {{ chart_dispensations|tojson|safe }};
+    const topMedicationsLabels = {{ top_medications_labels|tojson|safe }};
+    const topMedicationsData = {{ top_medications_data|tojson|safe }};
     
-    // Gráfico de Top Medicamentos
-    const ctxMedications = document.getElementById('medicationsChart').getContext('2d');
-    new Chart(ctxMedications, {
-        type: 'bar',
-        data: {
-            labels: {{ top_medications_labels|safe if top_medications_labels else '[]' }},
-            datasets: [{
-                label: 'Quantidade',
-                data: {{ top_medications_data|safe if top_medications_data else '[]' }},
-                backgroundColor: [
-                    '#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1',
-                    '#fd7e14', '#20c997', '#e83e8c', '#6c757d', '#17a2b8'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
-        }
-    });
+    console.log('📊 Dados recebidos:');
+    console.log('  - Chart dates:', chartDatesData);
+    console.log('  - Chart dispensations:', chartDispensationsData);
+    console.log('  - Top medications labels:', topMedicationsLabels);
+    console.log('  - Top medications data:', topMedicationsData);
     
-    // Definir datas padrão (último mês)
-    if (!$('input[name="start_date"]').val()) {
-        const endDate = new Date();
-        const startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    // ✅ GRÁFICO DE DISPENSAÇÕES POR DIA
+    const ctxDispensations = document.getElementById('dispensationsChart');
+    if (ctxDispensations) {
+        console.log('📈 Criando gráfico de dispensações...');
         
-        $('input[name="start_date"]').val(startDate.toISOString().split('T')[0]);
-        $('input[name="end_date"]').val(endDate.toISOString().split('T')[0]);
+        if (chartDatesData && chartDatesData.length > 0) {
+            try {
+                new Chart(ctxDispensations.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: chartDatesData,
+                        datasets: [{
+                            label: 'Dispensações',
+                            data: chartDispensationsData,
+                            borderColor: '#007bff',
+                            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#007bff',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleColor: '#ffffff',
+                                bodyColor: '#ffffff'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('✅ Gráfico de dispensações criado!');
+            } catch (error) {
+                console.error('❌ Erro ao criar gráfico de dispensações:', error);
+            }
+        } else {
+            // Mostrar mensagem de "sem dados"
+            ctxDispensations.parentElement.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                    <p class="text-muted mb-0">Nenhum dado disponível</p>
+                    <small class="text-muted">Ajuste os filtros para ver dados</small>
+                </div>
+            `;
+        }
     }
+    
+    // ✅ GRÁFICO TOP MEDICAMENTOS
+    const ctxMedications = document.getElementById('medicationsChart');
+    if (ctxMedications) {
+        console.log('📊 Criando gráfico de medicamentos...');
+        
+        if (topMedicationsLabels && topMedicationsLabels.length > 0) {
+            try {
+                new Chart(ctxMedications.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: topMedicationsLabels,
+                        datasets: [{
+                            label: 'Quantidade Dispensada',
+                            data: topMedicationsData,
+                            backgroundColor: [
+                                '#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1',
+                                '#fd7e14', '#20c997', '#e83e8c', '#6c757d', '#17a2b8'
+                            ],
+                            borderColor: [
+                                '#0056b3', '#1e7e34', '#e0a800', '#c82333', '#563d7c',
+                                '#e8590c', '#17a2b8', '#e21e2e', '#5a6268', '#138496'
+                            ],
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleColor: '#ffffff',
+                                bodyColor: '#ffffff'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 0
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('✅ Gráfico de medicamentos criado!');
+            } catch (error) {
+                console.error('❌ Erro ao criar gráfico de medicamentos:', error);
+            }
+        } else {
+            // Mostrar mensagem de "sem dados"
+            ctxMedications.parentElement.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                    <p class="text-muted mb-0">Nenhum medicamento para exibir</p>
+                    <small class="text-muted">Realize dispensações para ver dados</small>
+                </div>
+            `;
+        }
+    }
+    
+    // ✅ DATATABLE
+    if ($('#dispensationsTable').length > 0) {
+        $('#dispensationsTable').DataTable({
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+            },
+            pageLength: 25,
+            order: [[0, 'desc']],
+            responsive: true
+        });
+    }
+    
+    console.log('🎉 Relatório inicializado com sucesso!');
 });
 
+// ✅ FUNÇÕES DE EXPORTAÇÃO E FILTROS
 function exportReport(format) {
-    const startDate = $('input[name="start_date"]').val();
-    const endDate = $('input[name="end_date"]').val();
-    const pharmacistId = $('select[name="pharmacist_id"]').val();
-    
     const params = new URLSearchParams({
         format: format,
-        start_date: startDate,
-        end_date: endDate,
-        pharmacist_id: pharmacistId
+        start_date: $('#startDate').val(),
+        end_date: $('#endDate').val(),
+        pharmacist_id: $('#pharmacistSelect').val()
     });
     
-    window.open(`/reports/dispensations/export?${params.toString()}`, '_blank');
+    window.open(`{{ url_for('main.dispensations_export') }}?${params.toString()}`, '_blank');
+}
+
+function clearFilters() {
+    $('#startDate').val('');
+    $('#endDate').val('');
+    $('#pharmacistSelect').val('');
+    window.location.href = '{{ url_for("main.dispensations_report") }}';
 }
 </script>
 {% endblock %}

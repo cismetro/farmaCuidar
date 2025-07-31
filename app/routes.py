@@ -435,13 +435,37 @@ def patients_list():
         func.date(Patient.created_at) == today
     ).count()
     
+    # ✅ CALCULAR ESTATÍSTICAS RÁPIDAS PARA O TEMPLATE
+    try:
+        total_patients = Patient.query.count()
+        active_patients = Patient.query.filter_by(is_active=True).count()
+        patients_with_cns = Patient.query.filter(
+            and_(Patient.cns.isnot(None), Patient.is_active == True)
+        ).count()
+        
+        quick_stats = {
+            'total': total_patients,
+            'active': active_patients,
+            'today': today_registrations,
+            'with_cns': patients_with_cns
+        }
+    except Exception as e:
+        current_app.logger.error(f"Erro ao calcular estatísticas: {e}")
+        quick_stats = {
+            'total': 0,
+            'active': 0,
+            'today': 0,
+            'with_cns': 0
+        }
+    
     return render_template('patients/list.html', 
                          patients=patients,
                          search_term=search_term,
                          search_type=search_type,
                          status_filter=status_filter,
                          gender_filter=gender_filter,
-                         today_registrations=today_registrations)
+                         today_registrations=today_registrations,
+                         quick_stats=quick_stats)
 
 @main.route('/patients/search-integrated')
 @staff_required
@@ -765,19 +789,177 @@ def patient_edit(id):
 @main.route('/patients/<int:id>/history')
 @staff_required
 def patient_history(id):
-    """Histórico completo do paciente"""
+    """✅ HISTÓRICO COMPLETO DO PACIENTE - VERSÃO CORRIGIDA"""
     patient = Patient.query.get_or_404(id)
     page = request.args.get('page', 1, type=int)
     
-    # Dispensações com paginação
-    dispensations = Dispensation.query.filter_by(patient_id=id).order_by(
+    # ✅ FILTROS DA URL
+    period = request.args.get('period', '')
+    type_filter = request.args.get('type', '')
+    medication_filter = request.args.get('medication', '')
+    
+    # ✅ CALCULAR ESTATÍSTICAS GERAIS
+    all_dispensations = Dispensation.query.filter_by(patient_id=id).all()
+    all_high_cost = HighCostProcess.query.filter_by(patient_id=id).all()
+    
+    total_dispensations = len(all_dispensations)
+    total_high_cost = len(all_high_cost)
+    
+    # ✅ MEDICAMENTOS ÚNICOS
+    unique_meds = set()
+    for disp in all_dispensations:
+        if hasattr(disp, 'items') and disp.items:
+            for item in disp.items:
+                unique_meds.add(item.medication_id)
+    for process in all_high_cost:
+        unique_meds.add(process.medication_id)
+    unique_medications = len(unique_meds)
+    
+    # ✅ ÚLTIMA DISPENSAÇÃO
+    last_dispensation = Dispensation.query.filter_by(patient_id=id).order_by(
         desc(Dispensation.dispensation_date)
-    ).paginate(page=page, per_page=20, error_out=False)
+    ).first()
+    
+    # ✅ CRIAR TIMELINE UNIFICADA
+    history_items_list = []
+    
+    # Adicionar dispensações
+    for dispensation in all_dispensations:
+        if hasattr(dispensation, 'items') and dispensation.items:
+            for item in dispensation.items:
+                history_items_list.append({
+                    'type': 'dispensation',
+                    'date': dispensation.dispensation_date,
+                    'medication_name': item.medication.commercial_name if item.medication else 'Medicamento não encontrado',
+                    'quantity': item.quantity_dispensed,
+                    'pharmacist_name': dispensation.dispenser.full_name if dispensation.dispenser else 'N/A',
+                    'prescription_number': getattr(dispensation, 'prescription_number', None),
+                    'notes': item.observations or dispensation.observations,
+                    'status': dispensation.status.value if hasattr(dispensation.status, 'value') else str(dispensation.status),
+                    'attachments': []
+                })
+        else:
+            # Se não há itens, criar entrada genérica
+            history_items_list.append({
+                'type': 'dispensation',
+                'date': dispensation.dispensation_date,
+                'medication_name': 'Dispensação registrada',
+                'quantity': 1,
+                'pharmacist_name': dispensation.dispenser.full_name if dispensation.dispenser else 'N/A',
+                'prescription_number': getattr(dispensation, 'prescription_number', None),
+                'notes': dispensation.observations,
+                'status': dispensation.status.value if hasattr(dispensation.status, 'value') else str(dispensation.status),
+                'attachments': []
+            })
+    
+    # Adicionar processos alto custo
+    for process in all_high_cost:
+        history_items_list.append({
+            'type': 'high_cost',
+            'date': process.request_date,
+            'medication_name': process.medication.commercial_name if process.medication else 'Medicamento não encontrado',
+            'protocol_number': process.protocol_number,
+            'status': process.status.value if hasattr(process.status, 'value') else str(process.status),
+            'prescribing_doctor': process.doctor_name,
+            'cid_code': process.cid10,
+            'quantity_approved': getattr(process, 'approved_quantity', None),
+            'attachments': getattr(process, 'documents', [])
+        })
+    
+    # ✅ APLICAR FILTROS
+    filtered_items = []
+    
+    for item in history_items_list:
+        # Filtro por período
+        if period:
+            try:
+                days = int(period)
+                cutoff_date = datetime.now() - timedelta(days=days)
+                item_date = item['date']
+                
+                # Converter para datetime se for date
+                if hasattr(item_date, 'date'):
+                    item_datetime = item_date
+                else:
+                    item_datetime = datetime.combine(item_date, datetime.min.time())
+                
+                if item_datetime < cutoff_date:
+                    continue
+            except (ValueError, TypeError):
+                pass
+        
+        # Filtro por tipo
+        if type_filter and item['type'] != type_filter:
+            continue
+        
+        # Filtro por medicamento
+        if medication_filter and medication_filter.lower() not in item['medication_name'].lower():
+            continue
+        
+        filtered_items.append(item)
+    
+    # ✅ ORDENAR POR DATA (MAIS RECENTE PRIMEIRO)
+    filtered_items.sort(key=lambda x: x['date'], reverse=True)
+    
+    # ✅ PAGINAÇÃO MANUAL
+    per_page = 10
+    total_count = len(history_items_list)
+    filtered_count = len(filtered_items)
+    
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated_items = filtered_items[start:end]
+    
+    # ✅ CRIAR CLASSE DE PAGINAÇÃO ITERÁVEL
+    class PaginationWrapper:
+        def __init__(self, items, page, per_page, total):
+            self._items = items
+            self.page = page
+            self.per_page = per_page
+            self.total = total
+            self.pages = (total + per_page - 1) // per_page if total > 0 else 1
+            self.has_prev = page > 1
+            self.has_next = page < self.pages
+            self.prev_num = page - 1 if self.has_prev else None
+            self.next_num = page + 1 if self.has_next else None
+        
+        def __iter__(self):
+            """Permite iteração direta sobre o objeto"""
+            return iter(self._items)
+        
+        def __len__(self):
+            """Retorna comprimento dos itens"""
+            return len(self._items)
+        
+        @property
+        def items(self):
+            """Compatibilidade com Flask-SQLAlchemy pagination"""
+            return self._items
+        
+        def iter_pages(self, left_edge=2, left_current=2, right_current=3, right_edge=2):
+            """Gerador de páginas para navegação"""
+            last = self.pages
+            for num in range(1, last + 1):
+                if (num <= left_edge or 
+                    (self.page - left_current - 1 < num < self.page + right_current) or 
+                    num > last - right_edge):
+                    yield num
+    
+    # ✅ CRIAR OBJETO DE PAGINAÇÃO
+    history_items = PaginationWrapper(paginated_items, page, per_page, filtered_count)
     
     return render_template('patients/history.html', 
                          patient=patient,
-                         dispensations=dispensations)
-
+                         history_items=history_items,
+                         total_dispensations=total_dispensations,
+                         unique_medications=unique_medications,
+                         total_high_cost=total_high_cost,
+                         last_dispensation=last_dispensation,
+                         total_count=total_count,
+                         filtered_count=filtered_count,
+                         period=period,
+                         type=type_filter,
+                         medication_filter=medication_filter)
 # =================== DISPENSAÇÃO BÁSICA ===================
 
 @main.route('/dispensation')
@@ -1947,88 +2129,550 @@ def generate_dispensations_report(start_date, end_date, format_type):
     elif format_type == 'excel':
         return generate_dispensations_excel(dispensations, total_cost, total_items, start_date, end_date)
 
-def generate_patients_report(format_type, age_range=None, gender=None, registration_period=None):
-    """Relatório de pacientes - COM FILTROS E DADOS E-SUS"""
-    
-    # Query base
-    query = Patient.query.filter_by(is_active=True)
-    
-    # Aplicar filtros
-    if gender:
-        query = query.filter(Patient.gender == gender)
-    
-    if age_range:
-        if age_range == '0-18':
-            query = query.filter(extract('year', func.current_date()) - extract('year', Patient.birth_date) <= 18)
-        elif age_range == '19-30':
-            query = query.filter(
-                and_(
-                    extract('year', func.current_date()) - extract('year', Patient.birth_date) >= 19,
-                    extract('year', func.current_date()) - extract('year', Patient.birth_date) <= 30
+# =================== APIS CORRIGIDAS PARA RELATÓRIO ===================
+
+@main.route('/api/patients/datatable', methods=['POST'])
+@staff_required
+def api_patients_datatable():
+    """✅ API DataTables server-side CORRIGIDA"""
+    try:
+        # Parâmetros do DataTables
+        draw = request.form.get('draw', type=int)
+        start = request.form.get('start', type=int)
+        length = request.form.get('length', type=int)
+        search_value = request.form.get('search[value]', '')
+        
+        # Filtros customizados
+        age_range = request.form.get('age_range', '')
+        gender = request.form.get('gender', '')
+        registration_period = request.form.get('registration_period', '')
+        
+        # Query base
+        query = Patient.query.filter_by(is_active=True)
+        
+        # ✅ APLICAR FILTROS DE IDADE (CORRIGIDO)
+        if age_range:
+            current_year = datetime.now().year
+            if age_range == '0-18':
+                min_birth_year = current_year - 18
+                query = query.filter(extract('year', Patient.birth_date) >= min_birth_year)
+            elif age_range == '19-30':
+                min_birth_year = current_year - 30
+                max_birth_year = current_year - 19
+                query = query.filter(
+                    and_(
+                        extract('year', Patient.birth_date) >= min_birth_year,
+                        extract('year', Patient.birth_date) <= max_birth_year
+                    )
                 )
-            )
-        elif age_range == '31-50':
-            query = query.filter(
-                and_(
-                    extract('year', func.current_date()) - extract('year', Patient.birth_date) >= 31,
-                    extract('year', func.current_date()) - extract('year', Patient.birth_date) <= 50
+            elif age_range == '31-50':
+                min_birth_year = current_year - 50
+                max_birth_year = current_year - 31
+                query = query.filter(
+                    and_(
+                        extract('year', Patient.birth_date) >= min_birth_year,
+                        extract('year', Patient.birth_date) <= max_birth_year
+                    )
                 )
-            )
-        elif age_range == '51-65':
-            query = query.filter(
-                and_(
-                    extract('year', func.current_date()) - extract('year', Patient.birth_date) >= 51,
-                    extract('year', func.current_date()) - extract('year', Patient.birth_date) <= 65
+            elif age_range == '51-65':
+                min_birth_year = current_year - 65
+                max_birth_year = current_year - 51
+                query = query.filter(
+                    and_(
+                        extract('year', Patient.birth_date) >= min_birth_year,
+                        extract('year', Patient.birth_date) <= max_birth_year
+                    )
                 )
+            elif age_range == '65+':
+                max_birth_year = current_year - 65
+                query = query.filter(extract('year', Patient.birth_date) <= max_birth_year)
+        
+        # ✅ APLICAR FILTRO DE GÊNERO
+        if gender:
+            query = query.filter(Patient.gender == gender)
+        
+        # ✅ APLICAR FILTRO DE PERÍODO DE CADASTRO
+        if registration_period:
+            try:
+                days = int(registration_period)
+                cutoff_date = datetime.now() - timedelta(days=days)
+                query = query.filter(Patient.created_at >= cutoff_date)
+            except ValueError:
+                pass  # Ignorar valor inválido
+        
+        # ✅ BUSCA GLOBAL
+        if search_value:
+            search_filter = or_(
+                Patient.full_name.ilike(f'%{search_value}%'),
+                Patient.cpf.like(f'%{search_value}%'),
+                Patient.city.ilike(f'%{search_value}%')
             )
-        elif age_range == '65+':
-            query = query.filter(extract('year', func.current_date()) - extract('year', Patient.birth_date) > 65)
-    
-    if registration_period:
-        days = int(registration_period)
-        cutoff_date = datetime.now() - timedelta(days=days)
-        query = query.filter(Patient.created_at >= cutoff_date)
-    
-    # Buscar dados filtrados
-    patients = query.order_by(Patient.full_name).all()
-    
-    # Estatísticas por idade (dos dados filtrados)
-    age_groups = {'0-18': 0, '19-39': 0, '40-59': 0, '60+': 0}
-    for patient in patients:
-        age = patient.age
-        if age <= 18:
-            age_groups['0-18'] += 1
-        elif age <= 39:
-            age_groups['19-39'] += 1
-        elif age <= 59:
-            age_groups['40-59'] += 1
+            query = query.filter(search_filter)
+        
+        # ✅ TOTAL DE REGISTROS (SEM FILTROS)
+        total_records = Patient.query.filter_by(is_active=True).count()
+        
+        # ✅ TOTAL FILTRADO
+        filtered_records = query.count()
+        
+        # ✅ ORDENAÇÃO
+        order_column = request.form.get('order[0][column]', '0', type=int)
+        order_dir = request.form.get('order[0][dir]', 'asc')
+        
+        if order_column == 6:  # Data de cadastro
+            if order_dir == 'desc':
+                query = query.order_by(desc(Patient.created_at))
+            else:
+                query = query.order_by(Patient.created_at)
         else:
-            age_groups['60+'] += 1
-    
-    # ✅ ESTATÍSTICAS E-SUS
-    esus_stats = {
-        'local_source': len([p for p in patients if p.source == 'local']),
-        'imported_source': len([p for p in patients if p.source == 'imported']),
-        'esus_source': len([p for p in patients if p.source == 'esus']),
-        'with_cns': len([p for p in patients if p.cns]),
-        'with_mother_name': len([p for p in patients if p.mother_name]),
-        'with_multiple_phones': len([p for p in patients if sum(1 for phone in [p.home_phone, p.cell_phone, p.contact_phone] if phone) > 1])
-    }
+            query = query.order_by(Patient.full_name)
+        
+        # ✅ PAGINAÇÃO
+        patients = query.offset(start).limit(length).all()
+        
+        # ✅ FORMATAR DADOS PARA DATATABLE
+        data = []
+        for patient in patients:
+            data.append({
+                'full_name': patient.full_name,
+                'formatted_cpf': patient.formatted_cpf,
+                'formatted_cns': patient.formatted_cns if patient.cns else '--',
+                'age': patient.age,
+                'gender_display': patient.gender_display,
+                'city': patient.city or '--',
+                'created_at': format_date(patient.created_at),
+                'status_badge': f'<span class="badge bg-success">Ativo</span>' if patient.is_active else f'<span class="badge bg-secondary">Inativo</span>',
+                'actions': f'''
+                    <div class="btn-group btn-group-sm">
+                        <a href="{url_for('main.patient_view', id=patient.id)}" class="btn btn-outline-primary" title="Visualizar">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{url_for('main.patient_edit', id=patient.id)}" class="btn btn-outline-secondary" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </div>
+                '''
+            })
+        
+        return jsonify({
+            'draw': draw,
+            'recordsTotal': total_records,
+            'recordsFiltered': filtered_records,
+            'data': data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro na API DataTables: {e}")
+        return jsonify({
+            'draw': draw or 1,
+            'recordsTotal': 0,
+            'recordsFiltered': 0,
+            'data': [],
+            'error': str(e)
+        }), 500
+
+@main.route('/api/patients/charts')
+@staff_required
+def api_patients_charts():
+    """✅ API para dados dos gráficos CORRIGIDA"""
+    try:
+        # ✅ DADOS DE GÊNERO
+        gender_counts = {'M': 0, 'F': 0, 'O': 0, 'N': 0}
+        
+        # Buscar todos os gêneros dos pacientes ativos
+        patients = Patient.query.filter_by(is_active=True).all()
+        
+        for patient in patients:
+            if patient.gender:
+                gender_counts[patient.gender] = gender_counts.get(patient.gender, 0) + 1
+            else:
+                gender_counts['N'] += 1  # Não informado
+        
+        gender_data = {
+            'labels': ['Masculino', 'Feminino', 'Outro', 'Não informar'],
+            'values': [gender_counts['M'], gender_counts['F'], gender_counts['O'], gender_counts['N']]
+        }
+        
+        # ✅ DADOS DE IDADE
+        age_groups = {'0-18': 0, '19-30': 0, '31-50': 0, '51-65': 0, '65+': 0}
+        
+        for patient in patients:
+            age = patient.age
+            if age <= 18:
+                age_groups['0-18'] += 1
+            elif age <= 30:
+                age_groups['19-30'] += 1
+            elif age <= 50:
+                age_groups['31-50'] += 1
+            elif age <= 65:
+                age_groups['51-65'] += 1
+            else:
+                age_groups['65+'] += 1
+        
+        age_data = {
+            'labels': list(age_groups.keys()),
+            'values': list(age_groups.values())
+        }
+        
+        # ✅ DADOS DE CADASTROS POR MÊS (últimos 6 meses)
+        registration_data = {
+            'labels': [],
+            'values': []
+        }
+        
+        for i in range(5, -1, -1):
+            # Calcular início e fim do mês
+            target_date = datetime.now() - timedelta(days=i*30)
+            month_start = target_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            if i == 0:
+                month_end = datetime.now()
+            else:
+                next_month = month_start.replace(month=month_start.month + 1) if month_start.month < 12 else month_start.replace(year=month_start.year + 1, month=1)
+                month_end = next_month
+            
+            count = Patient.query.filter(
+                and_(
+                    Patient.created_at >= month_start,
+                    Patient.created_at < month_end,
+                    Patient.is_active == True
+                )
+            ).count()
+            
+            registration_data['labels'].append(month_start.strftime('%b'))
+            registration_data['values'].append(count)
+        
+        return jsonify({
+            'success': True,
+            'gender_data': gender_data,
+            'age_data': age_data,
+            'registration_data': registration_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro na API de gráficos: {e}")
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'gender_data': {'labels': [], 'values': []},
+            'age_data': {'labels': [], 'values': []},
+            'registration_data': {'labels': [], 'values': []}
+        }), 200  # Retornar 200 com dados vazios
+
+@main.route('/api/patients/geographic')
+@staff_required
+def api_patients_geographic():
+    """✅ API para dados geográficos CORRIGIDA"""
+    try:
+        # ✅ DADOS POR CIDADE (usando Python para contar)
+        cities_count = {}
+        states_count = {}
+        
+        patients = Patient.query.filter_by(is_active=True).all()
+        
+        for patient in patients:
+            # Contar cidades
+            if patient.city:
+                cities_count[patient.city] = cities_count.get(patient.city, 0) + 1
+            
+            # Contar estados  
+            if patient.state:
+                states_count[patient.state] = states_count.get(patient.state, 0) + 1
+        
+        # Ordenar e pegar top 10
+        cities_data = []
+        for city, count in sorted(cities_count.items(), key=lambda x: x[1], reverse=True)[:10]:
+            cities_data.append({
+                'name': city,
+                'count': count
+            })
+        
+        states_data = []
+        for state, count in sorted(states_count.items(), key=lambda x: x[1], reverse=True)[:10]:
+            states_data.append({
+                'name': state,
+                'count': count
+            })
+        
+        return jsonify({
+            'success': True,
+            'cities': cities_data,
+            'states': states_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro na API geográfica: {e}")
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'cities': [],
+            'states': []
+        }), 200
+
+@main.route('/api/patients/stats')
+@staff_required
+def api_patients_stats():
+    """✅ API para estatísticas pré-calculadas CORRIGIDA"""
+    try:
+        # ✅ BUSCAR TODOS OS PACIENTES ATIVOS DE UMA VEZ
+        patients = Patient.query.filter_by(is_active=True).all()
+        
+        total_patients = len(patients)
+        active_patients = total_patients
+        
+        if total_patients == 0:
+            return jsonify({
+                'success': True,
+                'total_patients': 0,
+                'active_patients': 0,
+                'new_patients_30': 0,
+                'patients_with_cns': 0,
+                'completeness_rate': 0,
+                'cns_rate': 0,
+                'contact_rate': 0,
+                'address_rate': 0
+            })
+        
+        # ✅ CALCULAR ESTATÍSTICAS COM PYTHON
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+        new_patients_30 = 0
+        patients_with_cns = 0
+        contact_count = 0
+        address_count = 0
+        completeness_score = 0
+        
+        for patient in patients:
+            # Novos pacientes (30 dias)
+            if patient.created_at >= thirty_days_ago:
+                new_patients_30 += 1
+            
+            # Pacientes com CNS
+            if patient.cns and patient.cns.strip():
+                patients_with_cns += 1
+            
+            # Pacientes com dados de contato
+            if (patient.cell_phone or patient.home_phone or patient.contact_phone or 
+                patient.phone or patient.email):
+                contact_count += 1
+            
+            # Pacientes com endereço
+            if patient.address and patient.address.strip():
+                address_count += 1
+            
+            # Completude dos dados (6 campos principais)
+            score = 0
+            if patient.full_name and patient.full_name.strip():
+                score += 1
+            if patient.cpf and patient.cpf.strip():
+                score += 1
+            if patient.birth_date:
+                score += 1
+            if patient.gender:
+                score += 1
+            if (patient.cell_phone or patient.home_phone or patient.contact_phone or patient.phone):
+                score += 1
+            if patient.address and patient.address.strip():
+                score += 1
+            
+            completeness_score += score
+        
+        # ✅ CALCULAR PERCENTUAIS
+        max_score = total_patients * 6
+        completeness_rate = (completeness_score / max_score * 100) if max_score > 0 else 0
+        cns_rate = (patients_with_cns / total_patients * 100) if total_patients > 0 else 0
+        contact_rate = (contact_count / total_patients * 100) if total_patients > 0 else 0
+        address_rate = (address_count / total_patients * 100) if total_patients > 0 else 0
+        
+        return jsonify({
+            'success': True,
+            'total_patients': total_patients,
+            'active_patients': active_patients,
+            'new_patients_30': new_patients_30,
+            'patients_with_cns': patients_with_cns,
+            'completeness_rate': round(completeness_rate, 1),
+            'cns_rate': round(cns_rate, 1),
+            'contact_rate': round(contact_rate, 1),
+            'address_rate': round(address_rate, 1)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro na API de estatísticas: {e}")
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'total_patients': 0,
+            'active_patients': 0,
+            'new_patients_30': 0,
+            'patients_with_cns': 0,
+            'completeness_rate': 0,
+            'cns_rate': 0,
+            'contact_rate': 0,
+            'address_rate': 0
+        }), 200
+
+def generate_patients_report(format_type, age_range=None, gender=None, registration_period=None):
+    """✅ RELATÓRIO DE PACIENTES OTIMIZADO - CORRIGIDO"""
     
     if format_type == 'html':
-        return render_template('reports/patients.html', 
-                             patients=patients,
-                             age_groups=age_groups,
-                             esus_stats=esus_stats,
-                             applied_filters={
-                                 'age_range': age_range,
-                                 'gender': gender, 
-                                 'registration_period': registration_period
-                             })
-    elif format_type == 'pdf':
-        return generate_patients_pdf(patients, age_groups, esus_stats)
-    elif format_type == 'excel':
-        return generate_patients_excel(patients, age_groups, esus_stats)
+        # ✅ PARA HTML, BUSCAR ESTATÍSTICAS DIRETAMENTE
+        try:
+            # Calcular estatísticas direto no Python
+            patients = Patient.query.filter_by(is_active=True).all()
+            
+            total_patients = len(patients)
+            
+            if total_patients == 0:
+                stats = {
+                    'total_patients': 0,
+                    'active_patients': 0,
+                    'new_patients_30': 0,
+                    'patients_with_cns': 0,
+                    'completeness_rate': 0,
+                    'cns_rate': 0,
+                    'contact_rate': 0,
+                    'address_rate': 0
+                }
+            else:
+                # Calcular estatísticas
+                thirty_days_ago = datetime.now() - timedelta(days=30)
+                new_patients_30 = len([p for p in patients if p.created_at >= thirty_days_ago])
+                patients_with_cns = len([p for p in patients if p.cns and p.cns.strip()])
+                
+                # Completude e outras taxas
+                contact_count = len([p for p in patients if (p.cell_phone or p.home_phone or p.contact_phone or p.phone or p.email)])
+                address_count = len([p for p in patients if p.address and p.address.strip()])
+                
+                # Completude dos dados
+                completeness_score = 0
+                for patient in patients:
+                    score = sum([
+                        1 if patient.full_name and patient.full_name.strip() else 0,
+                        1 if patient.cpf and patient.cpf.strip() else 0,
+                        1 if patient.birth_date else 0,
+                        1 if patient.gender else 0,
+                        1 if (patient.cell_phone or patient.home_phone or patient.contact_phone or patient.phone) else 0,
+                        1 if patient.address and patient.address.strip() else 0
+                    ])
+                    completeness_score += score
+                
+                max_score = total_patients * 6
+                completeness_rate = (completeness_score / max_score * 100) if max_score > 0 else 0
+                
+                stats = {
+                    'total_patients': total_patients,
+                    'active_patients': total_patients,
+                    'new_patients_30': new_patients_30,
+                    'patients_with_cns': patients_with_cns,
+                    'completeness_rate': round(completeness_rate, 1),
+                    'cns_rate': round((patients_with_cns / total_patients * 100), 1) if total_patients > 0 else 0,
+                    'contact_rate': round((contact_count / total_patients * 100), 1) if total_patients > 0 else 0,
+                    'address_rate': round((address_count / total_patients * 100), 1) if total_patients > 0 else 0
+                }
+            
+            return render_template('reports/patients.html', 
+                                 patients=None,  # Não carrega pacientes para HTML
+                                 stats=stats)
+        except Exception as e:
+            current_app.logger.error(f"Erro no relatório HTML: {e}")
+            # Retornar com stats vazias em caso de erro
+            stats = {
+                'total_patients': 0,
+                'active_patients': 0,
+                'new_patients_30': 0,
+                'patients_with_cns': 0,
+                'completeness_rate': 0,
+                'cns_rate': 0,
+                'contact_rate': 0,
+                'address_rate': 0
+            }
+            return render_template('reports/patients.html', 
+                                 patients=None,
+                                 stats=stats)
+    
+    else:
+        # ✅ PARA PDF/EXCEL, CARREGA OS DADOS COMPLETOS (COM LIMITE)
+        query = Patient.query.filter_by(is_active=True)
+        
+        # Aplicar filtros se especificados
+        if gender:
+            query = query.filter(Patient.gender == gender)
+        
+        if age_range:
+            current_year = datetime.now().year
+            if age_range == '0-18':
+                min_birth_year = current_year - 18
+                query = query.filter(extract('year', Patient.birth_date) >= min_birth_year)
+            elif age_range == '19-30':
+                min_birth_year = current_year - 30
+                max_birth_year = current_year - 19
+                query = query.filter(
+                    and_(
+                        extract('year', Patient.birth_date) >= min_birth_year,
+                        extract('year', Patient.birth_date) <= max_birth_year
+                    )
+                )
+            elif age_range == '31-50':
+                min_birth_year = current_year - 50
+                max_birth_year = current_year - 31
+                query = query.filter(
+                    and_(
+                        extract('year', Patient.birth_date) >= min_birth_year,
+                        extract('year', Patient.birth_date) <= max_birth_year
+                    )
+                )
+            elif age_range == '51-65':
+                min_birth_year = current_year - 65
+                max_birth_year = current_year - 51
+                query = query.filter(
+                    and_(
+                        extract('year', Patient.birth_date) >= min_birth_year,
+                        extract('year', Patient.birth_date) <= max_birth_year
+                    )
+                )
+            elif age_range == '65+':
+                max_birth_year = current_year - 65
+                query = query.filter(extract('year', Patient.birth_date) <= max_birth_year)
+        
+        if registration_period:
+            try:
+                days = int(registration_period)
+                cutoff_date = datetime.now() - timedelta(days=days)
+                query = query.filter(Patient.created_at >= cutoff_date)
+            except ValueError:
+                pass
+        
+        # ✅ LIMITAR A 5000 REGISTROS PARA PDF/EXCEL
+        patients = query.order_by(Patient.full_name).limit(5000).all()
+        
+        # Calcular estatísticas simples dos dados carregados
+        age_groups = {'0-18': 0, '19-30': 0, '31-50': 0, '51-65': 0, '65+': 0}
+        for patient in patients:
+            age = patient.age
+            if age <= 18:
+                age_groups['0-18'] += 1
+            elif age <= 30:
+                age_groups['19-30'] += 1
+            elif age <= 50:
+                age_groups['31-50'] += 1
+            elif age <= 65:
+                age_groups['51-65'] += 1
+            else:
+                age_groups['65+'] += 1
+        
+        # Estatísticas e-SUS simples
+        esus_stats = {
+            'local_source': len([p for p in patients if getattr(p, 'source', 'local') == 'local']),
+            'imported_source': len([p for p in patients if getattr(p, 'source', 'local') == 'imported']),
+            'esus_source': len([p for p in patients if getattr(p, 'source', 'local') == 'esus']),
+            'with_cns': len([p for p in patients if p.cns]),
+            'with_mother_name': len([p for p in patients if getattr(p, 'mother_name', None)]),
+            'with_multiple_phones': len([p for p in patients if sum(1 for phone in [getattr(p, 'home_phone', None), getattr(p, 'cell_phone', None), getattr(p, 'contact_phone', None)] if phone) > 1])
+        }
+        
+        if format_type == 'pdf':
+            return generate_patients_pdf(patients, age_groups, esus_stats)
+        elif format_type == 'excel':
+            return generate_patients_excel(patients, age_groups, esus_stats)
 
 def generate_financial_report(start_date, end_date, format_type):
     """Relatório financeiro - APENAS DADOS REAIS"""
@@ -2080,6 +2724,186 @@ def generate_financial_report(start_date, end_date, format_type):
         return generate_financial_pdf(dispensation_stats, stock_value, medication_costs, start_date, end_date)
     elif format_type == 'excel':
         return generate_financial_excel(dispensation_stats, stock_value, medication_costs, start_date, end_date)
+
+@main.route('/reports/dispensations')
+@staff_required  
+def dispensations_report():
+    """✅ RELATÓRIO DE DISPENSAÇÕES - VERSÃO FINAL CORRIGIDA"""
+    
+    # ✅ CAPTURAR FILTROS
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    pharmacist_id = request.args.get('pharmacist_id')
+    
+    # ✅ CONVERTER DATAS
+    start_date = None
+    end_date = None
+    
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    # ✅ QUERY BASE COM JOINS OTIMIZADOS
+    query = Dispensation.query.options(
+        joinedload(Dispensation.patient),
+        joinedload(Dispensation.dispenser),
+        joinedload(Dispensation.items).joinedload(DispensationItem.medication)
+    )
+    
+    # ✅ APLICAR FILTROS
+    if start_date:
+        query = query.filter(Dispensation.dispensation_date >= start_date)
+    if end_date:
+        query = query.filter(Dispensation.dispensation_date <= end_date)
+    if pharmacist_id:
+        query = query.filter(Dispensation.dispenser_id == pharmacist_id)
+    
+    # ✅ BUSCAR DISPENSAÇÕES
+    dispensations = query.order_by(desc(Dispensation.dispensation_date)).all()
+    
+    # ✅ INICIALIZAR VARIÁVEIS
+    total_dispensations = len(dispensations)
+    unique_patients = len(set(d.patient_id for d in dispensations)) if dispensations else 0
+    total_quantity = 0
+    unique_medications = set()
+    total_cost = 0
+    dispensation_items = []
+    
+    # ✅ DADOS PARA GRÁFICOS - SEMPRE INICIALIZAR
+    chart_dates = []
+    chart_dispensations = []
+    top_medications_labels = []
+    top_medications_data = []
+    
+    # ✅ PROCESSAR DISPENSAÇÕES SE EXISTIREM
+    if dispensations:
+        from collections import defaultdict
+        
+        # ✅ PROCESSAR CADA DISPENSAÇÃO
+        for dispensation in dispensations:
+            # Processar itens da dispensação
+            for item in dispensation.items:
+                total_quantity += item.quantity_dispensed
+                unique_medications.add(item.medication_id)
+                total_cost += item.total_cost or 0
+                
+                # ✅ CRIAR OBJETO PARA TEMPLATE
+                dispensation_obj = type('obj', (object,), {
+                    'dispensation_date': dispensation.dispensation_date,
+                    'patient': dispensation.patient,
+                    'medication': item.medication,
+                    'quantity': item.quantity_dispensed,
+                    'dispensed_by': dispensation.dispenser,
+                    'observations': item.observations or dispensation.observations
+                })()
+                
+                dispensation_items.append(dispensation_obj)
+        
+        # ✅ CALCULAR DADOS DO GRÁFICO POR DIA
+        daily_counts = defaultdict(int)
+        for dispensation in dispensations:
+            # Usar apenas DD/MM para o gráfico
+            date_key = dispensation.dispensation_date.strftime('%d/%m')
+            daily_counts[date_key] += 1
+        
+        # ✅ ORDENAR DATAS CORRETAMENTE
+        if daily_counts:
+            # Tentar ordenar cronologicamente
+            try:
+                current_year = datetime.now().year
+                sorted_dates = sorted(daily_counts.keys(), 
+                    key=lambda x: datetime.strptime(f"{x}/{current_year}", '%d/%m/%Y'))
+            except:
+                # Fallback: ordenar alfabeticamente
+                sorted_dates = sorted(daily_counts.keys())
+            
+            chart_dates = sorted_dates
+            chart_dispensations = [daily_counts[date] for date in sorted_dates]
+        
+        # ✅ CALCULAR TOP MEDICAMENTOS
+        medication_counts = defaultdict(int)
+        for dispensation in dispensations:
+            for item in dispensation.items:
+                if item.medication and item.medication.commercial_name:
+                    # Limitar o nome do medicamento para evitar labels muito grandes
+                    med_name = item.medication.commercial_name[:25]
+                    medication_counts[med_name] += item.quantity_dispensed
+        
+        # ✅ PEGAR TOP 10 MEDICAMENTOS
+        if medication_counts:
+            top_medications = sorted(medication_counts.items(), 
+                                   key=lambda x: x[1], reverse=True)[:10]
+            top_medications_labels = [med[0] for med in top_medications]
+            top_medications_data = [med[1] for med in top_medications]
+    
+    unique_medications_count = len(unique_medications)
+    
+    # ✅ BUSCAR FARMACÊUTICOS PARA FILTRO
+    pharmacists = User.query.filter(
+        and_(
+            User.is_active == True,
+            User.role.in_([UserRole.PHARMACIST, UserRole.ADMIN])
+        )
+    ).order_by(User.full_name).all()
+    
+       
+    return render_template('reports/dispensations.html',
+                         # ✅ DADOS PRINCIPAIS
+                         dispensations=dispensation_items,
+                         pharmacists=pharmacists,
+                         
+                         # ✅ ESTATÍSTICAS
+                         total_dispensations=total_dispensations,
+                         unique_patients=unique_patients,
+                         unique_medications=unique_medications_count,
+                         total_quantity=total_quantity,
+                         total_cost=total_cost,
+                         
+                         # ✅ GRÁFICOS - SEMPRE PASSADOS (mesmo que vazios)
+                         chart_dates=chart_dates,
+                         chart_dispensations=chart_dispensations,
+                         top_medications_labels=top_medications_labels,
+                         top_medications_data=top_medications_data,
+                         
+                         # ✅ FILTROS
+                         start_date=start_date,
+                         end_date=end_date,
+                         pharmacist_id=int(pharmacist_id) if pharmacist_id else None)
+
+@main.route('/reports/dispensations/export')
+@staff_required
+def dispensations_export():
+    """✅ EXPORTAÇÃO DO RELATÓRIO DE DISPENSAÇÕES"""
+    format_type = request.args.get('format', 'pdf')
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
+    # Converter datas
+    start_date = None
+    end_date = None
+    
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    # Redirecionar para função de geração existente
+    return generate_dispensations_report(start_date, end_date, format_type)
 
 # =================== ADMINISTRAÇÃO ===================
 
@@ -2601,6 +3425,170 @@ def api_dashboard_stats():
     }
     
     return jsonify(stats)
+
+# ✅ NOVA API PARA DATATABLES DOS PACIENTES
+@main.route('/api/patients/list', methods=['POST'])
+@staff_required
+def api_patients_list():
+    """✅ API DataTables server-side para lista de pacientes"""
+    try:
+        # ✅ PARÂMETROS DO DATATABLES
+        draw = request.form.get('draw', type=int)
+        start = request.form.get('start', type=int)
+        length = request.form.get('length', type=int)
+        search_value = request.form.get('search[value]', '')
+        
+        # ✅ FILTROS CUSTOMIZADOS
+        search_type = request.form.get('search_type', 'name')
+        status_filter = request.form.get('status_filter', '')
+        gender_filter = request.form.get('gender_filter', '')
+        select_for = request.form.get('select_for', '')
+        
+        # ✅ QUERY BASE
+        query = Patient.query
+        
+        # ✅ APLICAR FILTROS DE STATUS
+        if status_filter == 'active':
+            query = query.filter(Patient.is_active == True)
+        elif status_filter == 'inactive':
+            query = query.filter(Patient.is_active == False)
+        else:
+            # Padrão: apenas ativos
+            query = query.filter(Patient.is_active == True)
+        
+        # ✅ APLICAR FILTRO DE GÊNERO
+        if gender_filter:
+            query = query.filter(Patient.gender == gender_filter)
+        
+        # ✅ APLICAR BUSCA GLOBAL
+        if search_value:
+            if search_type == 'name':
+                query = query.filter(Patient.full_name.ilike(f'%{search_value}%'))
+            elif search_type == 'cpf':
+                clean_cpf = re.sub(r'[^0-9]', '', search_value)
+                query = query.filter(Patient.cpf.like(f'%{clean_cpf}%'))
+            elif search_type == 'cns':
+                clean_cns = re.sub(r'[^0-9]', '', search_value)
+                query = query.filter(Patient.cns.like(f'%{clean_cns}%'))
+            elif search_type == 'phone':
+                clean_phone = re.sub(r'[^0-9]', '', search_value)
+                query = query.filter(
+                    or_(
+                        Patient.cell_phone.like(f'%{clean_phone}%'),
+                        Patient.home_phone.like(f'%{clean_phone}%'),
+                        Patient.contact_phone.like(f'%{clean_phone}%'),
+                        Patient.phone.like(f'%{clean_phone}%')
+                    )
+                )
+            elif search_type == 'email':
+                query = query.filter(Patient.email.ilike(f'%{search_value}%'))
+            elif search_type == 'mother':
+                query = query.filter(Patient.mother_name.ilike(f'%{search_value}%'))
+        
+        # ✅ TOTAL DE REGISTROS (SEM FILTROS)
+        total_records = Patient.query.filter_by(is_active=True).count()
+        
+        # ✅ TOTAL FILTRADO
+        filtered_records = query.count()
+        
+        # ✅ ORDENAÇÃO
+        order_column = request.form.get('order[0][column]', '0', type=int)
+        order_dir = request.form.get('order[0][dir]', 'asc')
+        
+        columns = ['full_name', 'cpf', 'cell_phone', 'city', 'age', 'is_active', 'created_at']
+        
+        if 0 <= order_column < len(columns):
+            column_name = columns[order_column]
+            if hasattr(Patient, column_name):
+                if order_dir == 'desc':
+                    query = query.order_by(desc(getattr(Patient, column_name)))
+                else:
+                    query = query.order_by(getattr(Patient, column_name))
+        else:
+            query = query.order_by(Patient.full_name)
+        
+        # ✅ PAGINAÇÃO
+        patients = query.offset(start).limit(length).all()
+        
+        # ✅ FORMATAR DADOS PARA DATATABLE
+        data = []
+        for patient in patients:
+            # Telefone principal
+            primary_phone = patient.cell_phone or patient.home_phone or patient.contact_phone or getattr(patient, 'phone', None)
+            
+            # Botões baseados no modo
+            if select_for == 'high_cost':
+                actions = f'''
+                    <div class="btn-group btn-group-sm">
+                        <a href="{url_for('main.patient_view', id=patient.id)}" 
+                           class="btn btn-outline-info btn-sm" title="Visualizar">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {"" if not patient.is_active else f'''
+                        <a href="{url_for('main.high_cost_request', patient_id=patient.id)}" 
+                           class="btn btn-success btn-sm" title="Selecionar">
+                            <i class="fas fa-check me-1"></i>Selecionar
+                        </a>
+                        '''}
+                    </div>
+                '''
+            else:
+                actions = f'''
+                    <div class="btn-group btn-group-sm">
+                        <a href="{url_for('main.patient_view', id=patient.id)}" 
+                           class="btn btn-outline-primary btn-sm" title="Visualizar">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{url_for('main.patient_edit', id=patient.id)}" 
+                           class="btn btn-outline-secondary btn-sm" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-success btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="fas fa-star"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{url_for('main.high_cost_request', patient_id=patient.id)}">
+                                    <i class="fas fa-star me-2"></i>Alto Custo
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                '''
+            
+            data.append({
+                'avatar': patient.full_name[0].upper(),
+                'full_name': patient.full_name,
+                'gender': patient.gender_display,
+                'cpf': format_cpf(patient.cpf),
+                'cns': format_cns(patient.cns) if patient.cns else '--',
+                'primary_phone': format_phone(primary_phone) if primary_phone else '--',
+                'email': patient.email or '--',
+                'city': patient.city or '--',
+                'mother_name': getattr(patient, 'mother_name', '') or '--',
+                'age': patient.age,
+                'status': f'<span class="badge bg-success">Ativo</span>' if patient.is_active else f'<span class="badge bg-secondary">Inativo</span>',
+                'created_at': format_date(patient.created_at),
+                'source': f'<small class="badge bg-info">e-SUS</small>' if getattr(patient, 'source', 'local') == 'imported' else f'<small class="badge bg-success">Local</small>',
+                'actions': actions
+            })
+        
+        return jsonify({
+            'draw': draw,
+            'recordsTotal': total_records,
+            'recordsFiltered': filtered_records,
+            'data': data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro na API DataTables de pacientes: {e}")
+        return jsonify({
+            'draw': draw or 1,
+            'recordsTotal': 0,
+            'recordsFiltered': 0,
+            'data': [],
+            'error': str(e)
+        }), 500
 
 # =================== DOWNLOAD DE ARQUIVOS ===================
 
