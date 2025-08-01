@@ -3,25 +3,25 @@
 {% block title %}Avaliação Farmacêutica - Processo {{ process.protocol_number }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4" style="background-color: #ebf9f9;">
     <!-- Header -->
     <div class="mb-4">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item">
-                    <a href="{{ url_for('main.high_cost_index') }}">Alto Custo</a>
+                    <a href="{{ url_for('main.high_cost_index') }}" style="color: #184e4c;">Alto Custo</a>
                 </li>
                 <li class="breadcrumb-item">
-                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}">{{ process.protocol_number }}</a>
+                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}" style="color: #184e4c;">{{ process.protocol_number }}</a>
                 </li>
-                <li class="breadcrumb-item active">Avaliação</li>
+                <li class="breadcrumb-item active" style="color: #0c2726;">Avaliação</li>
             </ol>
         </nav>
         
         <div class="row align-items-center">
             <div class="col">
                 <h1 class="h3 mb-0">
-                    <i class="fas fa-user-md me-2 text-success"></i>
+                    <i class="fas fa-user-md me-2" style="color: #36b0ac;"></i>
                     Avaliação Farmacêutica
                 </h1>
                 <p class="text-muted mb-0">
@@ -34,7 +34,7 @@
                     'pending': 'warning',
                     'under_evaluation': 'info'
                 }.get(process.status.value, 'secondary') %}
-                <span class="badge bg-{{ status_class }} fs-6">
+                <span class="badge bg-{{ status_class }} fs-6" style="background-color: #8adbd8;">
                     {{ format_process_status(process.status) }}
                 </span>
             </div>
@@ -48,18 +48,18 @@
                 {{ form.hidden_tag() }}
                 
                 <!-- Parecer Técnico -->
-                <div class="card mb-4">
-                    <div class="card-header">
+                <div class="card mb-4" style="border-color: #309c98;">
+                    <div class="card-header" style="background-color: #d8f3f2; color: #123b39;">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-clipboard-check me-2"></i>Parecer Técnico
                         </h5>
                         <small class="text-muted">Análise farmacêutica do processo</small>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" style="background-color: #ffffff;">
                         <div class="mb-4">
-                            {{ form.technical_opinion.label(class="form-label fw-semibold") }}
-                            {{ form.technical_opinion(class="form-control", rows="6", placeholder="Descreva a análise técnica detalhada do medicamento solicitado...") }}
-                            <div class="form-text">
+                            {{ form.technical_opinion.label(class="form-label fw-semibold", style="color: #184e4c;") }}
+                            {{ form.technical_opinion(class="form-control", rows="6", placeholder="Descreva a análise técnica detalhada do medicamento solicitado...", style="border-color: #4fc9c4;") }}
+                            <div class="form-text" style="color: #184e4c;">
                                 Inclua adequação da indicação, dose, duração e conformidade com protocolos clínicos.
                             </div>
                             {% for error in form.technical_opinion.errors %}
@@ -69,26 +69,26 @@
 
                         <!-- Campo Destacado: Atende ao Protocolo -->
                         <div class="mb-3">
-                            {{ form.meets_protocol.label(class="form-label fw-semibold mb-3") }}
+                            {{ form.meets_protocol.label(class="form-label fw-semibold mb-3", style="color: #184e4c;") }}
                             
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <div class="card border-success protocol-option h-100" data-value="1">
-                                        <div class="card-body p-3 text-center">
+                                    <div class="card border-success protocol-option h-100" data-value="1" style="border-color: #36b0ac;">
+                                        <div class="card-body p-3 text-center" style="background-color: #c4edec;">
                                             <div class="protocol-option-content">
-                                                <i class="fas fa-check-circle text-success fa-3x mb-2"></i>
-                                                <h6 class="fw-bold text-success mb-1">SIM, ATENDE</h6>
+                                                <i class="fas fa-check-circle fa-3x mb-2" style="color: #36b0ac;"></i>
+                                                <h6 class="fw-bold mb-1" style="color: #36b0ac;">SIM, ATENDE</h6>
                                                 <small class="text-muted">aos protocolos clínicos estabelecidos</small>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
-                                    <div class="card border-danger protocol-option h-100" data-value="0">
-                                        <div class="card-body p-3 text-center">
+                                    <div class="card border-danger protocol-option h-100" data-value="0" style="border-color: #dc3545;">
+                                        <div class="card-body p-3 text-center" style="background-color: #f8d7da;">
                                             <div class="protocol-option-content">
-                                                <i class="fas fa-times-circle text-danger fa-3x mb-2"></i>
-                                                <h6 class="fw-bold text-danger mb-1">NÃO ATENDE</h6>
+                                                <i class="fas fa-times-circle fa-3x mb-2" style="color: #dc3545;"></i>
+                                                <h6 class="fw-bold mb-1" style="color: #dc3545;">NÃO ATENDE</h6>
                                                 <small class="text-muted">aos protocolos clínicos estabelecidos</small>
                                             </div>
                                         </div>
@@ -109,21 +109,21 @@
                 </div>
 
                 <!-- Recomendações -->
-                <div class="card mb-4">
-                    <div class="card-header">
+                <div class="card mb-4" style="border-color: #309c98;">
+                    <div class="card-header" style="background-color: #d8f3f2; color: #123b39;">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-prescription-bottle-alt me-2"></i>Recomendações Farmacêuticas
                         </h5>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" style="background-color: #ffffff;">
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                {{ form.recommended_quantity.label(class="form-label fw-semibold") }}
+                                {{ form.recommended_quantity.label(class="form-label fw-semibold", style="color: #184e4c;") }}
                                 <div class="input-group">
-                                    {{ form.recommended_quantity(class="form-control", min="0") }}
-                                    <span class="input-group-text">unidades</span>
+                                    {{ form.recommended_quantity(class="form-control", min="0", style="border-color: #4fc9c4;") }}
+                                    <span class="input-group-text" style="background-color: #d8f3f2; border-color: #4fc9c4;">unidades</span>
                                 </div>
-                                <div class="form-text">
+                                <div class="form-text" style="color: #184e4c;">
                                     <i class="fas fa-info-circle me-1"></i>
                                     Solicitado: <strong>{{ process.requested_quantity }}</strong> unidades
                                 </div>
@@ -133,12 +133,12 @@
                             </div>
                             
                             <div class="col-md-6">
-                                {{ form.recommended_duration.label(class="form-label fw-semibold") }}
+                                {{ form.recommended_duration.label(class="form-label fw-semibold", style="color: #184e4c;") }}
                                 <div class="input-group">
-                                    {{ form.recommended_duration(class="form-control", min="0") }}
-                                    <span class="input-group-text">dias</span>
+                                    {{ form.recommended_duration(class="form-control", min="0", style="border-color: #4fc9c4;") }}
+                                    <span class="input-group-text" style="background-color: #d8f3f2; border-color: #4fc9c4;">dias</span>
                                 </div>
-                                <div class="form-text">
+                                <div class="form-text" style="color: #184e4c;">
                                     <i class="fas fa-info-circle me-1"></i>
                                     Solicitado: <strong>{{ process.treatment_duration }}</strong> dias
                                 </div>
@@ -149,17 +149,17 @@
                         </div>
 
                         <div class="mb-3">
-                            {{ form.recommendation.label(class="form-label fw-semibold") }}
-                            {{ form.recommendation(class="form-select") }}
+                            {{ form.recommendation.label(class="form-label fw-semibold", style="color: #184e4c;") }}
+                            {{ form.recommendation(class="form-select", style="border-color: #4fc9c4;") }}
                             {% for error in form.recommendation.errors %}
                                 <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
                         </div>
 
                         <div class="mb-3">
-                            {{ form.observations.label(class="form-label fw-semibold") }}
-                            {{ form.observations(class="form-control", rows="4", placeholder="Observações adicionais, orientações especiais, condições para uso...") }}
-                            <div class="form-text">
+                            {{ form.observations.label(class="form-label fw-semibold", style="color: #184e4c;") }}
+                            {{ form.observations(class="form-control", rows="4", placeholder="Observações adicionais, orientações especiais, condições para uso...", style="border-color: #4fc9c4;") }}
+                            <div class="form-text" style="color: #184e4c;">
                                 Campo opcional para observações adicionais sobre a avaliação
                             </div>
                             {% for error in form.observations.errors %}
@@ -172,15 +172,18 @@
                 <!-- Botões -->
                 <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
                     <a href="{{ url_for('main.high_cost_view', id=process.id) }}" 
-                       class="btn btn-outline-secondary">
+                       class="btn btn-outline-secondary" style="color: #184e4c; border-color: #4fc9c4;">
                         <i class="fas fa-arrow-left me-1"></i>Cancelar
                     </a>
-                    <button type="submit" class="btn btn-success">
+                    <button type="submit" class="btn btn-success" style="background-color: #3cc3bf; color: #ffffff;">
                         <i class="fas fa-save me-1"></i>Salvar Avaliação
                     </button>
                 </div>
             </form>
         </div>
+    </div>
+</div>
+{% endblock %}
 
         <!-- Sidebar com Informações -->
         <div class="col-lg-4">
@@ -335,14 +338,16 @@
 {% block extra_css %}
 <style>
 /* Melhorias visuais para formulários */
+<style>
+/* Melhorias visuais para formulários */
 .card {
-    border: 1px solid rgba(0,0,0,.125);
+    border: 1px solid #309c98;
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 
 .card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid rgba(0,0,0,.125);
+    background-color: #d8f3f2;
+    border-bottom: 1px solid #309c98;
 }
 
 /* Estilo especial para as opções de protocolo */
@@ -350,6 +355,7 @@
     cursor: pointer;
     transition: all 0.3s ease;
     border-width: 2px !important;
+    border-color: #4fc9c4;
 }
 
 .protocol-option:hover {
@@ -363,13 +369,13 @@
 
 /* Estado selecionado */
 .protocol-option.selected-yes {
-    background-color: rgba(25, 135, 84, 0.1);
-    border-color: #198754 !important;
-    box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+    background-color: #c4edec;
+    border-color: #36b0ac !important;
+    box-shadow: 0 0 0 0.2rem rgba(54, 176, 172, 0.25);
 }
 
 .protocol-option.selected-no {
-    background-color: rgba(220, 53, 69, 0.1);
+    background-color: #f8d7da;
     border-color: #dc3545 !important;
     box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
 }
@@ -381,7 +387,8 @@
 
 /* Input group melhorado */
 .input-group-text {
-    background-color: #f8f9fa;
+    background-color: #d8f3f2;
+    border-color: #4fc9c4;
     font-size: 0.875rem;
 }
 
@@ -397,8 +404,8 @@
 
 /* Alert customizado */
 .alert-info {
-    border-left: 4px solid #0dcaf0;
-    background-color: rgba(13, 202, 240, 0.1);
+    border-left: 4px solid #36b0ac;
+    background-color: #c4edec;
 }
 
 /* Responsividade */
@@ -419,10 +426,13 @@
 /* Transições suaves */
 .btn {
     transition: all 0.2s ease;
+    background-color: #3cc3bf;
+    color: #ffffff;
 }
 
 .btn:hover {
     transform: translateY(-1px);
+    background-color: #2a8985;
 }
 
 .card {
@@ -431,7 +441,7 @@
 
 /* Melhor contraste para texto pequeno */
 .small, .form-text {
-    color: #6c757d;
+    color: #184e4c;
 }
 
 /* Estilização dos documentos */
@@ -440,15 +450,15 @@
 }
 
 .border.rounded.p-2:hover {
-    background-color: #f8f9fa;
-    border-color: #0d6efd !important;
+    background-color: #b1e7e5;
+    border-color: #36b0ac !important;
 }
 
 /* Animações para os cards de protocolo */
 @keyframes pulseGreen {
-    0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(54, 176, 172, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(54, 176, 172, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(54, 176, 172, 0); }
 }
 
 @keyframes pulseRed {
@@ -466,6 +476,7 @@
 }
 </style>
 {% endblock %}
+
 
 {% block extra_js %}
 <script>

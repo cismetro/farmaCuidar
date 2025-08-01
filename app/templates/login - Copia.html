@@ -4,15 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login - {{ system_name }}</title>
-
+    
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
+    
     <style>
         body {
-            background: linear-gradient(135deg, #3cc3bf 0%, #ebf9f9 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         .login-card {
             background: rgba(255, 255, 255, 0.95);
@@ -21,83 +21,14 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
         .logo-section {
-            background: linear-gradient(135deg, #247572 0%, #1e625f 100%);
+            background: linear-gradient(135deg, #5D5CDE 0%, #4834A8 100%);
             border-radius: 15px 15px 0 0;
             color: white;
         }
-        .card-title {
-            color: #184e4c;
-        }
-        .btn-primary {
-            background-color: #247572;
-            border-color: #1e625f;
-        }
-        .btn-primary:hover {
-            background-color: #1e625f;
-            border-color: #184e4c;
-        }
-        .form-control:focus {
-            border-color: #3cc3bf;
-            box-shadow: 0 0 0 0.2rem rgba(60, 195, 191, 0.25);
-        }
-        .alert {
-            background-color: #d8f3f2;
-            color: #184e4c;
-            border-color: #b1e7e5;
-        }
-        .alert a {
-            color: #184e4c;
-            font-weight: bold;
-        }
-        .card-footer {
-            background-color: #ebf9f9;
-        }
-        .text-muted {
-            color: #184e4c !important;
-        }
-        .text-white {
-            color: #ffffff !important;
-        }
         @media (prefers-color-scheme: dark) {
-            body {
-                background: linear-gradient(135deg, #123b39 0%, #0c2726 100%);
-            }
             .login-card {
                 background: rgba(33, 37, 41, 0.95);
-                color: #ffffff;
-            }
-            .logo-section {
-                background: linear-gradient(135deg, #184e4c 0%, #123b39 100%);
-            }
-            .card-title {
-                color: #d8f3f2;
-            }
-            .btn-primary {
-                background-color: #184e4c;
-                border-color: #123b39;
-            }
-            .btn-primary:hover {
-                background-color: #123b39;
-                border-color: #0c2726;
-            }
-            .form-control:focus {
-                border-color: #63cfcb;
-                box-shadow: 0 0 0 0.2rem rgba(99, 207, 203, 0.25);
-            }
-            .alert {
-                background-color: #1e625f;
-                color: #b1e7e5;
-                border-color: #76d5d2;
-            }
-            .alert a {
-                color: #b1e7e5;
-                font-weight: bold;
-            }
-            .card-footer {
-                background-color: #123b39;
-            }
-            .text-muted {
-                color: #b1e7e5 !important;
+                color: white;
             }
         }
     </style>
@@ -128,7 +59,7 @@
                     {% endif %}
                 {% endwith %}
 
-                <!-- Login Card -->
+                <!-- Card de Login -->
                 <div class="card login-card border-0">
                     <!-- Header -->
                     <div class="logo-section text-center p-4">
@@ -138,14 +69,14 @@
                         <h3 class="fw-bold mb-2">{{ system_name }}</h3>
                         <p class="mb-0 opacity-75">{{ municipality }}</p>
                     </div>
-
-                    <!-- Form -->
+                    
+                    <!-- Formulário -->
                     <div class="card-body p-4">
                         <h5 class="card-title text-center mb-4">
                             <i class="fas fa-sign-in-alt me-2"></i>
                             Acesso ao Sistema
                         </h5>
-
+                        
                         <form method="POST">
                             {{ form.hidden_tag() }}
                             
@@ -217,7 +148,7 @@
                         </small>
                     </div>
                 </div>
-
+                
                 <!-- Informações adicionais -->
                 <div class="text-center mt-4">
                     <small class="text-white">
@@ -231,7 +162,7 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+    
     <!-- Script para mostrar/ocultar senha -->
     <script>
         document.getElementById('togglePassword').addEventListener('click', function () {

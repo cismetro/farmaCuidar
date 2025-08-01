@@ -241,19 +241,12 @@ Pacientes - {{ super() }}
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-
 <style>
 .avatar-sm {
     width: 32px;
     height: 32px;
     font-size: 14px;
     font-weight: 600;
-    background-color: #c4edec; /* 85% */
-    color: #184e4c; /* 20% */
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .dataTables_wrapper .dataTables_length,
@@ -264,11 +257,10 @@ Pacientes - {{ super() }}
 }
 
 .table th {
-    background-color: #d8f3f2; /* 90% */
+    background-color: #f8f9fa;
     border-top: none;
     font-weight: 600;
     font-size: 0.875rem;
-    color: #184e4c; /* 20% */
 }
 
 .cursor-pointer {
@@ -276,36 +268,35 @@ Pacientes - {{ super() }}
 }
 
 .cursor-pointer:hover {
-    background-color: #ebf9f9; /* 95% */
+    background-color: #f8f9fa;
 }
 
 /* ✅ Melhorar exibição dos telefones */
 .table td a[href^="tel:"] {
-    color: #3cc3bf; /* 50% */
+    color: #0d6efd;
     text-decoration: none;
 }
 
 .table td a[href^="tel:"]:hover {
     text-decoration: underline;
-    color: #36b0ac; /* 45% */
 }
 
 /* ✅ Ícones diferenciados para tipos de telefone */
 .fa-mobile-alt {
-    color: #36b0ac !important; /* 45% */
+    color: #198754 !important;
 }
 
 .fa-phone {
-    color: #3cc3bf !important; /* 50% */
+    color: #0dcaf0 !important;
 }
 
 .fa-phone-alt {
-    color: #ffc107 !important; /* Amarelo original */
+    color: #ffc107 !important;
 }
 
 /* Loading skeleton */
 .loading-row td {
-    background: linear-gradient(90deg, #ebf9f9 25%, #d8f3f2 50%, #ebf9f9 75%);
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
     background-size: 200% 100%;
     animation: loading 1.5s infinite;
 }
@@ -334,19 +325,15 @@ Pacientes - {{ super() }}
 }
 
 .alert {
-    border-left: 4px solid #3cc3bf; /* 50% */
-    background-color: #ebf9f9; /* 95% */
-    color: #184e4c; /* 20% */
+    border-left: 4px solid #0dcaf0;
 }
 
 .badge.bg-info {
-    background-color: #3cc3bf !important; /* 50% */
-    color: #ffffff !important; /* Branco */
+    color: #fff !important;
 }
 
 .badge.bg-success {
-    background-color: #36b0ac !important; /* 45% */
-    color: #ffffff !important; /* Branco */
+    background-color: #198754 !important;
 }
 </style>
 {% endblock %}

@@ -8,12 +8,20 @@ class Config:
     
     # MySQL Database Configuration - PORTA 3307
     MYSQL_USER = os.environ.get('MYSQL_USER') or 'root'
-    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD') or 'dG4rTALaq8'
+    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD') or ''
     MYSQL_HOST = os.environ.get('MYSQL_HOST') or 'localhost'
-    MYSQL_PORT = os.environ.get('MYSQL_PORT') or '3307'  # SUA PORTA
+    # USE ESTA LINHA PARA USAR A PORTA 3307
+    # MYSQL_PORT = os.environ.get('MYSQL_PORT') or '3307'  # SUA PORTA
+    # USE ESTA LINHA PARA RODAR NA PORTA 3306
+    MYSQL_PORT = os.environ.get('MYSQL_PORT') or '3306'  # SUA PORTA
     MYSQL_DATABASE = os.environ.get('MYSQL_DATABASE') or 'farmacuidar'
     
-    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+    # DESCOMENTE ESTA LINHA PARA RODAR COM SENHA
+    # SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+    
+    # USE ESTA LINHA PARA RODAR SEM SENHA
+    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Upload Configuration

@@ -3,25 +3,25 @@
 {% block title %}Dispensação - Processo {{ process.protocol_number }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-4" style="background-color: #ebf9f9;">
     <!-- Header -->
     <div class="mb-4">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item">
-                    <a href="{{ url_for('main.high_cost_index') }}">Alto Custo</a>
+                    <a href="{{ url_for('main.high_cost_index') }}" style="color: #184e4c;">Alto Custo</a>
                 </li>
                 <li class="breadcrumb-item">
-                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}">{{ process.protocol_number }}</a>
+                    <a href="{{ url_for('main.high_cost_view', id=process.id) }}" style="color: #184e4c;">{{ process.protocol_number }}</a>
                 </li>
-                <li class="breadcrumb-item active">Dispensação</li>
+                <li class="breadcrumb-item active" style="color: #0c2726;">Dispensação</li>
             </ol>
         </nav>
         
         <div class="row align-items-center">
             <div class="col">
                 <h1 class="h3 mb-0">
-                    <i class="fas fa-pills me-2 text-primary"></i>
+                    <i class="fas fa-pills me-2" style="color: #3cc3bf;"></i>
                     Dispensação de Medicamento
                 </h1>
                 <p class="text-muted mb-0">
@@ -30,7 +30,7 @@
                 </p>
             </div>
             <div class="col-auto">
-                <span class="badge bg-success fs-6">
+                <span class="badge fs-6" style="background-color: #3cc3bf; color: #ffffff;">
                     <i class="fas fa-check me-1"></i>Aprovado para Dispensação
                 </span>
             </div>
@@ -44,22 +44,22 @@
                 {{ form.hidden_tag() }}
                 
                 <!-- Informações da Dispensação -->
-                <div class="card mb-4">
-                    <div class="card-header">
+                <div class="card mb-4" style="border-color: #309c98;">
+                    <div class="card-header" style="background-color: #b1e7e5; color: #123b39;">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-hand-holding-medical me-2"></i>Dados da Dispensação
                         </h5>
                         <small class="text-muted">Registre a entrega do medicamento ao paciente</small>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" style="background-color: #ffffff;">
                         <div class="row g-3 mb-4">
                             <div class="col-md-6">
-                                {{ form.quantity_dispensed.label(class="form-label fw-semibold") }}
+                                {{ form.quantity_dispensed.label(class="form-label fw-semibold", style="color: #184e4c;") }}
                                 <div class="input-group">
-                                    {{ form.quantity_dispensed(class="form-control", min="1", max=max_quantity, id="quantity_dispensed") }}
-                                    <span class="input-group-text">unidades</span>
+                                    {{ form.quantity_dispensed(class="form-control", min="1", max=max_quantity, id="quantity_dispensed", style="border-color: #4fc9c4;") }}
+                                    <span class="input-group-text" style="background-color: #d8f3f2; border-color: #4fc9c4;">unidades</span>
                                 </div>
-                                <div class="form-text">
+                                <div class="form-text" style="color: #184e4c;">
                                     <i class="fas fa-info-circle me-1"></i>
                                     Máximo aprovado: <strong>{{ max_quantity }}</strong> unidades
                                 </div>
@@ -73,9 +73,9 @@
                             </div>
                             
                             <div class="col-md-6">
-                                {{ form.next_dispensation_date.label(class="form-label fw-semibold") }}
-                                {{ form.next_dispensation_date(class="form-control") }}
-                                <div class="form-text">
+                                {{ form.next_dispensation_date.label(class="form-label fw-semibold", style="color: #184e4c;") }}
+                                {{ form.next_dispensation_date(class="form-control", style="border-color: #4fc9c4;") }}
+                                <div class="form-text" style="color: #184e4c;">
                                     <i class="fas fa-calendar-alt me-1"></i>
                                     Data para próxima dispensação (se aplicável)
                                 </div>
@@ -86,9 +86,9 @@
                         </div>
 
                         <div class="mb-4">
-                            {{ form.observations.label(class="form-label fw-semibold") }}
-                            {{ form.observations(class="form-control", rows="3", placeholder="Observações sobre a dispensação, orientações ao paciente...") }}
-                            <div class="form-text">
+                            {{ form.observations.label(class="form-label fw-semibold", style="color: #184e4c;") }}
+                            {{ form.observations(class="form-control", rows="3", placeholder="Observações sobre a dispensação, orientações ao paciente...", style="border-color: #4fc9c4;") }}
+                            <div class="form-text" style="color: #184e4c;">
                                 Campo opcional para observações adicionais
                             </div>
                             {% for error in form.observations.errors %}
@@ -98,19 +98,19 @@
                     </div>
                 </div>
 
-                <!-- Confirmações do Paciente - VERSÃO MELHORADA -->
-                <div class="card mb-4">
-                    <div class="card-header">
+                <!-- Confirmações do Paciente -->
+                <div class="card mb-4" style="border-color: #309c98;">
+                    <div class="card-header" style="background-color: #b1e7e5; color: #123b39;">
                         <h5 class="card-title mb-0">
                             <i class="fas fa-user-check me-2"></i>Confirmações do Paciente
                         </h5>
                         <small class="text-muted">Obrigatório - Confirmações necessárias</small>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" style="background-color: #ffffff;">
                         <!-- Nome/Assinatura do Paciente -->
                         <div class="mb-4">
-                            {{ form.patient_signature.label(class="form-label fw-semibold") }}
-                            {{ form.patient_signature(class="form-control", placeholder="Nome completo do paciente ou responsável") }}
+                            {{ form.patient_signature.label(class="form-label fw-semibold", style="color: #184e4c;") }}
+                            {{ form.patient_signature(class="form-control", placeholder="Nome completo do paciente ou responsável", style="border-color: #4fc9c4;") }}
                             <div class="form-text text-danger">
                                 <i class="fas fa-exclamation-circle me-1"></i>
                                 <strong>Obrigatório</strong> - Nome de quem está recebendo o medicamento
@@ -122,13 +122,13 @@
 
                         <!-- Lista de Confirmações Individuais -->
                         <div class="mb-4">
-                            <label class="form-label fw-semibold mb-3">Confirmo que o paciente foi orientado sobre:</label>
+                            <label class="form-label fw-semibold mb-3" style="color: #184e4c;">Confirmo que o paciente foi orientado sobre:</label>
                             
                             <div class="row g-2">
                                 <div class="col-md-6">
                                     <div class="form-check">
                                         <input class="form-check-input orientation-check" type="checkbox" id="posologia" required>
-                                        <label class="form-check-label" for="posologia">
+                                        <label class="form-check-label" for="posologia" style="color: #184e4c;">
                                             <i class="fas fa-pills text-primary me-1"></i>
                                             Posologia e forma de uso do medicamento
                                         </label>
@@ -138,7 +138,7 @@
                                 <div class="col-md-6">
                                     <div class="form-check">
                                         <input class="form-check-input orientation-check" type="checkbox" id="efeitos" required>
-                                        <label class="form-check-label" for="efeitos">
+                                        <label class="form-check-label" for="efeitos" style="color: #184e4c;">
                                             <i class="fas fa-exclamation-triangle text-warning me-1"></i>
                                             Possíveis efeitos adversos e reações
                                         </label>
@@ -148,7 +148,7 @@
                                 <div class="col-md-6">
                                     <div class="form-check">
                                         <input class="form-check-input orientation-check" type="checkbox" id="adesao" required>
-                                        <label class="form-check-label" for="adesao">
+                                        <label class="form-check-label" for="adesao" style="color: #184e4c;">
                                             <i class="fas fa-heart text-danger me-1"></i>
                                             Importância da adesão ao tratamento
                                         </label>
@@ -158,29 +158,9 @@
                                 <div class="col-md-6">
                                     <div class="form-check">
                                         <input class="form-check-input orientation-check" type="checkbox" id="armazenamento" required>
-                                        <label class="form-check-label" for="armazenamento">
+                                        <label class="form-check-label" for="armazenamento" style="color: #184e4c;">
                                             <i class="fas fa-snowflake text-info me-1"></i>
                                             Condições de armazenamento
-                                        </label>
-                                    </div>
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input orientation-check" type="checkbox" id="acompanhamento" required>
-                                        <label class="form-check-label" for="acompanhamento">
-                                            <i class="fas fa-user-md text-success me-1"></i>
-                                            Necessidade de acompanhamento médico
-                                        </label>
-                                    </div>
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input orientation-check" type="checkbox" id="retorno" required>
-                                        <label class="form-check-label" for="retorno">
-                                            <i class="fas fa-calendar-check text-secondary me-1"></i>
-                                            Data de retorno para acompanhamento
                                         </label>
                                     </div>
                                 </div>
@@ -189,81 +169,12 @@
                             <!-- Progresso das confirmações -->
                             <div class="mt-3">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted">Progresso das orientações:</small>
-                                    <small class="text-muted"><span id="checked-count">0</span>/6 confirmadas</small>
+                                    <small class="text-muted" style="color: #184e4c;">Progresso das orientações:</small>
+                                    <small class="text-muted" style="color: #184e4c;"><span id="checked-count">0</span>/6 confirmadas</small>
                                 </div>
-                                <div class="progress mt-1" style="height: 8px;">
-                                    <div class="progress-bar bg-warning" id="progress-bar" style="width: 0%"></div>
+                                <div class="progress mt-1" style="height: 8px; background-color: #d8f3f2;">
+                                    <div class="progress-bar bg-warning" id="progress-bar" style="width: 0%; background-color: #3cc3bf;"></div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Declaração do Paciente -->
-                        <div class="alert alert-light border mb-4">
-                            <h6 class="alert-heading">
-                                <i class="fas fa-file-signature me-1"></i>Declaração do Paciente/Responsável:
-                            </h6>
-                            <p class="mb-2">Declaro que:</p>
-                            <ul class="mb-2">
-                                <li>Recebi as orientações sobre o uso correto do medicamento</li>
-                                <li>Fui informado(a) sobre possíveis efeitos adversos</li>
-                                <li>Compreendo a importância da adesão ao tratamento</li>
-                                <li>Estou ciente das condições de armazenamento</li>
-                                <li>Comprometo-me a seguir as orientações médicas</li>
-                            </ul>
-                            <p class="mb-0">
-                                <small>
-                                    <strong>Data:</strong> <span id="current-date"></span> | 
-                                    <strong>Hora:</strong> <span id="current-time"></span> |
-                                    <strong>Farmacêutico:</strong> {{ current_user.full_name }}
-                                </small>
-                            </p>
-                        </div>
-
-                        <!-- Confirmação Final -->
-                        <div class="form-check">
-                            {{ form.terms_accepted(class="form-check-input", id="terms_accepted") }}
-                            <label class="form-check-label fw-semibold" for="terms_accepted">
-                                <i class="fas fa-shield-alt text-success me-1"></i>
-                                Confirmo que todas as orientações foram fornecidas e compreendidas pelo paciente
-                            </label>
-                            {% for error in form.terms_accepted.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Resumo da Dispensação -->
-                <div class="card mb-4 border-primary">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="card-title mb-0">
-                            <i class="fas fa-clipboard-list me-2"></i>Resumo da Dispensação
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <strong>Medicamento:</strong><br>
-                                {{ process.medication.commercial_name }}<br>
-                                <small class="text-muted">{{ process.medication.dosage }}</small>
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Paciente:</strong><br>
-                                {{ process.patient.full_name }}<br>
-                                <small class="text-muted">{{ format_cpf(process.patient.cpf) }}</small>
-                            </div>
-                            <div class="col-md-4">
-                                <strong>Estoque Atual:</strong><br>
-                                <span class="badge bg-info fs-6">{{ process.medication.current_stock }} unidades</span>
-                            </div>
-                            <div class="col-md-4">
-                                <strong>Quantidade a Dispensar:</strong><br>
-                                <span class="badge bg-warning text-dark fs-6" id="quantity-display">0 unidades</span>
-                            </div>
-                            <div class="col-md-4">
-                                <strong>Estoque Após Dispensação:</strong><br>
-                                <span class="badge bg-secondary fs-6" id="remaining-stock">{{ process.medication.current_stock }} unidades</span>
                             </div>
                         </div>
                     </div>
@@ -272,15 +183,19 @@
                 <!-- Botões -->
                 <div class="d-flex flex-column flex-sm-row gap-2 justify-content-end">
                     <a href="{{ url_for('main.high_cost_view', id=process.id) }}" 
-                       class="btn btn-outline-secondary">
+                       class="btn btn-outline-secondary" style="color: #184e4c; border-color: #4fc9c4;">
                         <i class="fas fa-arrow-left me-1"></i>Cancelar
                     </a>
-                    <button type="submit" class="btn btn-success" id="dispense-btn" disabled>
+                    <button type="submit" class="btn btn-success" id="dispense-btn" disabled style="background-color: #3cc3bf; color: #ffffff;">
                         <i class="fas fa-hand-holding-medical me-1"></i>Confirmar Dispensação
                     </button>
                 </div>
             </form>
         </div>
+    </div>
+</div>
+{% endblock %}
+
 
         <!-- Sidebar com Informações -->
         <div class="col-lg-4">
@@ -459,24 +374,27 @@
 
 {% block extra_css %}
 <style>
+<style>
 /* Melhorias visuais */
 .card {
-    border: 1px solid rgba(0,0,0,.125);
+    border: 1px solid #309c98;
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 
 .card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid rgba(0,0,0,.125);
+    background-color: #d8f3f2;
+    border-bottom: 1px solid #309c98;
 }
 
 .card-header.bg-primary {
-    border-color: #0d6efd;
+    background-color: #3cc3bf;
+    border-color: #2a8985;
+    color: #ffffff;
 }
 
 /* Estilos para as confirmações */
 .orientation-check:checked + label {
-    color: #198754;
+    color: #36b0ac;
     font-weight: 500;
 }
 
@@ -492,21 +410,24 @@
 
 .checklist-item:checked + label {
     text-decoration: line-through;
-    color: #6c757d;
+    color: #247572;
 }
 
 /* Progress bar animada */
 .progress {
     transition: all 0.3s ease;
+    background-color: #b1e7e5;
 }
 
 .progress-bar {
     transition: width 0.5s ease, background-color 0.3s ease;
+    background-color: #3cc3bf;
 }
 
 /* Input group melhorado */
 .input-group-text {
-    background-color: #f8f9fa;
+    background-color: #d8f3f2;
+    border-color: #4fc9c4;
     font-size: 0.875rem;
 }
 
@@ -522,12 +443,13 @@
 
 /* Alert customizado */
 .alert-info {
-    border-left: 4px solid #0dcaf0;
-    background-color: rgba(13, 202, 240, 0.1);
+    border-left: 4px solid #36b0ac;
+    background-color: #c4edec;
 }
 
 .alert-light {
-    border-left: 4px solid #6c757d;
+    border-left: 4px solid #184e4c;
+    background-color: #ebf9f9;
 }
 
 .alert ul li {
@@ -537,19 +459,24 @@
 /* Transições suaves */
 .btn {
     transition: all 0.2s ease;
+    background-color: #3cc3bf;
+    color: #ffffff;
 }
 
 .btn:hover {
     transform: translateY(-1px);
+    background-color: #2a8985;
 }
 
 /* Form check melhorado */
 .form-check-label {
     cursor: pointer;
+    color: #184e4c;
 }
 
 .form-check-input {
     cursor: pointer;
+    border-color: #4fc9c4;
 }
 
 /* Responsividade */
@@ -573,11 +500,13 @@
 .btn:disabled {
     cursor: not-allowed;
     opacity: 0.6;
+    background-color: #b1e7e5;
 }
 
 /* Destaque para campos obrigatórios */
 .text-danger .fa-exclamation-circle {
     animation: pulse 2s infinite;
+    color: #dc3545;
 }
 
 @keyframes pulse {
@@ -588,8 +517,8 @@
 
 /* Destaque para texto quando todos checados */
 .all-orientations-complete {
-    background-color: rgba(25, 135, 84, 0.1);
-    border-color: #198754;
+    background-color: #d8f3f2;
+    border-color: #36b0ac;
 }
 </style>
 {% endblock %}

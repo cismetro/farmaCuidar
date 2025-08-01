@@ -340,7 +340,7 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: #e9ecef;
+    background: #76d5d2; /* 65% */
 }
 
 .timeline-item {
@@ -358,26 +358,31 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #ffffff; /* Branco */
     font-size: 0.75rem;
+    background: #3cc3bf; /* 50% */
     z-index: 1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .timeline-content {
-    background: #f8f9fa;
+    background: #ebf9f9; /* 95% */
     border-radius: 0.375rem;
     padding: 1rem;
-    border-left: 3px solid #dee2e6;
+    border-left: 3px solid #76d5d2; /* 65% */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .timeline-title {
     margin-bottom: 0.5rem;
     font-size: 0.9rem;
+    color: #184e4c; /* 20% */
+    font-weight: bold;
 }
 
 .timeline-body {
     font-size: 0.875rem;
-    color: #6c757d;
+    color: #247572; /* 30% */
 }
 
 .timeline-header {
@@ -390,7 +395,8 @@
 .timeline-footer {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid #dee2e6;
+    border-top: 1px solid #76d5d2; /* 65% */
+    color: #184e4c; /* 20% */
 }
 
 /* Print Styles */
@@ -400,38 +406,45 @@
     }
     
     .card {
-        border: 1px solid #000 !important;
+        border: 1px solid #184e4c !important; /* 20% */
         box-shadow: none !important;
     }
     
     .timeline-marker {
-        background: #000 !important;
+        background: #184e4c !important; /* 20% */
         color: white !important;
     }
     
     .timeline::before {
-        background: #000 !important;
+        background: #184e4c !important; /* 20% */
     }
     
     .timeline-content {
         background: white !important;
-        border-left-color: #000 !important;
+        border-left-color: #184e4c !important; /* 20% */
     }
 }
 
 /* Card hover effects */
 .card {
     transition: transform 0.2s ease-in-out;
+    background-color: #ffffff; /* Branco */
+    border: 1px solid #76d5d2; /* 65% */
+    border-radius: 0.5rem;
 }
 
 .card:hover {
     transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Badge improvements */
 .badge {
     font-size: 0.75rem;
     padding: 0.375em 0.75em;
+    background-color: #3cc3bf; /* 50% */
+    color: #ffffff; /* Branco */
+    border-radius: 0.375rem;
 }
 
 /* Responsive adjustments */
@@ -455,10 +468,12 @@
 /* Melhorar estatísticas */
 .card-body .fs-3 {
     font-size: 1.75rem !important;
+    color: #184e4c; /* 20% */
 }
 
 .card-body .fs-6 {
     font-size: 0.875rem !important;
+    color: #247572; /* 30% */
 }
 
 /* Dark mode support */
@@ -466,13 +481,31 @@
     .timeline-content {
         background: #2d3748;
         border-left-color: #4a5568;
+        color: #e2e8f0; /* Texto claro */
     }
     
     .timeline::before {
         background: #4a5568;
     }
+    
+    .timeline-marker {
+        background: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .card {
+        background-color: #1a202c;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .badge {
+        background-color: #4a5568;
+        color: #e2e8f0;
+    }
 }
 </style>
+
 {% endblock %}
 
 {% block extra_js %}

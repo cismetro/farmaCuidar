@@ -10,22 +10,22 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item">
-                        <a href="{{ url_for('main.dispensation_index') }}">Dispensação</a>
+                        <a href="{{ url_for('main.dispensation_index') }}" style="color: #184e4c;">Dispensação</a>
                     </li>
                     <li class="breadcrumb-item active">Selecionar Medicamentos</li>
                 </ol>
             </nav>
             <h1 class="h3 mb-0">
-                <i class="fas fa-pills me-2 text-primary"></i>
+                <i class="fas fa-pills me-2" style="color: #3cc3bf;"></i>
                 Dispensação para {{ patient.full_name }}
             </h1>
-            <div class="alert alert-info mt-2">
+            <div class="alert" style="background-color: #b1e7e5; color: #184e4c; margin-top: 10px;">
                 <i class="fas fa-info-circle me-2"></i>
                 <strong>Controle Universal:</strong> Todos os medicamentos requerem configuração de intervalo de dispensação.
             </div>
         </div>
         <div class="col-auto">
-            <a href="{{ url_for('main.dispensation_index') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('main.dispensation_index') }}" class="btn" style="background-color: #3cc3bf; color: #ffffff;">
                 <i class="fas fa-arrow-left me-1"></i>Voltar
             </a>
         </div>
@@ -34,18 +34,18 @@
     <div class="row">
         <!-- Informações do Paciente -->
         <div class="col-xl-4">
-            <div class="card mb-4">
-                <div class="card-header">
+            <div class="card mb-4" style="border-color: #309c98;">
+                <div class="card-header" style="background-color: #309c98; color: #ffffff;">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-user me-2"></i>Dados do Paciente
                     </h5>
                 </div>
                 <div class="card-body">
                     <div class="d-flex align-items-center mb-3">
-                        <div class="avatar-lg bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3">
+                        <div class="avatar-lg" style="background-color: #3cc3bf; color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
                             {{ patient.full_name[0].upper() }}
                         </div>
-                        <div>
+                        <div class="ms-3">
                             <h6 class="mb-0">{{ patient.full_name }}</h6>
                             <small class="text-muted">{{ patient.age }} anos</small>
                         </div>
@@ -74,11 +74,11 @@
                 </div>
             </div>
 
-            <!-- ✅ CONTROLES DE INTERVALO ATIVOS -->
+            <!-- Controles de Intervalo Ativos -->
             <div class="card mb-4">
-                <div class="card-header">
+                <div class="card-header" style="background-color: #309c98; color: #ffffff;">
                     <h6 class="card-title mb-0">
-                        <i class="fas fa-clock me-2 text-warning"></i>Controles de Intervalo Ativos
+                        <i class="fas fa-clock me-2"></i>Controles de Intervalo Ativos
                     </h6>
                 </div>
                 <div class="card-body p-0" id="activeControlsList">
@@ -90,12 +90,12 @@
             </div>
 
             <!-- Carrinho de Medicamentos -->
-            <div class="card" id="medicationCart">
-                <div class="card-header">
+            <div class="card" id="medicationCart" style="border-color: #3cc3bf;">
+                <div class="card-header" style="background-color: #3cc3bf; color: #ffffff;">
                     <h6 class="card-title mb-0">
                         <i class="fas fa-shopping-cart me-2"></i>
                         Medicamentos Selecionados
-                        <span class="badge bg-primary ms-2" id="cartCount">0</span>
+                        <span class="badge bg-light text-dark ms-2" id="cartCount">0</span>
                     </h6>
                 </div>
                 <div class="card-body" id="cartItems">
@@ -105,22 +105,22 @@
                         <small>Todos os medicamentos precisam de controle de intervalo</small>
                     </div>
                 </div>
-                <div class="card-footer" id="cartFooter" style="display: none;">
+                <div class="card-footer" id="cartFooter" style="display: none; background-color: #b1e7e5;">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <strong>Total:</strong>
                         <strong id="cartTotal">R$ 0,00</strong>
                     </div>
-                    <button type="button" class="btn btn-success w-100" id="proceedToConfiguration">
+                    <button type="button" class="btn" style="background-color: #3cc3bf; color: #ffffff;" id="proceedToConfiguration">
                         <i class="fas fa-cog me-1"></i>Configurar Intervalos
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- ✅ BUSCA DE MEDICAMENTOS -->
+        <!-- Busca de Medicamentos -->
         <div class="col-xl-8">
-            <div class="card">
-                <div class="card-header">
+            <div class="card" style="border-color: #309c98;">
+                <div class="card-header" style="background-color: #309c98; color: #ffffff;">
                     <div class="row align-items-center">
                         <div class="col">
                             <h5 class="card-title mb-0">
@@ -130,14 +130,13 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <!-- ✅ BARRA DE BUSCA -->
                     <div class="row mb-3">
                         <div class="col-md-8">
                             <div class="input-group">
-                                <span class="input-group-text">
+                                <span class="input-group-text" style="background-color: #3cc3bf; color: #ffffff;">
                                     <i class="fas fa-search"></i>
                                 </span>
-                                <input type="text" id="medicationSearch" class="form-control form-control-lg" 
+                                <input type="text" id="medicationSearch" class="form-control form-control-lg"
                                        placeholder="Digite o nome do medicamento para buscar..."
                                        autocomplete="off">
                             </div>
@@ -156,39 +155,30 @@
                             </select>
                         </div>
                     </div>
-
-                    <!-- ✅ ÁREA DE RESULTADOS -->
                     <div id="searchResults">
-                        <!-- Estado inicial -->
                         <div id="initialState" class="text-center py-5">
                             <i class="fas fa-pills fa-3x text-muted mb-3"></i>
                             <h5 class="text-muted">Busque por medicamentos</h5>
                             <p class="text-muted mb-2">Digite o nome do medicamento no campo acima para encontrar opções disponíveis</p>
-                            <div class="alert alert-warning">
+                            <div class="alert" style="background-color: #b1e7e5; color: #184e4c;">
                                 <small><strong>Lembrete:</strong> Todos os medicamentos precisarão de configuração de controle de intervalo.</small>
                             </div>
                         </div>
-
-                        <!-- Loading -->
                         <div id="searchLoading" class="text-center py-5" style="display: none;">
-                            <div class="spinner-border text-primary" role="status">
+                            <div class="spinner-border" style="color: #3cc3bf;" role="status">
                                 <span class="visually-hidden">Buscando...</span>
                             </div>
                             <p class="mt-2 text-muted">Buscando medicamentos...</p>
                         </div>
-
-                        <!-- Sem resultados -->
                         <div id="noResults" class="text-center py-5" style="display: none;">
                             <i class="fas fa-search fa-2x text-muted mb-3"></i>
                             <h6 class="text-muted">Nenhum medicamento encontrado</h6>
                             <p class="text-muted mb-0">Tente buscar por outro nome ou verifique a grafia</p>
                         </div>
-
-                        <!-- Tabela de resultados -->
                         <div id="resultsTable" style="display: none;">
                             <div class="table-responsive">
                                 <table class="table table-hover mb-0">
-                                    <thead class="table-light">
+                                    <thead style="background-color: #b1e7e5; color: #184e4c;">
                                         <tr>
                                             <th>Medicamento</th>
                                             <th>Dosagem</th>
@@ -211,6 +201,7 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 <!-- ✅ MODAL DE CONFIGURAÇÃO UNIVERSAL -->
 <div class="modal fade" id="configurationModal" tabindex="-1">
