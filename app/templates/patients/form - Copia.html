@@ -342,42 +342,41 @@
 <style>
 .required:after {
     content: " *";
-    color: #dc3545; /* Vermelho original para destaque */
+    color: #dc3545;
     font-weight: bold;
 }
 
 /* Estilos para feedback visual */
 .is-valid {
-    border-color: #36b0ac; /* 45% */
-    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path fill="%2336b0ac" d="m2.3 6.73.18-.13 2.77-2.77c.35-.35.35-.91 0-1.26-.35-.35-.91-.35-1.26 0l-2.09 2.09-.79-.79c-.35-.35-.91-.35-1.26 0-.35.35-.35.91 0 1.26l1.51 1.51z"/></svg>');
+    border-color: #28a745;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path fill="%2328a745" d="m2.3 6.73.18-.13 2.77-2.77c.35-.35.35-.91 0-1.26-.35-.35-.91-.35-1.26 0l-2.09 2.09-.79-.79c-.35-.35-.91-.35-1.26 0-.35.35-.35.91 0 1.26l1.51 1.51z"/></svg>');
     background-size: 16px 16px;
     background-position: right calc(0.375em + 0.1875rem) center;
     background-repeat: no-repeat;
 }
 
 .loading {
-    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" fill="none" stroke="%233cc3bf" stroke-width="10" r="35" stroke-dasharray="164.93361431346415 56.97787143782138"><animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="1s" values="0 50 50;360 50 50"></animateTransform></circle></svg>');
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" fill="none" stroke="%23007bff" stroke-width="10" r="35" stroke-dasharray="164.93361431346415 56.97787143782138"><animateTransform attributeName="transform" type="rotate" repeatCount="indefinite" dur="1s" values="0 50 50;360 50 50"></animateTransform></circle></svg>');
     background-size: 20px 20px;
     background-position: right 12px center;
     background-repeat: no-repeat;
 }
 
 .valid-feedback {
-    color: #36b0ac; /* 45% */
+    color: #28a745;
     font-size: 0.875rem;
     margin-top: 0.25rem;
     display: block;
 }
 
 .form-text {
-    color: #247572; /* 30% */
+    color: #6c757d;
     font-size: 0.875rem;
 }
 
 /* Animação suave para mudanças */
 .form-control, .form-select {
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    border-color: #76d5d2; /* 65% */
 }
 
 /* Melhorar aparência dos alertas */
@@ -387,8 +386,8 @@
 }
 
 .alert-info {
-    background-color: #d8f3f2; /* 90% */
-    color: #184e4c; /* 20% */
+    background-color: #e3f2fd;
+    color: #0277bd;
 }
 
 /* Responsividade melhorada */
@@ -409,19 +408,18 @@
 
 /* Estilo do footer do card */
 .card-footer {
-    border-top: 1px solid #c4edec; /* 85% */
-    background-color: #ebf9f9 !important; /* 95% */
+    border-top: 1px solid #e9ecef;
+    background-color: #f8f9fa !important;
 }
 
 /* Melhorar visual dos campos obrigatórios */
 .form-label.required {
     font-weight: 600;
-    color: #184e4c; /* 20% */
 }
 
 /* Seções organizadas */
 .border-bottom {
-    border-color: #c4edec !important; /* 85% */
+    border-color: #e9ecef !important;
 }
 </style>
 {% endblock %}

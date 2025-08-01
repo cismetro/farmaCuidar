@@ -10,16 +10,16 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item">
-                        <a href="{{ url_for('main.dispensation_index') }}">Dispensações</a>
+                        <a href="{{ url_for('main.dispensation_index') }}" style="color: #184e4c;">Dispensações</a>
                     </li>
                     <li class="breadcrumb-item">
-                        <a href="{{ url_for('main.dispensation_select_medications', patient_id=patient.id) }}">Selecionar Medicamentos</a>
+                        <a href="{{ url_for('main.dispensation_select_medications', patient_id=patient.id) }}" style="color: #184e4c;">Selecionar Medicamentos</a>
                     </li>
                     <li class="breadcrumb-item active">Confirmar Dispensação</li>
                 </ol>
             </nav>
             <h1 class="h3 mb-0">
-                <i class="fas fa-check-circle me-2 text-success"></i>
+                <i class="fas fa-check-circle me-2" style="color: #309c98;"></i>
                 Confirmar Dispensação
             </h1>
             <p class="text-muted mb-0">Revise os dados antes de finalizar a dispensação</p>
@@ -29,40 +29,34 @@
     <div class="row">
         <!-- Informações do Paciente -->
         <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
+            <div class="card mb-4" style="border-color: #3cc3bf;">
+                <div class="card-header" style="background-color: #3cc3bf; color: #ffffff;">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-user me-2"></i>Dados do Paciente
                     </h5>
                 </div>
                 <div class="card-body">
                     <div class="text-center mb-3">
-                        <div class="avatar-xl bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3">
+                        <div class="avatar-xl" style="background-color: #309c98; color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: auto;">
                             {{ patient.full_name[0].upper() if patient.full_name else 'P' }}
                         </div>
                         <h5 class="mb-1">{{ patient.full_name }}</h5>
                         <p class="text-muted mb-0">{{ calculate_age(patient.birth_date) }} anos</p>
                     </div>
-                    
                     <hr>
-                    
                     <dl class="row mb-0">
                         <dt class="col-5">CPF:</dt>
                         <dd class="col-7">{{ format_cpf(patient.cpf) }}</dd>
-                        
                         {% if patient.cns %}
                         <dt class="col-5">CNS:</dt>
                         <dd class="col-7">{{ format_cns(patient.cns) }}</dd>
                         {% endif %}
-                        
                         <dt class="col-5">Gênero:</dt>
                         <dd class="col-7">{{ format_gender(patient.gender) }}</dd>
-                        
                         {% if patient.phone %}
                         <dt class="col-5">Telefone:</dt>
                         <dd class="col-7">{{ format_phone(patient.phone) }}</dd>
                         {% endif %}
-                        
                         {% if patient.email %}
                         <dt class="col-5">Email:</dt>
                         <dd class="col-7">{{ patient.email }}</dd>
@@ -70,7 +64,10 @@
                     </dl>
                 </div>
             </div>
-
+        </div>
+    </div>
+</div>
+{% endblock %}
             <!-- Resumo da Dispensação -->
             <div class="card">
                 <div class="card-header bg-info text-white">

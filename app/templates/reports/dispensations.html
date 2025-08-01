@@ -279,39 +279,71 @@
 
 {% block extra_css %}
 <style>
+html
+
+<style>
 .card {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border: none;
-    transition: transform 0.2s ease-in-out;
+    border: 1px solid #76d5d2; /* 65% */
+    border-radius: 0.5rem;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    background-color: #ffffff; /* 100% */
+    padding: 1rem;
 }
 
 .card:hover {
     transform: translateY(-2px);
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
 }
 
 .table th {
     border-top: none;
     font-weight: 600;
     font-size: 0.875rem;
-    background-color: #f8f9fa;
+    background-color: #d8f3f2; /* 90% */
+    color: #184e4c; /* 20% */
+    text-align: left;
+    padding: 0.75rem;
 }
 
 .table td {
     vertical-align: middle;
+    background-color: #ebf9f9; /* 95% */
+    color: #247572; /* 30% */
+    padding: 0.75rem;
+    border-top: 1px solid #c4edec; /* 85% */
 }
 
 canvas {
     max-height: 300px;
+    background-color: #c4edec; /* 85% */
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    border: 1px solid #76d5d2; /* 65% */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .text-white-75 {
     opacity: 0.75;
+    color: #ffffff; /* 100% */
 }
 
 .badge {
     font-size: 0.75em;
+    padding: 0.375em 0.75em;
+    background-color: #3cc3bf; /* 50% */
+    color: #ffffff; /* 100% */
+    border-radius: 0.375rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.badge:hover {
+    background-color: #36b0ac; /* 45% */
+    transform: scale(1.05);
 }
 </style>
+
 {% endblock %}
 
 {% block extra_js %}

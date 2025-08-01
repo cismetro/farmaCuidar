@@ -632,98 +632,64 @@
     height: 80px;
     font-size: 2rem;
     font-weight: 600;
-    background-color: #c4edec; /* 85% */
-    color: #184e4c; /* 20% */
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease-in-out;
-}
-
-.avatar-xl:hover {
-    transform: scale(1.05);
 }
 
 .card {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     transition: box-shadow 0.15s ease-in-out;
-    background-color: #ffffff; /* 100% */
-    border: 1px solid #76d5d2; /* 65% */
-    border-radius: 0.5rem;
-}
-
-.card:hover {
-    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.15);
 }
 
 .table th {
     border-top: none;
     font-weight: 600;
     font-size: 0.875rem;
-    background-color: #d8f3f2; /* 90% */
-    color: #184e4c; /* 20% */
 }
 
 address {
     font-style: normal;
     line-height: 1.5;
-    color: #247572; /* 30% */
 }
 
 .btn-sm {
     padding: 0.125rem 0.25rem;
     font-size: 0.75rem;
-    background-color: #3cc3bf; /* 50% */
-    color: #ffffff; /* 100% */
-    border: none;
-    border-radius: 0.25rem;
-    transition: all 0.2s ease-in-out;
 }
 
-.btn-sm:hover {
-    background-color: #36b0ac; /* 45% */
-    transform: scale(1.05);
-}
-
+/* ✅ Cores específicas para tipos de telefone */
 .text-success {
-    color: #36b0ac !important; /* 45% */
+    color: #198754 !important;
 }
 
 .text-info {
-    color: #3cc3bf !important; /* 50% */
+    color: #0dcaf0 !important;
 }
 
 .text-warning {
-    color: #ffc107 !important; /* Amarelo original */
+    color: #ffc107 !important;
 }
 
+/* ✅ Botões de ação para telefone */
 .btn-outline-success:hover {
-    color: #ffffff;
-    background-color: #36b0ac;
-    border-color: #36b0ac;
+    color: #fff;
+    background-color: #198754;
+    border-color: #198754;
 }
 
 .btn-outline-info:hover {
-    color: #000000;
-    background-color: #3cc3bf;
-    border-color: #3cc3bf;
+    color: #000;
+    background-color: #0dcaf0;
+    border-color: #0dcaf0;
 }
 
 .btn-outline-warning:hover {
-    color: #000000;
+    color: #000;
     background-color: #ffc107;
     border-color: #ffc107;
 }
 
+/* ✅ ESTILOS PARA ALERTS DE COPY */
 .copy-alert {
     animation: slideInRight 0.3s ease-out;
-    background-color: #3cc3bf; /* 50% */
-    color: #ffffff;
-    padding: 0.75rem 1rem;
-    border-radius: 0.25rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1);
 }
 
 @keyframes slideInRight {
@@ -737,20 +703,16 @@ address {
     }
 }
 
+/* ✅ MELHORAR BOTÕES DE COPY */
 .copy-btn {
     transition: all 0.2s ease;
-    color: #ffffff;
-    background-color: #3cc3bf; /* 50% */
-    border: none;
-    border-radius: 0.25rem;
-    padding: 0.375rem 0.75rem;
 }
 
 .copy-btn:hover {
     transform: scale(1.1);
-    background-color: #36b0ac; /* 45% */
 }
 
+/* ✅ ANIMAÇÃO PARA ÍCONES */
 .fa-bounce {
     animation: bounce 0.5s ease-in-out;
 }
@@ -767,20 +729,16 @@ address {
     }
 }
 
+/* ✅ EFEITO PARA BOTÕES ATIVOS */
 .btn.btn-success {
     transition: all 0.3s ease;
-    background-color: #36b0ac; /* 45% */
-    color: #ffffff;
 }
 
-.btn.btn-success:hover {
-    background-color: #3cc3bf; /* 50% */
-}
-
+/* ✅ FEEDBACK VISUAL PARA COPY */
 .copy-success {
-    background-color: #36b0ac !important; /* 45% */
-    border-color: #36b0ac !important;
-    color: #ffffff !important;
+    background-color: #198754 !important;
+    border-color: #198754 !important;
+    color: white !important;
 }
 
 @media print {
@@ -790,39 +748,34 @@ address {
     
     .card {
         box-shadow: none;
-        border: 1px solid #184e4c;
-        background-color: #ffffff !important;
+        border: 1px solid #000;
     }
 }
 
 .badge {
     font-size: 0.75rem;
     padding: 0.375em 0.75em;
-    background-color: #3cc3bf; /* 50% */
-    color: #ffffff;
-    border-radius: 0.25rem;
 }
 
 dl.row dt {
     font-weight: 600;
-    color: #184e4c; /* 20% */
+    color: #495057;
 }
 
 dl.row dd {
     margin-bottom: 0.5rem;
-    color: #247572; /* 30% */
 }
 
+/* ✅ Melhorar aparência dos links de telefone */
 a[href^="tel:"] {
     font-weight: 500;
-    color: #3cc3bf; /* 50% */
 }
 
 a[href^="tel:"]:hover {
     text-decoration: underline !important;
-    color: #36b0ac; /* 45% */
 }
 
+/* ✅ Responsividade para botões pequenos */
 @media (max-width: 768px) {
     .btn-group-sm .btn {
         padding: 0.25rem 0.5rem;

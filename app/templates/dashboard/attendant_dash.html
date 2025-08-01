@@ -8,504 +8,85 @@
     <div class="row mb-4">
         <div class="col">
             <h1 class="h3 mb-1">
-                <i class="fas fa-user-nurse me-2 text-primary"></i>
+                <i class="fas fa-user-nurse me-2" style="color: #184e4c;"></i>
                 Dashboard do Atendente
             </h1>
             <p class="text-muted mb-0">
                 Bem-vindo, <strong>{{ current_user.full_name }}</strong>! 
-                <small class="text-info">{{ current_date.strftime('%d/%m/%Y') }}</small>
+                <small style="color: #3cc3bf;">{{ current_date.strftime('%d/%m/%Y') }}</small>
             </p>
         </div>
         <div class="col-auto">
-            <div class="btn-group">
-                <a href="{{ url_for('main.dispensation_index') }}" class="btn btn-primary">
-                    <i class="fas fa-pills me-1"></i>Nova Dispensação
-                </a>
-                <a href="{{ url_for('main.patients_list') }}" class="btn btn-outline-primary">
-                    <i class="fas fa-users me-1"></i>Pacientes
-                </a>
-            </div>
+            <a href="{{ url_for('main.dispensation_index') }}" class="btn" style="background-color: #3cc3bf; color: #ffffff;">
+                <i class="fas fa-pills me-1"></i>Nova Dispensação
+            </a>
+            <a href="{{ url_for('main.patients_list') }}" class="btn" style="background-color: #184e4c; color: #ffffff;">
+                <i class="fas fa-users me-1"></i>Pacientes
+            </a>
         </div>
     </div>
 
     <!-- Estatísticas Rápidas -->
     <div class="row g-3 mb-4">
         <div class="col-md-3">
-            <div class="card bg-primary text-white">
+            <div class="card" style="background-color: #3cc3bf; color: #ffffff;">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
                             <div class="fs-6 fw-bold">Dispensações Hoje</div>
                             <div class="fs-4 fw-bold">{{ stats.today_dispensations or 0 }}</div>
-                            <small class="text-white-75">por mim realizadas</small>
+                            <small>realizadas</small>
                         </div>
-                        <i class="fas fa-pills fa-2x text-white-50"></i>
+                        <i class="fas fa-pills fa-2x" style="color: #ffffff;"></i>
                     </div>
                 </div>
             </div>
         </div>
         
         <div class="col-md-3">
-            <div class="card bg-success text-white">
+            <div class="card" style="background-color: #247572; color: #ffffff;">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
                             <div class="fs-6 fw-bold">Pacientes Ativos</div>
                             <div class="fs-4 fw-bold">{{ stats.total_patients or 0 }}</div>
-                            <small class="text-white-75">no sistema</small>
+                            <small>no sistema</small>
                         </div>
-                        <i class="fas fa-users fa-2x text-white-50"></i>
+                        <i class="fas fa-users fa-2x" style="color: #b1e7e5;"></i>
                     </div>
                 </div>
             </div>
         </div>
         
         <div class="col-md-3">
-            <div class="card bg-info text-white">
+            <div class="card" style="background-color: #184e4c; color: #ffffff;">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
                             <div class="fs-6 fw-bold">Medicamentos</div>
                             <div class="fs-4 fw-bold">{{ stats.available_medications or 0 }}</div>
-                            <small class="text-white-75">disponíveis</small>
+                            <small>disponíveis</small>
                         </div>
-                        <i class="fas fa-capsules fa-2x text-white-50"></i>
+                        <i class="fas fa-capsules fa-2x" style="color: #63cfcb;"></i>
                     </div>
                 </div>
             </div>
         </div>
         
         <div class="col-md-3">
-            <div class="card bg-warning text-dark">
+            <div class="card" style="background-color: #b1e7e5; color: #184e4c;">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
                             <div class="fs-6 fw-bold">Atendimentos</div>
-                            <div class="fs-4 fw-bold" id="daily-count">-</div>
-                            <small class="opacity-75">esta semana</small>
+                            <div class="fs-4 fw-bold">-</div>
+                            <small>esta semana</small>
                         </div>
-                        <i class="fas fa-chart-line fa-2x opacity-75"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ✅ AÇÕES RÁPIDAS - SEM BUSCAR PACIENTE -->
-    <div class="row mb-4">
-        <div class="col">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-bolt me-2"></i>Ações Rápidas
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <a href="{{ url_for('main.dispensation_index') }}" class="btn btn-primary w-100 p-3">
-                                <i class="fas fa-pills fa-2x mb-2 d-block"></i>
-                                <div class="fw-bold">Nova Dispensação</div>
-                                <small class="text-white-75">Dispensar medicamentos</small>
-                            </a>
-                        </div>
-                        <div class="col-md-4">
-                            <a href="{{ url_for('main.patient_create') }}" class="btn btn-success w-100 p-3">
-                                <i class="fas fa-user-plus fa-2x mb-2 d-block"></i>
-                                <div class="fw-bold">Novo Paciente</div>
-                                <small class="text-white-75">Cadastrar paciente</small>
-                            </a>
-                        </div>
-                        <div class="col-md-4">
-                            <a href="{{ url_for('main.inventory_list') }}" class="btn btn-warning w-100 p-3">
-                                <i class="fas fa-boxes fa-2x mb-2 d-block"></i>
-                                <div class="fw-bold">Consultar Estoque</div>
-                                <small class="text-dark opacity-75">Ver medicamentos</small>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Minhas Dispensações Recentes e Busca Rápida -->
-    <div class="row g-4">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-history me-2"></i>Minhas Dispensações Recentes
-                    </h5>
-                    <a href="{{ url_for('main.dispensations_report') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="fas fa-chart-line me-1"></i>Ver Relatório
-                    </a>
-                </div>
-                <div class="card-body p-0">
-                    {% if my_dispensations %}
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Data/Hora</th>
-                                    <th>Paciente</th>
-                                    <th>Itens</th>
-                                    <th>Status</th>
-                                    <th class="text-center">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for dispensation in my_dispensations %}
-                                <tr>
-                                    <td>
-                                        <div class="fw-semibold">{{ dispensation.dispensation_date.strftime('%d/%m/%Y') }}</div>
-                                        <small class="text-muted">{{ dispensation.dispensation_date.strftime('%H:%M') }}</small>
-                                    </td>
-                                    <td>
-                                        <div class="fw-semibold">{{ dispensation.patient.full_name }}</div>
-                                        <small class="text-muted">CPF: {{ dispensation.patient.formatted_cpf or 'N/A' }}</small>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-primary">{{ dispensation.items|length }} itens</span>
-                                        {% if dispensation.total_cost %}
-                                        <br><small class="text-muted">R$ {{ "%.2f"|format(dispensation.total_cost) }}</small>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if dispensation.status.value == 'completed' %}
-                                        <span class="badge bg-success">Concluída</span>
-                                        {% elif dispensation.status.value == 'pending' %}
-                                        <span class="badge bg-warning">Pendente</span>
-                                        {% else %}
-                                        <span class="badge bg-secondary">{{ dispensation.status.value }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        <a href="{{ url_for('main.patient_view', id=dispensation.patient.id) }}" 
-                                           class="btn btn-sm btn-outline-primary" title="Ver Paciente">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-pills fa-3x text-muted mb-3"></i>
-                        <h6 class="text-muted">Nenhuma dispensação realizada hoje</h6>
-                        <p class="text-muted mb-3">Comece realizando sua primeira dispensação!</p>
-                        <a href="{{ url_for('main.dispensation_index') }}" class="btn btn-primary">
-                            <i class="fas fa-plus me-1"></i>Nova Dispensação
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <!-- Busca Rápida de Pacientes -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="card-title mb-0">
-                        <i class="fas fa-search me-2"></i>Busca Rápida de Pacientes
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <form id="quickSearchForm">
-                        <div class="mb-3">
-                            <input type="text" class="form-control" id="quickSearch" 
-                                   placeholder="Nome, CPF ou CNS..." minlength="3">
-                        </div>
-                        <div class="mb-3">
-                            <select class="form-select" id="searchType">
-                                <option value="name">Nome</option>
-                                <option value="cpf">CPF</option>
-                                <option value="cns">CNS</option>
-                                <option value="phone">Telefone</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-search me-1"></i>Buscar
-                        </button>
-                    </form>
-                    
-                    <div id="searchResults" class="mt-3" style="display: none;">
-                        <div class="border rounded p-2 bg-light">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <small class="fw-bold text-muted">Resultados:</small>
-                                <button type="button" class="btn-close btn-sm" onclick="clearSearchResults()"></button>
-                            </div>
-                            <div id="searchResultsList"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Busca por Aniversariantes -->
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="card-title mb-0">
-                        <i class="fas fa-birthday-cake me-2"></i>Aniversariantes
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <form id="birthdaySearchForm">
-                        <div class="mb-3">
-                            <label class="form-label">Data:</label>
-                            <input type="date" class="form-control" id="birthdayDate" 
-                                   value="{{ current_date.strftime('%Y-%m-%d') }}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Período:</label>
-                            <select class="form-select" id="birthdayPeriod">
-                                <option value="exact">Data exata</option>
-                                <option value="week">±3 dias</option>
-                                <option value="month">Mês inteiro</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-warning w-100">
-                            <i class="fas fa-birthday-cake me-1"></i>Buscar
-                        </button>
-                    </form>
-                    
-                    <div id="birthdayResults" class="mt-3" style="display: none;">
-                        <div class="border rounded p-2 bg-warning bg-opacity-10">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <small class="fw-bold text-warning">Aniversariantes:</small>
-                                <button type="button" class="btn-close btn-sm" onclick="clearBirthdayResults()"></button>
-                            </div>
-                            <div id="birthdayResultsList"></div>
-                        </div>
+                        <i class="fas fa-chart-line fa-2x" style="color: #247572;"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-.card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border: none;
-    transition: transform 0.2s ease-in-out;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-}
-
-.text-white-75 {
-    opacity: 0.75;
-}
-
-.btn {
-    transition: all 0.3s ease;
-}
-
-.btn:hover {
-    transform: translateY(-1px);
-}
-
-.table tbody tr:hover {
-    background-color: #f8f9fa;
-}
-
-.search-result-item {
-    padding: 0.5rem;
-    border-bottom: 1px solid #dee2e6;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.search-result-item:hover {
-    background-color: #e9ecef;
-}
-
-.search-result-item:last-child {
-    border-bottom: none;
-}
-
-@media (max-width: 768px) {
-    .col-md-4 .btn {
-        margin-bottom: 0.5rem;
-    }
-}
-</style>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-$(document).ready(function() {
-    console.log('🏠 Dashboard do Atendente carregado');
-    
-    // Carregar estatísticas dinâmicas
-    loadDashboardStats();
-    
-    // Configurar busca rápida
-    setupQuickSearch();
-    
-    // Configurar busca de aniversariantes
-    setupBirthdaySearch();
-    
-    // Auto-refresh a cada 5 minutos
-    setInterval(loadDashboardStats, 300000);
-});
-
-function loadDashboardStats() {
-    fetch('{{ url_for("main.api_dashboard_stats") }}')
-        .then(response => response.json())
-        .then(data => {
-            // Atualizar contador semanal (calculado dinamicamente)
-            const weeklyCount = (data.today_dispensations || 0) * 7; // Estimativa
-            $('#daily-count').text(weeklyCount);
-        })
-        .catch(error => {
-            console.error('Erro ao carregar estatísticas:', error);
-            $('#daily-count').text('0');
-        });
-}
-
-function setupQuickSearch() {
-    $('#quickSearchForm').on('submit', function(e) {
-        e.preventDefault();
-        
-        const searchTerm = $('#quickSearch').val().trim();
-        const searchType = $('#searchType').val();
-        
-        if (searchTerm.length < 3) {
-            showToast('Digite pelo menos 3 caracteres', 'warning');
-            return;
-        }
-        
-        // Mostrar loading
-        $('#searchResults').show();
-        $('#searchResultsList').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>');
-        
-        // Fazer busca
-        $.post('{{ url_for("main.dispensation_search_patient") }}', {
-            patient_search: searchTerm,
-            search_type: searchType
-        })
-        .done(function(data) {
-            if (data.success && data.patients.length > 0) {
-                let html = '';
-                data.patients.forEach(patient => {
-                    html += `
-                        <div class="search-result-item" onclick="selectPatient(${patient.id})">
-                            <div class="fw-bold">${patient.name}</div>
-                            <small class="text-muted">
-                                CPF: ${patient.cpf || 'N/A'} | 
-                                Idade: ${patient.age || 'N/A'} anos
-                                ${patient.phone ? ' | ' + patient.phone : ''}
-                            </small>
-                        </div>
-                    `;
-                });
-                $('#searchResultsList').html(html);
-            } else {
-                $('#searchResultsList').html('<div class="text-muted text-center">Nenhum paciente encontrado</div>');
-            }
-        })
-        .fail(function() {
-            $('#searchResultsList').html('<div class="text-danger text-center">Erro na busca</div>');
-        });
-    });
-}
-
-function setupBirthdaySearch() {
-    $('#birthdaySearchForm').on('submit', function(e) {
-        e.preventDefault();
-        
-        const birthdayDate = $('#birthdayDate').val();
-        const period = $('#birthdayPeriod').val();
-        
-        if (!birthdayDate) {
-            showToast('Selecione uma data', 'warning');
-            return;
-        }
-        
-        // Mostrar loading
-        $('#birthdayResults').show();
-        $('#birthdayResultsList').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>');
-        
-        // Fazer busca
-        $.post('{{ url_for("main.dispensation_search_patient_birthdate") }}', {
-            birthdate: birthdayDate,
-            period: period
-        })
-        .done(function(data) {
-            if (data.success && data.patients.length > 0) {
-                let html = '';
-                data.patients.forEach(patient => {
-                    const age = patient.age || 0;
-                    const ageText = age === 0 ? 'fazendo' : `${age + 1}`;
-                    
-                    html += `
-                        <div class="search-result-item" onclick="selectPatient(${patient.id})">
-                            <div class="fw-bold">${patient.name}</div>
-                            <small class="text-muted">
-                                ${ageText} anos | CPF: ${patient.cpf || 'N/A'}
-                                ${patient.phone ? ' | ' + patient.phone : ''}
-                            </small>
-                        </div>
-                    `;
-                });
-                $('#birthdayResultsList').html(html);
-                showToast(`${data.patients.length} aniversariante(s) encontrado(s)!`, 'success');
-            } else {
-                $('#birthdayResultsList').html('<div class="text-muted text-center">Nenhum aniversariante encontrado</div>');
-            }
-        })
-        .fail(function() {
-            $('#birthdayResultsList').html('<div class="text-danger text-center">Erro na busca</div>');
-        });
-    });
-}
-
-function selectPatient(patientId) {
-    if (confirm('Ir para o cadastro deste paciente?')) {
-        window.location.href = `{{ url_for('main.patient_view', id=0) }}`.replace('0', patientId);
-    }
-}
-
-function clearSearchResults() {
-    $('#searchResults').hide();
-    $('#quickSearch').val('');
-}
-
-function clearBirthdayResults() {
-    $('#birthdayResults').hide();
-}
-
-function showToast(message, type = 'info') {
-    const toastClass = {
-        'success': 'bg-success text-white',
-        'error': 'bg-danger text-white',
-        'info': 'bg-info text-white',
-        'warning': 'bg-warning text-dark'
-    }[type] || 'bg-info text-white';
-    
-    const toast = $(`
-        <div class="toast ${toastClass}" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 1050;">
-            <div class="toast-body">
-                <i class="fas fa-info-circle me-2"></i>${message}
-            </div>
-        </div>
-    `);
-    
-    $('body').append(toast);
-    
-    const bsToast = new bootstrap.Toast(toast[0], { delay: 3000 });
-    bsToast.show();
-    
-    toast.on('hidden.bs.toast', function() {
-        $(this).remove();
-    });
-}
-</script>
 {% endblock %}

@@ -365,28 +365,57 @@
 <style>
 .card {
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    background-color: #ffffff; /* 100% */
+    border: 1px solid #76d5d2; /* 65% */
+    border-radius: 0.5rem;
+    padding: 1rem;
 }
 
 .card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .card-header {
     border-bottom: none;
+    background-color: #d8f3f2; /* 90% */
+    color: #184e4c; /* 20% */
+    font-weight: 600;
+    padding: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
 }
 
 .list-unstyled li {
     padding: 0.25rem 0;
+    color: #184e4c; /* 20% */
+    font-size: 0.875rem;
+    transition: color 0.2s ease-in-out;
+}
+
+.list-unstyled li:hover {
+    color: #36b0ac; /* 45% */
 }
 
 .btn {
     border-radius: 0.5rem;
+    background-color: #3cc3bf; /* 50% */
+    color: #ffffff; /* 100% */
+    padding: 0.5rem 1rem;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.btn:hover {
+    background-color: #36b0ac; /* 45% */
+    transform: scale(1.05);
 }
 
 .btn.loading {
     position: relative;
     color: transparent !important;
+    background-color: #c4edec !important; /* 85% */
 }
 
 .btn.loading::after {
@@ -399,7 +428,7 @@
     margin-left: -8px;
     margin-top: -8px;
     border: 2px solid transparent;
-    border-top-color: currentColor;
+    border-top-color: #184e4c; /* 20% */
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -412,6 +441,16 @@
 @media (max-width: 768px) {
     .col-md-6.col-lg-4 {
         margin-bottom: 1rem;
+    }
+    
+    .btn {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+    }
+
+    .card-header {
+        font-size: 0.875rem;
+        padding: 0.75rem;
     }
 }
 </style>

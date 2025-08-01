@@ -310,34 +310,48 @@
 <style>
 .alert {
     border-radius: 0.5rem;
+    background-color: #ebf9f9; /* 95% */
+    color: #184e4c; /* 20% */
+    padding: 1rem;
 }
 
 .card {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    background-color: #ffffff; /* 100% */
+    border-color: #76d5d2; /* 65% */
 }
 
 .table th {
     border-top: none;
     font-weight: 600;
     font-size: 0.875rem;
+    background-color: #d8f3f2; /* 90% */
+    color: #184e4c; /* 20% */
 }
 
 .table-danger {
-    background-color: rgba(220, 53, 69, 0.1);
+    background-color: #f8d7da; /* Vermelho claro */
+    color: #842029; /* Vermelho escuro */
 }
 
 .table-warning {
-    background-color: rgba(255, 193, 7, 0.1);
+    background-color: #fff3cd; /* Amarelo claro */
+    color: #856404; /* Amarelo escuro */
 }
 
 canvas {
     max-height: 300px;
+    background-color: #c4edec; /* 85% */
 }
 
 .badge {
     font-size: 0.75rem;
+    padding: 0.375em 0.75em;
+    background-color: #3cc3bf; /* 50% */
+    color: #ffffff; /* 100% */
 }
 </style>
+
 {% endblock %}
 
 {% block extra_js %}

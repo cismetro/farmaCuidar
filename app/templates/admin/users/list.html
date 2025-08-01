@@ -10,39 +10,39 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item">
-                        <a href="{{ url_for('main.admin_index') }}">Administração</a>
+                        <a href="{{ url_for('main.admin_index') }}" style="color: #184e4c;">Administração</a>
                     </li>
                     <li class="breadcrumb-item active">Usuários</li>
                 </ol>
             </nav>
             <h1 class="h3 mb-0">
-                <i class="fas fa-users me-2 text-primary"></i>
+                <i class="fas fa-users me-2" style="color: #184e4c;"></i>
                 Gestão de Usuários
             </h1>
             <p class="text-muted mb-0">Gerenciar contas de acesso ao sistema</p>
         </div>
         <div class="col-auto">
-            <a href="{{ url_for('main.admin_user_create') }}" class="btn btn-primary">
+            <a href="{{ url_for('main.admin_user_create') }}" class="btn" style="background-color: #3cc3bf; color: #ffffff;">
                 <i class="fas fa-user-plus me-1"></i>Novo Usuário
             </a>
         </div>
     </div>
 
     <!-- Lista de Usuários -->
-    <div class="card">
-        <div class="card-header">
+    <div class="card" style="border-color: #309c98;">
+        <div class="card-header" style="background-color: #309c98; color: #ffffff;">
             <h5 class="card-title mb-0">
                 <i class="fas fa-list me-2"></i>
                 Usuários do Sistema
-                <small class="text-muted">({{ users.total }} total)</small>
+                <small class="text-light">({{ users.total }} total)</small>
             </h5>
         </div>
-        
+
         {% if users.items %}
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
-                    <thead class="table-light">
+                    <thead style="background-color: #b1e7e5; color: #184e4c;">
                         <tr>
                             <th>Usuário</th>
                             <th>Email</th>
@@ -58,10 +58,10 @@
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3">
+                                    <div class="avatar-sm" style="background-color: #3cc3bf; color: #ffffff;">
                                         {{ user.full_name[0].upper() }}
                                     </div>
-                                    <div>
+                                    <div class="ms-3">
                                         <div class="fw-semibold">{{ user.full_name }}</div>
                                         <small class="text-muted">{{ user.username }}</small>
                                     </div>
@@ -81,9 +81,9 @@
                             <td>{{ user.crf or '—' }}</td>
                             <td>
                                 {% if user.is_active %}
-                                    <span class="badge bg-success">Ativo</span>
+                                    <span class="badge" style="background-color: #247572; color: #ffffff;">Ativo</span>
                                 {% else %}
-                                    <span class="badge bg-secondary">Inativo</span>
+                                    <span class="badge" style="background-color: #b1e7e5; color: #184e4c;">Inativo</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -96,7 +96,7 @@
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ url_for('main.admin_user_edit', id=user.id) }}" 
-                                       class="btn btn-outline-primary" title="Editar">
+                                       class="btn" style="background-color: #3cc3bf; color: #ffffff;" title="Editar">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     
@@ -104,11 +104,11 @@
                                     <form method="POST" action="{{ url_for('main.admin_user_toggle_status', id=user.id) }}" 
                                           class="d-inline" onsubmit="return confirmToggleStatus('{{ user.full_name }}', {{ user.is_active|lower }})">
                                         {% if user.is_active %}
-                                            <button type="submit" class="btn btn-outline-warning" title="Desativar">
+                                            <button type="submit" class="btn" style="background-color: #b1e7e5; color: #184e4c;" title="Desativar">
                                                 <i class="fas fa-user-slash"></i>
                                             </button>
                                         {% else %}
-                                            <button type="submit" class="btn btn-outline-success" title="Ativar">
+                                            <button type="submit" class="btn" style="background-color: #247572; color: #ffffff;" title="Ativar">
                                                 <i class="fas fa-user-check"></i>
                                             </button>
                                         {% endif %}
@@ -119,7 +119,7 @@
                                     </button>
                                     {% endif %}
                                     
-                                    <button class="btn btn-outline-info" 
+                                    <button class="btn" style="background-color: #309c98; color: #ffffff;" 
                                             onclick="showUserInfo({{ user.id }})" title="Informações">
                                         <i class="fas fa-info-circle"></i>
                                     </button>
@@ -139,7 +139,7 @@
                 <ul class="pagination justify-content-center mb-0">
                     {% if users.has_prev %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('main.admin_users_list', page=users.prev_num) }}">
+                        <a class="page-link" href="{{ url_for('main.admin_users_list', page=users.prev_num) }}" style="color: #184e4c;">
                             <i class="fas fa-chevron-left"></i>
                         </a>
                     </li>
@@ -149,13 +149,13 @@
                         {% if page_num %}
                             {% if page_num != users.page %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('main.admin_users_list', page=page_num) }}">
+                                <a class="page-link" href="{{ url_for('main.admin_users_list', page=page_num) }}" style="color: #184e4c;">
                                     {{ page_num }}
                                 </a>
                             </li>
                             {% else %}
                             <li class="page-item active">
-                                <span class="page-link">{{ page_num }}</span>
+                                <span class="page-link" style="background-color: #3cc3bf; color: #ffffff;">{{ page_num }}</span>
                             </li>
                             {% endif %}
                         {% else %}
@@ -167,7 +167,7 @@
 
                     {% if users.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('main.admin_users_list', page=users.next_num) }}">
+                        <a class="page-link" href="{{ url_for('main.admin_users_list', page=users.next_num) }}" style="color: #184e4c;">
                             <i class="fas fa-chevron-right"></i>
                         </a>
                     </li>
@@ -183,7 +183,7 @@
             <i class="fas fa-users fa-3x text-muted mb-3"></i>
             <h5>Nenhum usuário encontrado</h5>
             <p class="text-muted">Ainda não há usuários cadastrados no sistema.</p>
-            <a href="{{ url_for('main.admin_user_create') }}" class="btn btn-primary">
+            <a href="{{ url_for('main.admin_user_create') }}" class="btn" style="background-color: #3cc3bf; color: #ffffff;">
                 <i class="fas fa-user-plus me-1"></i>Criar Primeiro Usuário
             </a>
         </div>
@@ -195,7 +195,7 @@
 <div class="modal fade" id="userInfoModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header" style="background-color: #247572; color: #ffffff;">
                 <h5 class="modal-title">Informações do Usuário</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -205,55 +205,9 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn" style="background-color: #309c98; color: #ffffff;" data-bs-dismiss="modal">Fechar</button>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-.avatar-sm {
-    width: 32px;
-    height: 32px;
-    font-size: 0.875rem;
-    font-weight: 600;
-}
-</style>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function confirmToggleStatus(userName, isActive) {
-    const action = isActive ? 'desativar' : 'ativar';
-    return confirm(`Tem certeza que deseja ${action} o usuário "${userName}"?`);
-}
-
-function showUserInfo(userId) {
-    // Implementar carregamento de informações via AJAX
-    const modal = new bootstrap.Modal(document.getElementById('userInfoModal'));
-    document.getElementById('userInfoContent').innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>';
-    modal.show();
-    
-    // Simular carregamento de dados
-    setTimeout(() => {
-        document.getElementById('userInfoContent').innerHTML = `
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>
-                Funcionalidade em desenvolvimento. Em breve será possível visualizar estatísticas detalhadas do usuário.
-            </div>
-        `;
-    }, 1000);
-}
-
-$(document).ready(function() {
-    // Destacar usuário atual
-    $('tr').each(function() {
-        if ($(this).find('.btn[disabled]').length > 0) {
-            $(this).addClass('table-warning');
-        }
-    });
-});
-</script>
 {% endblock %}

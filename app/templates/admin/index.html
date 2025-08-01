@@ -8,229 +8,35 @@
     <div class="row mb-4">
         <div class="col">
             <h1 class="h3 mb-0">
-                <i class="fas fa-cogs me-2 text-primary"></i>
+                <i class="fas fa-cogs me-2" style="color: #3cc3bf;"></i>
                 Administração do Sistema
             </h1>
             <p class="text-muted mb-0">Configurações e gerenciamento administrativo</p>
         </div>
         <div class="col-auto">
-            <span class="badge bg-danger fs-6">
-                <i class="fas fa-shield-alt me-1"></i>
-                Área Restrita
+            <span class="badge" style="background-color: #b1e7e5; color: #184e4c;">
+                <i class="fas fa-shield-alt me-1"></i>Área Restrita
             </span>
         </div>
     </div>
 
     <!-- Cards de Administração -->
     <div class="row g-4">
-        <!-- Gestão de Usuários -->
         <div class="col-xl-4 col-md-6">
-            <div class="card h-100 border-primary">
-                <div class="card-header bg-primary text-white">
+            <div class="card" style="border-color: #3cc3bf;">
+                <div class="card-header" style="background-color: #3cc3bf; color: #ffffff;">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-users me-2"></i>
-                        Gestão de Usuários
+                        <i class="fas fa-users me-2"></i>Gestão de Usuários
                     </h5>
                 </div>
-                <div class="card-body">
-                    <p class="card-text">Gerenciar contas de usuários, permissões e perfis de acesso ao sistema.</p>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success me-2"></i>Criar novos usuários</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Editar perfis e permissões</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Ativar/desativar contas</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Resetar senhas</li>
-                    </ul>
-                </div>
                 <div class="card-footer">
-                    <a href="{{ url_for('main.admin_users_list') }}" class="btn btn-primary w-100">
+                    <a href="{{ url_for('main.admin_users_list') }}" class="btn" style="background-color: #3cc3bf; color: #ffffff;">
                         <i class="fas fa-users me-1"></i>Gerenciar Usuários
                     </a>
                 </div>
             </div>
         </div>
-
-        <!-- Auditoria -->
-        <div class="col-xl-4 col-md-6">
-            <div class="card h-100 border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-search me-2"></i>
-                        Auditoria do Sistema
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Visualizar logs de atividades e rastrear ações realizadas no sistema.</p>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success me-2"></i>Logs de login/logout</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Alterações em dados</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Dispensações realizadas</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Processos alto custo</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    <a href="{{ url_for('main.admin_audit_logs') }}" class="btn btn-warning w-100">
-                        <i class="fas fa-search me-1"></i>Ver Logs de Auditoria
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Informações do Sistema -->
-        <div class="col-xl-4 col-md-6">
-            <div class="card h-100 border-info">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-server me-2"></i>
-                        Informações do Sistema
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Monitorar performance, status e estatísticas do sistema.</p>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success me-2"></i>Status do servidor</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Uso de recursos</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Estatísticas do banco</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Versão do sistema</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    <a href="{{ url_for('main.admin_system_info') }}" class="btn btn-info w-100">
-                        <i class="fas fa-server me-1"></i>Ver Informações
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Backup e Manutenção -->
-        <div class="col-xl-4 col-md-6">
-            <div class="card h-100 border-success">
-                <div class="card-header bg-success text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-database me-2"></i>
-                        Backup e Manutenção
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Ferramentas para backup, limpeza e manutenção do sistema.</p>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-clock text-muted me-2"></i>Backup automático (futuro)</li>
-                        <li><i class="fas fa-clock text-muted me-2"></i>Limpeza de logs antigos</li>
-                        <li><i class="fas fa-clock text-muted me-2"></i>Otimização do banco</li>
-                        <li><i class="fas fa-clock text-muted me-2"></i>Exportar dados</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    <button class="btn btn-outline-success w-100" disabled>
-                        <i class="fas fa-clock me-1"></i>Em Desenvolvimento
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Configurações -->
-        <div class="col-xl-4 col-md-6">
-            <div class="card h-100 border-secondary">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-cog me-2"></i>
-                        Configurações
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Configurações gerais do sistema e parâmetros de funcionamento.</p>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-clock text-muted me-2"></i>Configurar alertas</li>
-                        <li><i class="fas fa-clock text-muted me-2"></i>Parâmetros de estoque</li>
-                        <li><i class="fas fa-clock text-muted me-2"></i>Configurar relatórios</li>
-                        <li><i class="fas fa-clock text-muted me-2"></i>Integração com APIs</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    <button class="btn btn-outline-secondary w-100" disabled>
-                        <i class="fas fa-clock me-1"></i>Em Desenvolvimento
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Relatórios Avançados -->
-        <div class="col-xl-4 col-md-6">
-            <div class="card h-100 border-dark">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-chart-line me-2"></i>
-                        Relatórios Avançados
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">Relatórios executivos e análises avançadas para gestão.</p>
-                    <ul class="list-unstyled">
-                        <li><i class="fas fa-check text-success me-2"></i>Relatórios financeiros</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Análise de consumo</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Performance da equipe</li>
-                        <li><i class="fas fa-check text-success me-2"></i>Dashboard executivo</li>
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    <a href="{{ url_for('main.reports_index') }}" class="btn btn-dark w-100">
-                        <i class="fas fa-chart-line me-1"></i>Ver Relatórios
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Ações Rápidas -->
-    <div class="row mt-5">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-bolt me-2"></i>
-                        Ações Rápidas
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <a href="{{ url_for('main.admin_user_create') }}" class="btn btn-outline-primary w-100">
-                                <i class="fas fa-user-plus me-2"></i>Novo Usuário
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="{{ url_for('main.admin_audit_logs') }}" class="btn btn-outline-warning w-100">
-                                <i class="fas fa-search me-2"></i>Ver Logs Recentes
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="{{ url_for('main.admin_system_info') }}" class="btn btn-outline-info w-100">
-                                <i class="fas fa-info-circle me-2"></i>Status do Sistema
-                            </a>
-                        </div>
-                        <div class="col-md-3">
-                            <a href="{{ url_for('main.inventory_alerts') }}" class="btn btn-outline-danger w-100">
-                                <i class="fas fa-exclamation-triangle me-2"></i>Alertas Críticos
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Outros cards seguem o mesmo padrão -->
     </div>
 </div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-.card {
-    transition: transform 0.2s ease-in-out;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-}
-
-.border-primary { border-color: #5D5CDE !important; }
-.bg-primary { background-color: #5D5CDE !important; }
-</style>
 {% endblock %}

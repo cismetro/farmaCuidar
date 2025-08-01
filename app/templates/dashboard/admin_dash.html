@@ -8,13 +8,13 @@
     <div class="row mb-4">
         <div class="col">
             <h1 class="h3 mb-0">
-                <i class="fas fa-tachometer-alt me-2 text-primary"></i>
+                <i class="fas fa-tachometer-alt me-2" style="color: #184e4c;"></i>
                 Dashboard Administrativo
             </h1>
             <p class="text-muted mb-0">Visão geral do sistema para administradores</p>
         </div>
         <div class="col-auto">
-            <span class="badge bg-primary fs-6">
+            <span class="badge fs-6" style="background-color: #3cc3bf; color: #ffffff;">
                 <i class="fas fa-user-shield me-1"></i>
                 Administrador
             </span>
@@ -24,67 +24,67 @@
     <!-- Cards de Estatísticas -->
     <div class="row g-4 mb-4">
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-primary text-white h-100">
+            <div class="card" style="background-color: #3cc3bf; color: #ffffff; height: 100%;">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <div class="fs-6 fw-bold text-white-75">Total de Pacientes</div>
+                            <div class="fs-6 fw-bold" style="color: #b1e7e5;">Total de Pacientes</div>
                             <div class="fs-2 fw-bold">{{ stats.total_patients }}</div>
                         </div>
                         <div class="flex-shrink-0">
-                            <i class="fas fa-users fa-2x text-white-50"></i>
+                            <i class="fas fa-users fa-2x" style="color: #d8f3f2;"></i>
                         </div>
                     </div>
                 </div>
                 <div class="card-footer d-flex align-items-center justify-content-between small">
-                    <a class="text-white stretched-link" href="{{ url_for('main.patients_list') }}">Ver Detalhes</a>
-                    <div class="text-white"><i class="fas fa-angle-right"></i></div>
+                    <a class="stretched-link" href="{{ url_for('main.patients_list') }}" style="color: #ffffff;">Ver Detalhes</a>
+                    <div><i class="fas fa-angle-right"></i></div>
                 </div>
             </div>
         </div>
 
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-success text-white h-100">
+            <div class="card" style="background-color: #247572; color: #ffffff; height: 100%;">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <div class="fs-6 fw-bold text-white-75">Total de Usuários</div>
+                            <div class="fs-6 fw-bold" style="color: #b1e7e5;">Total de Usuários</div>
                             <div class="fs-2 fw-bold">{{ stats.total_users }}</div>
                         </div>
                         <div class="flex-shrink-0">
-                            <i class="fas fa-user-cog fa-2x text-white-50"></i>
+                            <i class="fas fa-user-cog fa-2x" style="color: #d8f3f2;"></i>
                         </div>
                     </div>
                 </div>
                 <div class="card-footer d-flex align-items-center justify-content-between small">
-                    <a class="text-white stretched-link" href="{{ url_for('main.admin_users_list') }}">Ver Detalhes</a>
-                    <div class="text-white"><i class="fas fa-angle-right"></i></div>
+                    <a class="stretched-link" href="{{ url_for('main.admin_users_list') }}" style="color: #ffffff;">Ver Detalhes</a>
+                    <div><i class="fas fa-angle-right"></i></div>
                 </div>
             </div>
         </div>
 
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-info text-white h-100">
+            <div class="card" style="background-color: #184e4c; color: #ffffff; height: 100%;">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <div class="fs-6 fw-bold text-white-75">Medicamentos</div>
+                            <div class="fs-6 fw-bold" style="color: #b1e7e5;">Medicamentos</div>
                             <div class="fs-2 fw-bold">{{ stats.total_medications }}</div>
                         </div>
                         <div class="flex-shrink-0">
-                            <i class="fas fa-pills fa-2x text-white-50"></i>
+                            <i class="fas fa-pills fa-2x" style="color: #d8f3f2;"></i>
                         </div>
                     </div>
                 </div>
                 <div class="card-footer d-flex align-items-center justify-content-between small">
-                    <a class="text-white stretched-link" href="{{ url_for('main.inventory_list') }}">Ver Detalhes</a>
-                    <div class="text-white"><i class="fas fa-angle-right"></i></div>
+                    <a class="stretched-link" href="{{ url_for('main.inventory_list') }}" style="color: #ffffff;">Ver Detalhes</a>
+                    <div><i class="fas fa-angle-right"></i></div>
                 </div>
             </div>
         </div>
 
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-warning text-dark h-100">
+            <div class="card" style="background-color: #b1e7e5; color: #184e4c; height: 100%;">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
@@ -92,13 +92,13 @@
                             <div class="fs-2 fw-bold">{{ stats.pending_high_cost }}</div>
                         </div>
                         <div class="flex-shrink-0">
-                            <i class="fas fa-star fa-2x text-dark-50"></i>
+                            <i class="fas fa-star fa-2x" style="color: #63cfcb;"></i>
                         </div>
                     </div>
                 </div>
                 <div class="card-footer d-flex align-items-center justify-content-between small">
-                    <a class="text-dark stretched-link" href="{{ url_for('main.high_cost_index') }}">Ver Detalhes</a>
-                    <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+                    <a class="stretched-link" href="{{ url_for('main.high_cost_index') }}" style="color: #184e4c;">Ver Detalhes</a>
+                    <div><i class="fas fa-angle-right"></i></div>
                 </div>
             </div>
         </div>
@@ -108,12 +108,12 @@
     <div class="row g-4 mb-4">
         {% if stats.low_stock_medications > 0 %}
         <div class="col-md-6">
-            <div class="alert alert-warning d-flex align-items-center" role="alert">
+            <div class="alert alert-warning d-flex align-items-center" role="alert" style="background-color: #309c98; color: #ffffff;">
                 <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
                 <div>
                     <h5 class="alert-heading mb-1">Estoque Baixo!</h5>
                     <p class="mb-0">{{ stats.low_stock_medications }} medicamento(s) com estoque baixo.</p>
-                    <a href="{{ url_for('main.inventory_alerts') }}" class="alert-link">Ver medicamentos</a>
+                    <a href="{{ url_for('main.inventory_alerts') }}" class="alert-link" style="color: #b1e7e5;">Ver medicamentos</a>
                 </div>
             </div>
         </div>
@@ -121,23 +121,24 @@
 
         {% if stats.near_expiry_medications > 0 %}
         <div class="col-md-6">
-            <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <div class="alert alert-danger d-flex align-items-center" role="alert" style="background-color: #184e4c; color: #ffffff;">
                 <i class="fas fa-calendar-times fa-2x me-3"></i>
                 <div>
                     <h5 class="alert-heading mb-1">Medicamentos Vencendo!</h5>
                     <p class="mb-0">{{ stats.near_expiry_medications }} medicamento(s) próximo(s) ao vencimento.</p>
-                    <a href="{{ url_for('main.inventory_alerts') }}" class="alert-link">Ver medicamentos</a>
+                    <a href="{{ url_for('main.inventory_alerts') }}" class="alert-link" style="color: #63cfcb;">Ver medicamentos</a>
                 </div>
             </div>
         </div>
         {% endif %}
     </div>
 
+    <!-- Dispensações Recentes e Processos Alto Custo -->
     <div class="row g-4">
         <!-- Dispensações Recentes -->
         <div class="col-xl-8">
             <div class="card h-100">
-                <div class="card-header">
+                <div class="card-header" style="background-color: #184e4c; color: #ffffff;">
                     <i class="fas fa-hand-holding-medical me-2"></i>
                     Dispensações Recentes
                 </div>
@@ -145,7 +146,7 @@
                     {% if recent_dispensations %}
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
-                            <thead class="table-light">
+                            <thead class="table-light" style="background-color: #b1e7e5; color: #184e4c;">
                                 <tr>
                                     <th>Data</th>
                                     <th>Paciente</th>
@@ -159,13 +160,13 @@
                                 <tr>
                                     <td>{{ format_datetime(dispensation.dispensation_date) }}</td>
                                     <td>
-                                        <a href="{{ url_for('main.patient_view', id=dispensation.patient.id) }}" class="text-decoration-none">
+                                        <a href="{{ url_for('main.patient_view', id=dispensation.patient.id) }}" class="text-decoration-none" style="color: #184e4c;">
                                             {{ dispensation.patient.full_name }}
                                         </a>
                                     </td>
                                     <td>{{ dispensation.dispenser.full_name }}</td>
                                     <td>
-                                        <span class="badge bg-primary">{{ dispensation.items|length }} itens</span>
+                                        <span class="badge" style="background-color: #247572; color: #ffffff;">{{ dispensation.items|length }} itens</span>
                                     </td>
                                     <td>{{ format_currency(dispensation.total_cost) }}</td>
                                 </tr>
@@ -181,7 +182,7 @@
                     {% endif %}
                 </div>
                 <div class="card-footer">
-                    <a href="{{ url_for('main.reports_index') }}" class="btn btn-primary btn-sm">
+                    <a href="{{ url_for('main.reports_index') }}" class="btn btn-primary btn-sm" style="background-color: #247572; border-color: #1e625f;">
                         <i class="fas fa-chart-bar me-1"></i>Ver Relatórios Completos
                     </a>
                 </div>
@@ -191,7 +192,7 @@
         <!-- Processos Alto Custo -->
         <div class="col-xl-4">
             <div class="card h-100">
-                <div class="card-header">
+                <div class="card-header" style="background-color: #3cc3bf; color: #ffffff;">
                     <i class="fas fa-star me-2"></i>
                     Processos Alto Custo
                 </div>
@@ -222,7 +223,7 @@
                     {% endif %}
                 </div>
                 <div class="card-footer">
-                    <a href="{{ url_for('main.high_cost_index') }}" class="btn btn-outline-primary btn-sm">
+                    <a href="{{ url_for('main.high_cost_index') }}" class="btn btn-outline-primary btn-sm" style="color: #184e4c; border-color: #184e4c;">
                         <i class="fas fa-list me-1"></i>Ver Todos os Processos
                     </a>
                 </div>
