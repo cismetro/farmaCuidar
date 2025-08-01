@@ -102,7 +102,7 @@
                     <div class="text-center text-muted py-3">
                         <i class="fas fa-shopping-cart fa-2x mb-2"></i>
                         <p class="mb-0">Nenhum medicamento selecionado</p>
-                        <small>Todos os medicamentos precisam de controle de intervalo</small>
+                        <small>Clique no botão + para adicionar medicamentos</small>
                     </div>
                 </div>
                 <div class="card-footer" id="cartFooter" style="display: none;">
@@ -207,6 +207,80 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ MODAL DE QUANTIDADE -->
+<div class="modal fade" id="quantityModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-pills me-2"></i>Definir Quantidade
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Medicamento:</label>
+                    <div id="selectedMedicationName" class="fw-semibold"></div>
+                    <small class="text-muted" id="selectedMedicationDetails"></small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="medicationQuantity" class="form-label">Quantidade <span class="text-danger">*</span>:</label>
+                    <div class="input-group">
+                        <button type="button" class="btn btn-outline-secondary" id="decreaseQty">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <input type="number" id="medicationQuantity" class="form-control text-center" 
+                               min="1" max="999" value="1" style="font-size: 1.1rem; font-weight: 600;">
+                        <button type="button" class="btn btn-outline-secondary" id="increaseQty">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="form-text">
+                        <i class="fas fa-box me-1"></i>
+                        Estoque disponível: <span id="availableStock" class="fw-semibold"></span> unidades
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="medicationObservations" class="form-label">Observações do Medicamento:</label>
+                    <textarea id="medicationObservations" class="form-control" rows="3" 
+                              placeholder="Instruções de uso, observações específicas deste medicamento..."></textarea>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Observações específicas que serão anexadas a este medicamento
+                    </div>
+                </div>
+                
+                <!-- Resumo do item -->
+                <div class="bg-light p-3 rounded">
+                    <h6 class="mb-2">
+                        <i class="fas fa-calculator me-2"></i>Resumo do Item
+                    </h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">Quantidade:</small><br>
+                            <span id="summaryQuantity" class="fw-semibold">1</span> unidades
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Custo Total:</small><br>
+                            <span id="summaryTotal" class="fw-semibold text-primary">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="addToCartBtn">
+                    <i class="fas fa-cart-plus me-1"></i>Adicionar ao Carrinho
+                </button>
             </div>
         </div>
     </div>
@@ -380,6 +454,30 @@
     background-color: #28a745;
 }
 
+/* ✅ Estilos para o modal de quantidade */
+#medicationQuantity {
+    border-left: none !important;
+    border-right: none !important;
+}
+
+#decreaseQty, #increaseQty {
+    border-radius: 0.375rem !important;
+}
+
+#decreaseQty {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+#increaseQty {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+
+.cart-item-controls {
+    min-width: 80px;
+}
+
 .loading-overlay {
     position: relative;
 }
@@ -431,6 +529,7 @@ $(document).ready(function() {
     let selectedMedicationsData = [];
     let searchTimeout = null;
     let blockedMedicationsData = [];
+    let selectedMedication = null;  // ✅ Para o modal de quantidade
     
     // ✅ CARREGAR CONTROLES ATIVOS AO INICIAR
     loadActiveControls();
@@ -457,6 +556,32 @@ $(document).ready(function() {
         if (searchTerm.length >= 3) {
             searchMedications(searchTerm);
         }
+    });
+    
+    // ✅ CONTROLES DO MODAL DE QUANTIDADE
+    $('#decreaseQty').on('click', function() {
+        const current = parseInt($('#medicationQuantity').val());
+        if (current > 1) {
+            $('#medicationQuantity').val(current - 1);
+            updateQuantitySummary();
+        }
+    });
+    
+    $('#increaseQty').on('click', function() {
+        const current = parseInt($('#medicationQuantity').val());
+        const max = parseInt($('#medicationQuantity').attr('max'));
+        if (current < max) {
+            $('#medicationQuantity').val(current + 1);
+            updateQuantitySummary();
+        }
+    });
+    
+    $('#medicationQuantity').on('input change', function() {
+        updateQuantitySummary();
+    });
+    
+    $('#addToCartBtn').on('click', function() {
+        addMedicationToCart();
     });
     
     // ✅ CARREGAR CONTROLES ATIVOS VIA AJAX
@@ -582,13 +707,15 @@ $(document).ready(function() {
             if (med.current_stock > 0) {
                 actionButton = `
                     <button type="button" class="btn btn-sm btn-outline-primary add-medication" 
-                            data-medication='${JSON.stringify(med)}'>
+                            data-medication='${JSON.stringify(med).replace(/'/g, "&#39;")}' 
+                            title="Adicionar medicamento">
                         <i class="fas fa-plus"></i>
                     </button>
                 `;
             } else {
                 actionButton = `
-                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled 
+                            title="Sem estoque">
                         <i class="fas fa-times"></i>
                     </button>
                 `;
@@ -621,28 +748,93 @@ $(document).ready(function() {
         $('.add-medication').off('click').on('click', handleAddMedication);
     }
     
-    // ✅ ADICIONAR MEDICAMENTO AO CARRINHO
+    // ✅ PREPARAR ADIÇÃO DE MEDICAMENTO (ABRIR MODAL DE QUANTIDADE)
     function handleAddMedication() {
         const medicationData = $(this).data('medication');
         
+        selectedMedication = {
+            id: medicationData.id,
+            name: medicationData.commercial_name,
+            generic_name: medicationData.generic_name || '',
+            dosage: medicationData.dosage || '',
+            pharmaceutical_form: medicationData.pharmaceutical_form || '',
+            cost: medicationData.unit_cost || 0,
+            stock: medicationData.current_stock
+        };
+        
+        showQuantityModal();
+    }
+    
+    // ✅ MOSTRAR MODAL DE QUANTIDADE
+    function showQuantityModal() {
+        // Preencher dados do medicamento
+        $('#selectedMedicationName').text(selectedMedication.name);
+        
+        const details = [];
+        if (selectedMedication.generic_name) details.push(selectedMedication.generic_name);
+        if (selectedMedication.dosage) details.push(selectedMedication.dosage);
+        if (selectedMedication.pharmaceutical_form) details.push(selectedMedication.pharmaceutical_form);
+        
+        $('#selectedMedicationDetails').text(details.join(' • '));
+        $('#availableStock').text(selectedMedication.stock);
+        
+        // Resetar valores
+        $('#medicationQuantity').val(1).attr('max', selectedMedication.stock);
+        $('#medicationObservations').val('');
+        
+        // Atualizar resumo
+        updateQuantitySummary();
+        
+        $('#quantityModal').modal('show');
+        $('#medicationQuantity').focus();
+    }
+    
+    // ✅ ATUALIZAR RESUMO DA QUANTIDADE
+    function updateQuantitySummary() {
+        const quantity = parseInt($('#medicationQuantity').val()) || 1;
+        const total = selectedMedication.cost * quantity;
+        
+        $('#summaryQuantity').text(quantity);
+        $('#summaryTotal').text(`R$ ${total.toFixed(2)}`);
+    }
+    
+    // ✅ ADICIONAR MEDICAMENTO AO CARRINHO (APÓS MODAL)
+    function addMedicationToCart() {
+        const quantity = parseInt($('#medicationQuantity').val());
+        const observations = $('#medicationObservations').val().trim();
+        
+        // Validar quantidade
+        if (quantity < 1 || quantity > selectedMedication.stock) {
+            showAlert(`Quantidade deve ser entre 1 e ${selectedMedication.stock}!`, 'warning');
+            return;
+        }
+        
         // Verificar se já está no carrinho
-        const existingIndex = cart.findIndex(item => item.id === medicationData.id);
+        const existingIndex = cart.findIndex(item => item.id === selectedMedication.id);
         
         if (existingIndex >= 0) {
-            cart[existingIndex].quantity += 1;
+            // Atualizar item existente
+            cart[existingIndex].quantity += quantity;
+            if (observations) {
+                cart[existingIndex].observations = observations;
+            }
+            showAlert(`Quantidade atualizada para ${cart[existingIndex].quantity} unidades!`, 'success');
         } else {
+            // Adicionar novo item
             cart.push({
-                id: medicationData.id,
-                name: medicationData.commercial_name,
-                cost: medicationData.unit_cost || 0,
-                stock: medicationData.current_stock,
-                quantity: 1,
+                id: selectedMedication.id,
+                name: selectedMedication.name,
+                cost: selectedMedication.cost,
+                stock: selectedMedication.stock,
+                quantity: quantity,
+                observations: observations,
                 interval_days: 30  // Padrão
             });
+            showAlert('Medicamento adicionado ao carrinho!', 'success');
         }
         
         updateCart();
-        showAlert('Medicamento adicionado ao carrinho!', 'success');
+        $('#quantityModal').modal('hide');
     }
     
     // ✅ ATUALIZAR CARRINHO
@@ -657,7 +849,7 @@ $(document).ready(function() {
                 <div class="text-center text-muted py-3">
                     <i class="fas fa-shopping-cart fa-2x mb-2"></i>
                     <p class="mb-0">Nenhum medicamento selecionado</p>
-                    <small>Todos os medicamentos precisam de controle de intervalo</small>
+                    <small>Clique no botão + para adicionar medicamentos</small>
                 </div>
             `);
             cartFooter.hide();
@@ -677,22 +869,31 @@ $(document).ready(function() {
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="flex-grow-1">
                             <div class="fw-semibold">
-                                <i class="fas fa-cog text-warning me-1"></i> ${item.name}
+                                <i class="fas fa-pills text-primary me-1"></i> ${item.name}
                             </div>
                             <small class="text-muted">
                                 ${item.quantity} × R$ ${item.cost.toFixed(2)} = R$ ${itemTotal.toFixed(2)}
                             </small>
-                            <br><small class="text-info">
-                                <i class="fas fa-clock me-1"></i>Precisa configurar controle
+                            ${item.observations ? `<br><small class="text-info"><i class="fas fa-comment me-1"></i>${item.observations}</small>` : ''}
+                            <br><small class="text-warning">
+                                <i class="fas fa-clock me-1"></i>Controle obrigatório
                             </small>
                         </div>
-                        <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-secondary decrease-qty" data-index="${index}">
-                                <i class="fas fa-minus"></i>
-                            </button>
-                            <button type="button" class="btn btn-outline-danger remove-item" data-index="${index}">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                        <div class="cart-item-controls">
+                            <div class="btn-group btn-group-sm d-flex">
+                                <button type="button" class="btn btn-outline-secondary decrease-cart-qty" 
+                                        data-index="${index}" title="Diminuir quantidade">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-primary edit-cart-item" 
+                                        data-index="${index}" title="Editar item">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger remove-cart-item" 
+                                        data-index="${index}" title="Remover item">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -707,22 +908,82 @@ $(document).ready(function() {
         cartFooter.show();
         
         // Event listeners para botões do carrinho
-        $('.decrease-qty').off('click').on('click', function() {
+        $('.decrease-cart-qty').off('click').on('click', function() {
             const index = $(this).data('index');
             if (cart[index].quantity > 1) {
                 cart[index].quantity--;
+                updateCart();
             } else {
                 cart.splice(index, 1);
+                updateCart();
+                showAlert('Medicamento removido do carrinho.', 'info');
             }
-            updateCart();
         });
         
-        $('.remove-item').off('click').on('click', function() {
+        $('.edit-cart-item').off('click').on('click', function() {
+            const index = $(this).data('index');
+            editCartItem(index);
+        });
+        
+        $('.remove-cart-item').off('click').on('click', function() {
             const index = $(this).data('index');
             cart.splice(index, 1);
             updateCart();
             showAlert('Medicamento removido do carrinho.', 'info');
         });
+    }
+    
+    // ✅ EDITAR ITEM DO CARRINHO
+    function editCartItem(index) {
+        const item = cart[index];
+        
+        selectedMedication = {
+            id: item.id,
+            name: item.name,
+            cost: item.cost,
+            stock: item.stock
+        };
+        
+        // Preencher modal com dados atuais
+        $('#selectedMedicationName').text(item.name);
+        $('#selectedMedicationDetails').text('Editando item do carrinho');
+        $('#availableStock').text(item.stock);
+        $('#medicationQuantity').val(item.quantity).attr('max', item.stock);
+        $('#medicationObservations').val(item.observations || '');
+        
+        // Atualizar resumo
+        updateQuantitySummary();
+        
+        // Alterar comportamento do botão
+        $('#addToCartBtn').off('click').text('Atualizar Item').on('click', function() {
+            updateCartItem(index);
+        });
+        
+        $('#quantityModal').modal('show');
+    }
+    
+    // ✅ ATUALIZAR ITEM DO CARRINHO
+    function updateCartItem(index) {
+        const quantity = parseInt($('#medicationQuantity').val());
+        const observations = $('#medicationObservations').val().trim();
+        
+        if (quantity < 1 || quantity > selectedMedication.stock) {
+            showAlert(`Quantidade deve ser entre 1 e ${selectedMedication.stock}!`, 'warning');
+            return;
+        }
+        
+        cart[index].quantity = quantity;
+        cart[index].observations = observations;
+        
+        updateCart();
+        $('#quantityModal').modal('hide');
+        
+        // Restaurar comportamento original do botão
+        $('#addToCartBtn').off('click').text('Adicionar ao Carrinho').on('click', function() {
+            addMedicationToCart();
+        });
+        
+        showAlert('Item atualizado!', 'success');
     }
     
     // ✅ PROCEDER PARA CONFIGURAÇÃO
@@ -763,7 +1024,9 @@ $(document).ready(function() {
                         <h6 class="mb-0">
                             <i class="fas fa-pills me-2"></i>${med.name}
                             <span class="badge bg-primary ms-2">${med.quantity} unidades</span>
+                            <span class="badge bg-success ms-1">R$ ${(med.cost * med.quantity).toFixed(2)}</span>
                         </h6>
+                        ${med.observations ? `<small class="text-muted mt-1 d-block"><i class="fas fa-comment me-1"></i>${med.observations}</small>` : ''}
                     </div>
                     <div class="interval-config-body">
                         <div class="row">
@@ -793,15 +1056,9 @@ $(document).ready(function() {
                         </div>
                         
                         <div class="mt-3">
-                            <label class="form-label">Justificativa</label>
+                            <label class="form-label">Justificativa do Controle</label>
                             <textarea class="form-control interval-justification" data-index="${index}" 
                                       rows="2" placeholder="Motivo do controle (ex: tratamento contínuo, uso controlado, etc.)"></textarea>
-                        </div>
-                        
-                        <div class="mt-3">
-                            <label class="form-label">Observações do Item</label>
-                            <textarea class="form-control medication-observations" data-index="${index}" 
-                                      rows="2" placeholder="Instruções de uso, observações específicas..."></textarea>
                         </div>
                         
                         <!-- Botões de intervalo rápido -->
@@ -911,7 +1168,7 @@ $(document).ready(function() {
         return selectedMedicationsData.map((med, index) => ({
             medication_id: med.id,
             quantity: med.quantity,
-            observations: $(`.medication-observations[data-index="${index}"]`).val(),
+            observations: med.observations || '',  // ✅ Usar observações do carrinho
             interval_control: {
                 enabled: true,
                 interval_days: parseInt($(`.interval-days[data-index="${index}"]`).val()),
