@@ -1,8 +1,9 @@
 from app.database import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
+from sqlalchemy import desc, and_
 import enum
 import logging
 
@@ -55,6 +56,262 @@ class DispensationStatus(enum.Enum):
     PENDING = 'pending'
     COMPLETED = 'completed'
     CANCELLED = 'cancelled'
+
+# =================== MODELOS DE CONTROLE DE INTERVALOS ===================
+
+class MedicationInterval(db.Model):
+    """Controle de intervalos entre dispensações por medicamento"""
+    __tablename__ = 'medication_intervals'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    medication_id = db.Column(db.Integer, db.ForeignKey('medications.id'), nullable=False, unique=True)
+    
+    # Configuração do intervalo
+    interval_days = db.Column(db.Integer, nullable=False, default=30)
+    interval_type = db.Column(db.Enum('predefined', 'manual', name='interval_type_enum'), default='predefined')
+    
+    # Controle ativo/inativo
+    is_active = db.Column(db.Boolean, default=True)
+    requires_justification = db.Column(db.Boolean, default=True)  # Para liberação antecipada
+    
+    # Metadados
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relacionamentos
+    medication = db.relationship('Medication', back_populates='interval_control')
+    creator = db.relationship('User', foreign_keys=[created_by])
+    
+    def __repr__(self):
+        return f'<MedicationInterval {self.medication.commercial_name if self.medication else "Unknown"}: {self.interval_days} dias>'
+
+class DispensationControl(db.Model):
+    """Controle individual de dispensações com intervalos"""
+    __tablename__ = 'dispensation_controls'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
+    medication_id = db.Column(db.Integer, db.ForeignKey('medications.id'), nullable=False)
+    dispensation_item_id = db.Column(db.Integer, db.ForeignKey('dispensation_items.id'), nullable=False)
+    
+    # Controle de datas
+    last_dispensation_date = db.Column(db.Date, nullable=False)
+    next_allowed_date = db.Column(db.Date, nullable=False)
+    interval_days_used = db.Column(db.Integer, nullable=False)
+    
+    # Status
+    is_active = db.Column(db.Boolean, default=True)
+    was_released_early = db.Column(db.Boolean, default=False)
+    
+    # Metadados
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relacionamentos
+    patient = db.relationship('Patient', backref='dispensation_controls')
+    medication = db.relationship('Medication', backref='dispensation_controls')
+    dispensation_item = db.relationship('DispensationItem', backref='control_record')
+    early_releases = db.relationship('EarlyReleaseLog', backref='dispensation_control', lazy=True, cascade='all, delete-orphan')
+    
+    @property
+    def days_until_next_allowed(self):
+        """Dias restantes até próxima dispensação"""
+        if not self.next_allowed_date:
+            return 0
+        delta = self.next_allowed_date - date.today()
+        return max(0, delta.days)
+    
+    @property
+    def can_dispense_today(self):
+        """Verifica se pode dispensar hoje"""
+        return date.today() >= self.next_allowed_date
+    
+    @property
+    def is_overdue(self):
+        """Verifica se passou do prazo (para controle de renovação)"""
+        if not self.next_allowed_date:
+            return False
+        return date.today() > self.next_allowed_date + timedelta(days=30)  # 30 dias de tolerância
+    
+    @property
+    def status_display(self):
+        """Status formatado para exibição"""
+        if self.can_dispense_today:
+            if self.is_overdue:
+                return 'Vencido'
+            return 'Liberado'
+        else:
+            return f'Bloqueado ({self.days_until_next_allowed} dias)'
+    
+    # ✅ MÉTODO PARA SERIALIZAÇÃO JSON
+    def to_dict(self):
+        """Converter para dicionário serializável"""
+        return {
+            'id': self.id,
+            'patient_id': self.patient_id,
+            'patient_name': self.patient.full_name if self.patient else None,
+            'medication_id': self.medication_id,
+            'medication_name': self.medication.commercial_name if self.medication else None,
+            'dispensation_item_id': self.dispensation_item_id,
+            'last_dispensation_date': self.last_dispensation_date.strftime('%d/%m/%Y') if self.last_dispensation_date else None,
+            'next_allowed_date': self.next_allowed_date.strftime('%d/%m/%Y') if self.next_allowed_date else None,
+            'interval_days_used': self.interval_days_used,
+            'days_until_next_allowed': self.days_until_next_allowed,
+            'can_dispense_today': self.can_dispense_today,
+            'is_overdue': self.is_overdue,
+            'status_display': self.status_display,
+            'is_active': self.is_active,
+            'was_released_early': self.was_released_early,
+            'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None,
+            # ✅ INFORMAÇÕES ADICIONAIS ÚTEIS
+            'early_releases_count': len(self.early_releases) if self.early_releases else 0,
+            'has_early_releases': bool(self.early_releases),
+            'dispensation_item_quantity': self.dispensation_item.quantity_dispensed if self.dispensation_item else None,
+            'dispensation_item_cost': float(self.dispensation_item.total_cost) if self.dispensation_item and self.dispensation_item.total_cost else 0.0
+        }
+    
+    # ✅ MÉTODO PARA SERIALIZAÇÃO SIMPLIFICADA (APENAS CAMPOS ESSENCIAIS)
+    def to_dict_simple(self):
+        """Converter para dicionário com campos essenciais apenas"""
+        return {
+            'id': self.id,
+            'medication_name': self.medication.commercial_name if self.medication else 'N/A',
+            'last_dispensation_date': self.last_dispensation_date.strftime('%d/%m/%Y') if self.last_dispensation_date else 'N/A',
+            'next_allowed_date': self.next_allowed_date.strftime('%d/%m/%Y') if self.next_allowed_date else 'N/A',
+            'interval_days': self.interval_days_used,
+            'days_until_next_allowed': self.days_until_next_allowed,
+            'can_dispense_today': self.can_dispense_today,
+            'status_display': self.status_display
+        }
+    
+    # ✅ MÉTODO ESTÁTICO PARA CONVERTER LISTA DE CONTROLES
+    @staticmethod
+    def list_to_dict(controls, simple=False):
+        """Converter lista de controles para lista de dicionários"""
+        if simple:
+            return [control.to_dict_simple() for control in controls]
+        return [control.to_dict() for control in controls]
+    
+    # ✅ MÉTODO PARA VERIFICAR SE PODE SER LIBERADO ANTECIPADAMENTE
+    def can_be_released_early(self):
+        """Verifica se o controle pode ser liberado antecipadamente"""
+        if self.can_dispense_today:
+            return False  # Já pode dispensar, não precisa liberação
+        
+        if not self.is_active:
+            return False  # Controle inativo
+        
+        # Verificar se não foi liberado recentemente (últimas 24h)
+        if self.early_releases:
+            last_release = max(self.early_releases, key=lambda x: x.authorized_at)
+            if (datetime.utcnow() - last_release.authorized_at).days < 1:
+                return False  # Liberado há menos de 24h
+        
+        return True
+    
+    # ✅ MÉTODO PARA CALCULAR PRÓXIMA DATA BASEADA EM NOVO INTERVALO
+    def calculate_next_date_with_interval(self, new_interval_days):
+        """Calcular próxima data com novo intervalo"""
+        return self.last_dispensation_date + timedelta(days=new_interval_days)
+    
+    # ✅ MÉTODO PARA HISTÓRICO DE LIBERAÇÕES ANTECIPADAS
+    def get_early_releases_summary(self):
+        """Obter resumo das liberações antecipadas"""
+        if not self.early_releases:
+            return {
+                'total_releases': 0,
+                'last_release_date': None,
+                'total_days_saved': 0
+            }
+        
+        total_days_saved = sum(release.days_early for release in self.early_releases)
+        last_release = max(self.early_releases, key=lambda x: x.authorized_at)
+        
+        return {
+            'total_releases': len(self.early_releases),
+            'last_release_date': last_release.authorized_at.strftime('%d/%m/%Y %H:%M'),
+            'last_release_justification': last_release.justification,
+            'total_days_saved': total_days_saved,
+            'average_days_early': total_days_saved / len(self.early_releases) if self.early_releases else 0
+        }
+    
+    # ✅ MÉTODO PARA ATUALIZAR CONTROLE COM NOVA DISPENSAÇÃO
+    def update_for_new_dispensation(self, new_interval_days=None, force_release=False):
+        """Atualizar controle para nova dispensação"""
+        # Usar intervalo atual se não especificado
+        interval_days = new_interval_days or self.interval_days_used
+        
+        # Atualizar datas
+        self.last_dispensation_date = date.today()
+        self.next_allowed_date = date.today() + timedelta(days=interval_days)
+        
+        # Atualizar intervalo se especificado
+        if new_interval_days:
+            self.interval_days_used = new_interval_days
+        
+        # Marcar se foi liberação antecipada
+        self.was_released_early = force_release
+        
+        return self
+    
+    # ✅ MÉTODO PARA DESATIVAR CONTROLE
+    def deactivate(self, reason=None):
+        """Desativar controle"""
+        self.is_active = False
+        # Aqui poderia adicionar um campo 'deactivation_reason' se necessário
+        return self
+    
+    # ✅ MÉTODO PARA VERIFICAR VALIDADE DO CONTROLE
+    def is_valid(self):
+        """Verificar se o controle está válido"""
+        if not self.is_active:
+            return False
+        
+        if not self.patient or not self.medication:
+            return False
+        
+        if not self.last_dispensation_date or not self.next_allowed_date:
+            return False
+        
+        if self.interval_days_used <= 0:
+            return False
+        
+        return True
+    
+    def __repr__(self):
+        return f'<DispensationControl {self.patient.full_name if self.patient else "Unknown"}: {self.medication.commercial_name if self.medication else "Unknown"}>'
+    
+class EarlyReleaseLog(db.Model):
+    """Log de liberações antecipadas"""
+    __tablename__ = 'early_release_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    dispensation_control_id = db.Column(db.Integer, db.ForeignKey('dispensation_controls.id'), nullable=False)
+    
+    # Dados da liberação
+    authorized_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    justification = db.Column(db.Text, nullable=False)
+    days_early = db.Column(db.Integer, nullable=False)  # Quantos dias antes foi liberado
+    
+    # Datas
+    original_date = db.Column(db.Date, nullable=False)  # Data original permitida
+    released_date = db.Column(db.Date, nullable=False)  # Data em que foi liberado
+    authorized_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relacionamentos
+    authorizer = db.relationship('User', foreign_keys=[authorized_by])
+    
+    @property
+    def formatted_justification(self):
+        """Justificativa limitada para exibição"""
+        if len(self.justification) > 100:
+            return self.justification[:100] + '...'
+        return self.justification
+    
+    def __repr__(self):
+        return f'<EarlyReleaseLog {self.days_early} dias antecipado>'
+
+# =================== MODELOS PRINCIPAIS ===================
 
 # Modelo de Usuários
 class User(UserMixin, db.Model):
@@ -245,6 +502,27 @@ class Patient(db.Model):
             'imported': 'Importado do e-SUS'
         }
         return source_map.get(self.source, 'Desconhecido')
+    
+    # ✅ MÉTODOS DE CONTROLE DE INTERVALOS
+    def get_active_medication_controls(self):
+        """Obter controles ativos de medicamentos para o paciente"""
+        return DispensationControl.query.filter_by(
+            patient_id=self.id,
+            is_active=True
+        ).options(
+            db.joinedload(DispensationControl.medication),
+            db.joinedload(DispensationControl.early_releases)
+        ).order_by(DispensationControl.next_allowed_date).all()
+    
+    def get_blocked_medications(self):
+        """Obter medicamentos bloqueados para o paciente"""
+        controls = self.get_active_medication_controls()
+        return [control for control in controls if not control.can_dispense_today]
+    
+    def get_released_medications(self):
+        """Obter medicamentos liberados para o paciente"""
+        controls = self.get_active_medication_controls()
+        return [control for control in controls if control.can_dispense_today]
     
     # ✅ MÉTODOS DE BUSCA INTEGRADA (LOCAL + E-SUS)
     @classmethod
@@ -489,7 +767,7 @@ class Patient(db.Model):
     def __repr__(self):
         return f'<Patient {self.full_name} - CPF: {self.formatted_cpf}>'
 
-# Modelo de Medicamentos - MANTIDO IGUAL
+# ✅ MODELO DE MEDICAMENTOS COM CONTROLE DE INTERVALOS
 class Medication(db.Model):
     __tablename__ = 'medications'
     
@@ -524,6 +802,9 @@ class Medication(db.Model):
     inventory_movements = db.relationship('InventoryMovement', backref='medication', lazy=True)
     high_cost_processes = db.relationship('HighCostProcess', backref='medication', lazy=True)
     
+    # ✅ RELACIONAMENTO COM CONTROLE DE INTERVALO
+    interval_control = db.relationship('MedicationInterval', back_populates='medication', uselist=False, cascade='all, delete-orphan')
+    
     @property
     def is_low_stock(self):
         return self.current_stock <= self.minimum_stock
@@ -534,6 +815,85 @@ class Medication(db.Model):
             return False
         days_to_expiry = (self.expiry_date - date.today()).days
         return days_to_expiry <= 30
+    
+    # ✅ PROPRIEDADES DE CONTROLE DE INTERVALO
+    @property
+    def has_interval_control(self):
+        """Verifica se medicamento tem controle de intervalo ativo"""
+        return self.interval_control and self.interval_control.is_active
+    
+    @property
+    def interval_days(self):
+        """Retorna dias de intervalo configurados"""
+        if self.has_interval_control:
+            return self.interval_control.interval_days
+        return None
+    
+    @property
+    def interval_status_display(self):
+        """Status do controle de intervalo para exibição"""
+        if self.has_interval_control:
+            return f"Ativo ({self.interval_control.interval_days} dias)"
+        return "Sem controle"
+    
+    # ✅ MÉTODOS DE CONTROLE DE INTERVALO
+    def get_next_allowed_date_for_patient(self, patient_id):
+        """Calcula próxima data permitida para um paciente específico"""
+        if not self.has_interval_control:
+            return date.today()  # Sem controle, pode dispensar hoje
+        
+        # Buscar último controle ativo
+        last_control = DispensationControl.query.filter_by(
+            patient_id=patient_id,
+            medication_id=self.id,
+            is_active=True
+        ).order_by(desc(DispensationControl.last_dispensation_date)).first()
+        
+        if not last_control:
+            return date.today()  # Primeira dispensação, pode dispensar hoje
+        
+        return last_control.next_allowed_date
+    
+    def can_dispense_to_patient(self, patient_id):
+        """Verifica se pode dispensar para um paciente específico"""
+        next_date = self.get_next_allowed_date_for_patient(patient_id)
+        return date.today() >= next_date
+    
+    def get_control_for_patient(self, patient_id):
+        """Obter controle ativo para um paciente específico"""
+        return DispensationControl.query.filter_by(
+            patient_id=patient_id,
+            medication_id=self.id,
+            is_active=True
+        ).order_by(desc(DispensationControl.last_dispensation_date)).first()
+    
+    def get_blocked_patients_count(self):
+        """Número de pacientes com dispensação bloqueada"""
+        if not self.has_interval_control:
+            return 0
+        
+        today = date.today()
+        return DispensationControl.query.filter(
+            and_(
+                DispensationControl.medication_id == self.id,
+                DispensationControl.is_active == True,
+                DispensationControl.next_allowed_date > today
+            )
+        ).count()
+    
+    def get_released_patients_count(self):
+        """Número de pacientes com dispensação liberada"""
+        if not self.has_interval_control:
+            return 0
+        
+        today = date.today()
+        return DispensationControl.query.filter(
+            and_(
+                DispensationControl.medication_id == self.id,
+                DispensationControl.is_active == True,
+                DispensationControl.next_allowed_date <= today
+            )
+        ).count()
     
     def __repr__(self):
         return f'<Medication {self.commercial_name}>'
@@ -601,7 +961,7 @@ class Dispensation(db.Model):
     def __repr__(self):
         return f'<Dispensation {self.id} - {self.patient.full_name}>'
 
-# Itens da Dispensação - MODELO CORRIGIDO
+# ✅ ITENS DA DISPENSAÇÃO COM CONTROLE DE INTERVALOS
 class DispensationItem(db.Model):
     __tablename__ = 'dispensation_items'
     
@@ -623,9 +983,6 @@ class DispensationItem(db.Model):
     dispensation = db.relationship('Dispensation', back_populates='items')
     medication = db.relationship('Medication', back_populates='dispensation_items')
     
-    def __repr__(self):
-        return f'<DispensationItem {self.medication.commercial_name if self.medication else "Unknown"}: {self.quantity_dispensed}>'
-    
     @property
     def formatted_unit_cost(self):
         """Custo unitário formatado"""
@@ -640,6 +997,36 @@ class DispensationItem(db.Model):
             return f"R$ {self.total_cost:.2f}".replace('.', ',')
         return "R$ 0,00"
     
+    # ✅ MÉTODO PARA CRIAR CONTROLE DE INTERVALO
+    def create_interval_control(self):
+        """Criar controle de intervalo após dispensação"""
+        if not self.medication.has_interval_control:
+            return None
+        
+        # Desativar controles anteriores do mesmo medicamento/paciente
+        DispensationControl.query.filter_by(
+            patient_id=self.dispensation.patient_id,
+            medication_id=self.medication_id,
+            is_active=True
+        ).update({'is_active': False})
+        
+        # Calcular próxima data permitida
+        interval_days = self.medication.interval_control.interval_days
+        next_date = date.today() + timedelta(days=interval_days)
+        
+        # Criar novo controle
+        control = DispensationControl(
+            patient_id=self.dispensation.patient_id,
+            medication_id=self.medication_id,
+            dispensation_item_id=self.id,
+            last_dispensation_date=date.today(),
+            next_allowed_date=next_date,
+            interval_days_used=interval_days
+        )
+        
+        db.session.add(control)
+        return control
+    
     def to_dict(self):
         """Converter para dicionário"""
         return {
@@ -653,6 +1040,9 @@ class DispensationItem(db.Model):
             'observations': self.observations,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+    
+    def __repr__(self):
+        return f'<DispensationItem {self.medication.commercial_name if self.medication else "Unknown"}: {self.quantity_dispensed}>'
 
 # Processo Alto Custo
 class HighCostProcess(db.Model):

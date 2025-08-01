@@ -19,6 +19,10 @@
                 <i class="fas fa-pills me-2 text-primary"></i>
                 Dispensação para {{ patient.full_name }}
             </h1>
+            <div class="alert alert-info mt-2">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Controle Universal:</strong> Todos os medicamentos requerem configuração de intervalo de dispensação.
+            </div>
         </div>
         <div class="col-auto">
             <a href="{{ url_for('main.dispensation_index') }}" class="btn btn-outline-secondary">
@@ -43,62 +47,47 @@
                         </div>
                         <div>
                             <h6 class="mb-0">{{ patient.full_name }}</h6>
-                            <small class="text-muted">{{ calculate_age(patient.birth_date) }} anos</small>
+                            <small class="text-muted">{{ patient.age }} anos</small>
                         </div>
                     </div>
                     
                     <div class="row g-2 text-sm">
                         <div class="col-12">
-                            <strong>CPF:</strong> {{ format_cpf(patient.cpf) }}
+                            <strong>CPF:</strong> {{ patient.formatted_cpf }}
                         </div>
                         {% if patient.cns %}
                         <div class="col-12">
-                            <strong>CNS:</strong> {{ format_cns(patient.cns) }}
+                            <strong>CNS:</strong> {{ patient.formatted_cns }}
                         </div>
                         {% endif %}
-                        {% if patient.phone %}
+                        {% if patient.primary_phone %}
                         <div class="col-12">
-                            <strong>Telefone:</strong> {{ format_phone(patient.phone) }}
+                            <strong>Telefone:</strong> {{ patient.formatted_phone }}
                         </div>
                         {% endif %}
                         {% if patient.address %}
                         <div class="col-12">
-                            <strong>Endereço:</strong> {{ patient.address }}
-                            {% if patient.neighborhood %}, {{ patient.neighborhood }}{% endif %}
+                            <strong>Endereço:</strong> {{ patient.full_address }}
                         </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
 
-            <!-- Prescrições Recentes -->
-            {% if recent_prescriptions %}
+            <!-- ✅ CONTROLES DE INTERVALO ATIVOS -->
             <div class="card mb-4">
                 <div class="card-header">
                     <h6 class="card-title mb-0">
-                        <i class="fas fa-file-prescription me-2"></i>Prescrições Recentes
+                        <i class="fas fa-clock me-2 text-warning"></i>Controles de Intervalo Ativos
                     </h6>
                 </div>
-                <div class="card-body p-0">
-                    <div class="list-group list-group-flush">
-                        {% for prescription in recent_prescriptions %}
-                        <div class="list-group-item">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">Dr. {{ prescription.doctor_name }}</h6>
-                                <small>{{ format_date(prescription.prescription_date) }}</small>
-                            </div>
-                            <p class="mb-1 small">CRM: {{ prescription.doctor_crm }}</p>
-                            {% if prescription.items %}
-                            <small class="text-muted">
-                                {{ prescription.items|length }} medicamento(s) prescrito(s)
-                            </small>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
+                <div class="card-body p-0" id="activeControlsList">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-clock fa-2x mb-2"></i>
+                        <p class="mb-0">Carregando controles...</p>
                     </div>
                 </div>
             </div>
-            {% endif %}
 
             <!-- Carrinho de Medicamentos -->
             <div class="card" id="medicationCart">
@@ -113,6 +102,7 @@
                     <div class="text-center text-muted py-3">
                         <i class="fas fa-shopping-cart fa-2x mb-2"></i>
                         <p class="mb-0">Nenhum medicamento selecionado</p>
+                        <small>Todos os medicamentos precisam de controle de intervalo</small>
                     </div>
                 </div>
                 <div class="card-footer" id="cartFooter" style="display: none;">
@@ -120,84 +110,101 @@
                         <strong>Total:</strong>
                         <strong id="cartTotal">R$ 0,00</strong>
                     </div>
-                    <button type="button" class="btn btn-success w-100" id="confirmDispensation">
-                        <i class="fas fa-check me-1"></i>Confirmar Dispensação
+                    <button type="button" class="btn btn-success w-100" id="proceedToConfiguration">
+                        <i class="fas fa-cog me-1"></i>Configurar Intervalos
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Lista de Medicamentos -->
+        <!-- ✅ BUSCA DE MEDICAMENTOS -->
         <div class="col-xl-8">
             <div class="card">
                 <div class="card-header">
                     <div class="row align-items-center">
                         <div class="col">
                             <h5 class="card-title mb-0">
-                                <i class="fas fa-pills me-2"></i>Medicamentos Disponíveis
+                                <i class="fas fa-search me-2"></i>Buscar Medicamentos
                             </h5>
-                        </div>
-                        <div class="col-auto">
-                            <input type="text" id="medicationFilter" class="form-control" 
-                                   placeholder="Filtrar medicamentos...">
                         </div>
                     </div>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Medicamento</th>
-                                    <th>Dosagem</th>
-                                    <th>Forma</th>
-                                    <th>Estoque</th>
-                                    <th>Custo Unit.</th>
-                                    <th width="120">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="medicationsTable">
-                                {% for medication in available_medications %}
-                                <tr data-medication-id="{{ medication.id }}" 
-                                    data-medication-name="{{ medication.commercial_name }}"
-                                    data-medication-cost="{{ medication.unit_cost or 0 }}"
-                                    data-medication-stock="{{ medication.current_stock }}">
-                                    <td>
-                                        <div>
-                                            <div class="fw-semibold">{{ medication.commercial_name }}</div>
-                                            <small class="text-muted">{{ medication.generic_name }}</small>
-                                        </div>
-                                    </td>
-                                    <td>{{ medication.dosage or '--' }}</td>
-                                    <td>
-                                        <span class="badge bg-light text-dark">{{ medication.pharmaceutical_form or '--' }}</span>
-                                    </td>
-                                    <td>
-                                        {% if medication.current_stock <= medication.minimum_stock %}
-                                        <span class="badge bg-danger">{{ medication.current_stock or 0 }}</span>
-                                        {% elif medication.current_stock <= (medication.minimum_stock or 0) * 2 %}
-                                        <span class="badge bg-warning">{{ medication.current_stock or 0 }}</span>
-                                        {% else %}
-                                        <span class="badge bg-success">{{ medication.current_stock or 0 }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>R$ {{ "{:,.2f}".format(medication.unit_cost or 0) }}</td>
-                                    <td>
-                                        {% if medication.current_stock and medication.current_stock > 0 %}
-                                        <button type="button" class="btn btn-sm btn-outline-primary add-medication" 
-                                                data-medication-id="{{ medication.id }}">
-                                            <i class="fas fa-plus"></i>
-                                        </button>
-                                        {% else %}
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <div class="card-body">
+                    <!-- ✅ BARRA DE BUSCA -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" id="medicationSearch" class="form-control form-control-lg" 
+                                       placeholder="Digite o nome do medicamento para buscar..."
+                                       autocomplete="off">
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Digite pelo menos 3 caracteres para buscar
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <select id="medicationType" class="form-select">
+                                <option value="">Todos os tipos</option>
+                                <option value="basic">Básicos</option>
+                                <option value="controlled">Controlados</option>
+                                <option value="psychotropic">Psicotrópicos</option>
+                                <option value="high_cost">Alto Custo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- ✅ ÁREA DE RESULTADOS -->
+                    <div id="searchResults">
+                        <!-- Estado inicial -->
+                        <div id="initialState" class="text-center py-5">
+                            <i class="fas fa-pills fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Busque por medicamentos</h5>
+                            <p class="text-muted mb-2">Digite o nome do medicamento no campo acima para encontrar opções disponíveis</p>
+                            <div class="alert alert-warning">
+                                <small><strong>Lembrete:</strong> Todos os medicamentos precisarão de configuração de controle de intervalo.</small>
+                            </div>
+                        </div>
+
+                        <!-- Loading -->
+                        <div id="searchLoading" class="text-center py-5" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Buscando...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Buscando medicamentos...</p>
+                        </div>
+
+                        <!-- Sem resultados -->
+                        <div id="noResults" class="text-center py-5" style="display: none;">
+                            <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                            <h6 class="text-muted">Nenhum medicamento encontrado</h6>
+                            <p class="text-muted mb-0">Tente buscar por outro nome ou verifique a grafia</p>
+                        </div>
+
+                        <!-- Tabela de resultados -->
+                        <div id="resultsTable" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Medicamento</th>
+                                            <th>Dosagem</th>
+                                            <th>Forma</th>
+                                            <th>Estoque</th>
+                                            <th>Custo</th>
+                                            <th>Controle</th>
+                                            <th width="120">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="medicationsTableBody">
+                                        <!-- Resultados inseridos dinamicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -205,37 +212,92 @@
     </div>
 </div>
 
-<!-- Modal de Quantidade -->
-<div class="modal fade" id="quantityModal" tabindex="-1">
-    <div class="modal-dialog">
+<!-- ✅ MODAL DE CONFIGURAÇÃO UNIVERSAL -->
+<div class="modal fade" id="configurationModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-pills me-2"></i>Definir Quantidade
+                    <i class="fas fa-cog me-2"></i>Configurar Controles de Intervalo
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Medicamento:</label>
-                    <div id="selectedMedicationName" class="fw-semibold"></div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Configure o controle de intervalo para cada medicamento selecionado.
                 </div>
-                <div class="mb-3">
-                    <label for="medicationQuantity" class="form-label">Quantidade:</label>
-                    <input type="number" id="medicationQuantity" class="form-control" min="1" max="999" value="1">
-                    <div class="form-text">
-                        Estoque disponível: <span id="availableStock"></span> unidades
-                    </div>
+                
+                <div id="medicationConfigurations">
+                    <!-- Configurações inseridas dinamicamente -->
                 </div>
-                <div class="mb-3">
-                    <label for="medicationObservations" class="form-label">Observações (opcional):</label>
-                    <textarea id="medicationObservations" class="form-control" rows="2" 
-                              placeholder="Instruções de uso, observações..."></textarea>
+                
+                <div class="mt-3">
+                    <label class="form-label">Observações Gerais</label>
+                    <textarea id="generalObservations" class="form-control" rows="3" 
+                              placeholder="Observações sobre a dispensação..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="addToCart">Adicionar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" id="confirmDispensation">
+                    <i class="fas fa-check me-2"></i>Confirmar Dispensação
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ MODAL DE MEDICAMENTOS BLOQUEADOS -->
+<div class="modal fade" id="blockedMedicationsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    Medicamentos Bloqueados
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <strong>Atenção:</strong> Alguns medicamentos não podem ser dispensados no momento.
+                </div>
+                
+                <div id="blockedMedicationsList">
+                    <!-- Lista inserida dinamicamente -->
+                </div>
+                
+                <div id="forceReleaseSection" style="display: none;">
+                    <hr>
+                    <h6>Liberação Antecipada</h6>
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Justificativa <span class="text-danger">*</span></strong>
+                        </label>
+                        <textarea id="forceReleaseJustification" 
+                                  class="form-control" 
+                                  rows="4" 
+                                  placeholder="Descreva detalhadamente o motivo da liberação antecipada..."
+                                  required></textarea>
+                        <div class="form-text">Mínimo 10 caracteres</div>
+                    </div>
+                    
+                    <div id="forceReleaseError" class="alert alert-danger d-none"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="configureIntervalsBtn" style="display: none;">
+                    <i class="fas fa-arrow-left me-2"></i>Voltar e Configurar
+                </button>
+                <button type="button" class="btn btn-warning" id="authorizeForceRelease" style="display: none;">
+                    <i class="fas fa-unlock me-2"></i>Autorizar Liberação Antecipada
+                </button>
             </div>
         </div>
     </div>
@@ -255,14 +317,6 @@
     font-size: 0.875rem;
 }
 
-#medicationsTable tr {
-    cursor: pointer;
-}
-
-#medicationsTable tr:hover {
-    background-color: var(--bs-gray-100);
-}
-
 .card {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
@@ -272,13 +326,101 @@
     font-weight: 600;
     font-size: 0.875rem;
 }
+
+#medicationsTableBody tr {
+    cursor: pointer;
+}
+
+#medicationsTableBody tr:hover {
+    background-color: var(--bs-gray-100);
+}
+
+.interval-config-card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem;
+}
+
+.interval-config-header {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+
+.interval-config-body {
+    padding: 1rem;
+}
+
+.quick-interval-btn {
+    margin: 0.125rem;
+}
+
+.medication-status-badge {
+    font-size: 0.75rem;
+}
+
+.control-status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+.control-status-indicator.status-new {
+    background-color: #ffc107;
+}
+
+.control-status-indicator.status-blocked {
+    background-color: #dc3545;
+}
+
+.control-status-indicator.status-released {
+    background-color: #28a745;
+}
+
+.loading-overlay {
+    position: relative;
+}
+
+.loading-overlay::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 10;
+}
+
+.loading-overlay::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2rem;
+    height: 2rem;
+    border: 0.25rem solid #f3f3f3;
+    border-top: 0.25rem solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 11;
+}
+
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Dados do paciente para uso no JavaScript
+    // ✅ DADOS DO PACIENTE
     const patient = {
         id: {{ patient.id }},
         full_name: "{{ patient.full_name }}",
@@ -286,69 +428,224 @@ $(document).ready(function() {
     };
     
     let cart = [];
-    let selectedMedication = null;
+    let selectedMedicationsData = [];
+    let searchTimeout = null;
+    let blockedMedicationsData = [];
     
-    // Filtro de medicamentos
-    $('#medicationFilter').on('input', function() {
-        const filter = $(this).val().toLowerCase();
-        $('#medicationsTable tr').each(function() {
-            const text = $(this).text().toLowerCase();
-            $(this).toggle(text.includes(filter));
-        });
-    });
+    // ✅ CARREGAR CONTROLES ATIVOS AO INICIAR
+    loadActiveControls();
     
-    // Adicionar medicamento
-    $('.add-medication').on('click', function() {
-        const row = $(this).closest('tr');
-        selectedMedication = {
-            id: parseInt(row.data('medication-id')),
-            name: row.data('medication-name'),
-            cost: parseFloat(row.data('medication-cost')),
-            stock: parseInt(row.data('medication-stock'))
-        };
+    // ✅ BUSCA DE MEDICAMENTOS COM DEBOUNCE
+    $('#medicationSearch').on('input', function() {
+        const searchTerm = $(this).val().trim();
         
-        $('#selectedMedicationName').text(selectedMedication.name);
-        $('#availableStock').text(selectedMedication.stock);
-        $('#medicationQuantity').attr('max', selectedMedication.stock).val(1);
-        $('#medicationObservations').val('');
+        clearTimeout(searchTimeout);
         
-        $('#quantityModal').modal('show');
-    });
-    
-    // Adicionar ao carrinho
-    $('#addToCart').on('click', function() {
-        const quantity = parseInt($('#medicationQuantity').val());
-        const observations = $('#medicationObservations').val();
-        
-        if (quantity < 1 || quantity > selectedMedication.stock) {
-            showAlert('Quantidade inválida! Deve ser entre 1 e ' + selectedMedication.stock, 'warning');
+        if (searchTerm.length < 3) {
+            showInitialState();
             return;
         }
         
-        // Verificar se já existe no carrinho
-        const existingIndex = cart.findIndex(item => item.id === selectedMedication.id);
+        searchTimeout = setTimeout(() => {
+            searchMedications(searchTerm);
+        }, 500);
+    });
+    
+    // ✅ FILTRO POR TIPO
+    $('#medicationType').on('change', function() {
+        const searchTerm = $('#medicationSearch').val().trim();
+        if (searchTerm.length >= 3) {
+            searchMedications(searchTerm);
+        }
+    });
+    
+    // ✅ CARREGAR CONTROLES ATIVOS VIA AJAX
+    function loadActiveControls() {
+        $.ajax({
+            url: `/api/patients/${patient.id}/medication-controls`,
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    displayActiveControls(response.controls || []);
+                } else {
+                    showControlsError();
+                }
+            },
+            error: function() {
+                showControlsError();
+            }
+        });
+    }
+    
+    // ✅ EXIBIR ERRO NO CARREGAMENTO DE CONTROLES
+    function showControlsError() {
+        $('#activeControlsList').html(`
+            <div class="text-center text-muted py-3">
+                <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                <p class="mb-0">Erro ao carregar controles</p>
+            </div>
+        `);
+    }
+    
+    // ✅ EXIBIR CONTROLES ATIVOS
+    function displayActiveControls(controls) {
+        if (controls.length === 0) {
+            $('#activeControlsList').html(`
+                <div class="text-center text-muted py-3">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <p class="mb-0">Nenhum controle ativo</p>
+                    <small>Primeiras dispensações criarão controles</small>
+                </div>
+            `);
+            return;
+        }
+        
+        let html = '<div class="list-group list-group-flush">';
+        
+        controls.forEach(control => {
+            const statusClass = control.can_dispense_today ? 'success' : 'warning';
+            const statusText = control.can_dispense_today ? 'Liberado' : `${control.days_until_next_allowed} dias`;
+            
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">${control.medication_name}</h6>
+                            <p class="mb-1 small">
+                                Última: ${control.last_dispensation_date}
+                            </p>
+                            <small class="text-muted">
+                                Próxima: ${control.next_allowed_date}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-${statusClass}">${statusText}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        $('#activeControlsList').html(html);
+    }
+    
+    // ✅ FUNÇÃO DE BUSCA
+    function searchMedications(searchTerm) {
+        showLoading();
+        
+        const medicationType = $('#medicationType').val();
+        
+        $.ajax({
+            url: '/api/medications/search',
+            method: 'GET',
+            data: {
+                q: searchTerm,
+                type: medicationType,
+                patient_id: patient.id
+            },
+            success: function(medications) {
+                displayResults(medications);
+            },
+            error: function(xhr) {
+                console.error('Erro na busca:', xhr);
+                showError('Erro ao buscar medicamentos');
+            }
+        });
+    }
+    
+    // ✅ EXIBIR RESULTADOS
+    function displayResults(medications) {
+        if (medications.length === 0) {
+            showNoResults();
+            return;
+        }
+        
+        let html = '';
+        
+        medications.forEach(med => {
+            // Status do estoque
+            let stockBadge = '';
+            if (med.current_stock <= 0) {
+                stockBadge = '<span class="badge bg-danger">0</span>';
+            } else if (med.current_stock <= med.minimum_stock) {
+                stockBadge = `<span class="badge bg-warning">${med.current_stock}</span>`;
+            } else {
+                stockBadge = `<span class="badge bg-success">${med.current_stock}</span>`;
+            }
+            
+            // Status do controle - Universal
+            let controlBadge = '<span class="badge bg-info">Controle Obrigatório</span>';
+            
+            // Botão de ação
+            let actionButton = '';
+            if (med.current_stock > 0) {
+                actionButton = `
+                    <button type="button" class="btn btn-sm btn-outline-primary add-medication" 
+                            data-medication='${JSON.stringify(med)}'>
+                        <i class="fas fa-plus"></i>
+                    </button>
+                `;
+            } else {
+                actionButton = `
+                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+            }
+            
+            html += `
+                <tr data-medication-id="${med.id}">
+                    <td>
+                        <div>
+                            <div class="fw-semibold">${med.commercial_name}</div>
+                            <small class="text-muted">${med.generic_name || '--'}</small>
+                        </div>
+                    </td>
+                    <td>${med.dosage || '--'}</td>
+                    <td>
+                        <span class="badge bg-light text-dark">${med.pharmaceutical_form || '--'}</span>
+                    </td>
+                    <td>${stockBadge}</td>
+                    <td>R$ ${(med.unit_cost || 0).toFixed(2)}</td>
+                    <td>${controlBadge}</td>
+                    <td>${actionButton}</td>
+                </tr>
+            `;
+        });
+        
+        $('#medicationsTableBody').html(html);
+        showResults();
+        
+        // Event listeners
+        $('.add-medication').off('click').on('click', handleAddMedication);
+    }
+    
+    // ✅ ADICIONAR MEDICAMENTO AO CARRINHO
+    function handleAddMedication() {
+        const medicationData = $(this).data('medication');
+        
+        // Verificar se já está no carrinho
+        const existingIndex = cart.findIndex(item => item.id === medicationData.id);
         
         if (existingIndex >= 0) {
-            cart[existingIndex].quantity += quantity;
-            if (observations) {
-                cart[existingIndex].observations = observations;
-            }
+            cart[existingIndex].quantity += 1;
         } else {
             cart.push({
-                id: selectedMedication.id,
-                name: selectedMedication.name,
-                cost: selectedMedication.cost,
-                quantity: quantity,
-                observations: observations
+                id: medicationData.id,
+                name: medicationData.commercial_name,
+                cost: medicationData.unit_cost || 0,
+                stock: medicationData.current_stock,
+                quantity: 1,
+                interval_days: 30  // Padrão
             });
         }
         
         updateCart();
-        $('#quantityModal').modal('hide');
         showAlert('Medicamento adicionado ao carrinho!', 'success');
-    });
+    }
     
-    // Atualizar carrinho
+    // ✅ ATUALIZAR CARRINHO
     function updateCart() {
         const cartItems = $('#cartItems');
         const cartCount = $('#cartCount');
@@ -360,6 +657,7 @@ $(document).ready(function() {
                 <div class="text-center text-muted py-3">
                     <i class="fas fa-shopping-cart fa-2x mb-2"></i>
                     <p class="mb-0">Nenhum medicamento selecionado</p>
+                    <small>Todos os medicamentos precisam de controle de intervalo</small>
                 </div>
             `);
             cartFooter.hide();
@@ -378,11 +676,15 @@ $(document).ready(function() {
                 <div class="list-group-item px-0">
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="flex-grow-1">
-                            <div class="fw-semibold">${item.name}</div>
+                            <div class="fw-semibold">
+                                <i class="fas fa-cog text-warning me-1"></i> ${item.name}
+                            </div>
                             <small class="text-muted">
                                 ${item.quantity} × R$ ${item.cost.toFixed(2)} = R$ ${itemTotal.toFixed(2)}
                             </small>
-                            ${item.observations ? `<br><small class="text-info">Obs: ${item.observations}</small>` : ''}
+                            <br><small class="text-info">
+                                <i class="fas fa-clock me-1"></i>Precisa configurar controle
+                            </small>
                         </div>
                         <div class="btn-group btn-group-sm">
                             <button type="button" class="btn btn-outline-secondary decrease-qty" data-index="${index}">
@@ -405,7 +707,7 @@ $(document).ready(function() {
         cartFooter.show();
         
         // Event listeners para botões do carrinho
-        $('.decrease-qty').on('click', function() {
+        $('.decrease-qty').off('click').on('click', function() {
             const index = $(this).data('index');
             if (cart[index].quantity > 1) {
                 cart[index].quantity--;
@@ -415,7 +717,7 @@ $(document).ready(function() {
             updateCart();
         });
         
-        $('.remove-item').on('click', function() {
+        $('.remove-item').off('click').on('click', function() {
             const index = $(this).data('index');
             cart.splice(index, 1);
             updateCart();
@@ -423,56 +725,401 @@ $(document).ready(function() {
         });
     }
     
-    // Ir para página de confirmação
-    $('#confirmDispensation').on('click', function() {
+    // ✅ PROCEDER PARA CONFIGURAÇÃO
+    $('#proceedToConfiguration').on('click', function() {
         if (cart.length === 0) {
             showAlert('Adicione pelo menos um medicamento!', 'warning');
             return;
         }
         
-        // Armazenar dados no sessionStorage para passar para a próxima página
-        const dispensationData = {
-            patient_id: patient.id,
-            patient_name: patient.full_name,
-            medications: cart.map(item => ({
-                medication_id: item.id,
-                medication_name: item.name,
-                quantity: item.quantity,
-                observations: item.observations || '',
-                unit_cost: item.cost
-            }))
-        };
-        
-        sessionStorage.setItem('dispensationData', JSON.stringify(dispensationData));
-        
-        // Redirecionar para página de confirmação
-        window.location.href = `/dispensation/confirm?patient_id=${patient.id}`;
+        showConfigurationModal();
     });
     
-    // Função para mostrar alertas
+    // ✅ MODAL DE CONFIGURAÇÃO
+    function showConfigurationModal() {
+        selectedMedicationsData = cart.map(item => ({
+            ...item,
+            interval_control: {
+                enabled: true,
+                interval_days: 30,
+                next_allowed_date: getDefaultNextDate(30),
+                justification: '',
+                category: 'standard'
+            }
+        }));
+        
+        generateConfigurationForms();
+        $('#configurationModal').modal('show');
+    }
+    
+    // ✅ GERAR FORMULÁRIOS DE CONFIGURAÇÃO
+    function generateConfigurationForms() {
+        let html = '';
+        
+        selectedMedicationsData.forEach((med, index) => {
+            html += `
+                <div class="interval-config-card">
+                    <div class="interval-config-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-pills me-2"></i>${med.name}
+                            <span class="badge bg-primary ms-2">${med.quantity} unidades</span>
+                        </h6>
+                    </div>
+                    <div class="interval-config-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Intervalo (dias) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control interval-days" 
+                                       data-index="${index}" min="1" max="365" 
+                                       value="${med.interval_control.interval_days}" required>
+                                <div class="form-text">Tempo entre dispensações</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Próxima liberação <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control next-date" 
+                                       data-index="${index}" value="${med.interval_control.next_allowed_date}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Categoria</label>
+                                <select class="form-control interval-category" data-index="${index}">
+                                    <option value="standard">Padrão</option>
+                                    <option value="controlled">Controlado</option>
+                                    <option value="psychotropic">Psicotrópico</option>
+                                    <option value="high_cost">Alto Custo</option>
+                                    <option value="antibiotic">Antibiótico</option>
+                                    <option value="chronic">Uso Contínuo</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <label class="form-label">Justificativa</label>
+                            <textarea class="form-control interval-justification" data-index="${index}" 
+                                      rows="2" placeholder="Motivo do controle (ex: tratamento contínuo, uso controlado, etc.)"></textarea>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <label class="form-label">Observações do Item</label>
+                            <textarea class="form-control medication-observations" data-index="${index}" 
+                                      rows="2" placeholder="Instruções de uso, observações específicas..."></textarea>
+                        </div>
+                        
+                        <!-- Botões de intervalo rápido -->
+                        <div class="mt-2">
+                            <small class="text-muted">Intervalos rápidos:</small><br>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary quick-interval-btn" 
+                                        data-index="${index}" data-days="7">7 dias</button>
+                                <button type="button" class="btn btn-outline-secondary quick-interval-btn" 
+                                        data-index="${index}" data-days="15">15 dias</button>
+                                <button type="button" class="btn btn-outline-primary quick-interval-btn" 
+                                        data-index="${index}" data-days="30">30 dias</button>
+                                <button type="button" class="btn btn-outline-secondary quick-interval-btn" 
+                                        data-index="${index}" data-days="60">60 dias</button>
+                                <button type="button" class="btn btn-outline-secondary quick-interval-btn" 
+                                        data-index="${index}" data-days="90">90 dias</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        $('#medicationConfigurations').html(html);
+        
+        // Event listeners
+        $('.quick-interval-btn').on('click', function() {
+            const index = $(this).data('index');
+            const days = $(this).data('days');
+            setQuickInterval(index, days);
+        });
+        
+        $('.interval-days').on('change', function() {
+            const index = $(this).data('index');
+            const days = parseInt($(this).val());
+            updateNextDate(index, days);
+        });
+    }
+    
+    // ✅ FUNÇÕES AUXILIARES
+    function setQuickInterval(index, days) {
+        $(`.interval-days[data-index="${index}"]`).val(days);
+        updateNextDate(index, days);
+    }
+    
+    function updateNextDate(index, days) {
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + days);
+        $(`.next-date[data-index="${index}"]`).val(nextDate.toISOString().split('T')[0]);
+    }
+    
+    function getDefaultNextDate(days) {
+        const date = new Date();
+        date.setDate(date.getDate() + days);
+        return date.toISOString().split('T')[0];
+    }
+    
+    // ✅ CONFIRMAR DISPENSAÇÃO
+    $('#confirmDispensation').on('click', function() {
+        if (!validateConfigurations()) {
+            return;
+        }
+        
+        // Coletar dados finais
+        const dispensationData = {
+            patient_id: patient.id,
+            general_observations: $('#generalObservations').val(),
+            medications: collectMedicationData()
+        };
+        
+        processDispensation(dispensationData);
+    });
+    
+    // ✅ VALIDAR CONFIGURAÇÕES
+    function validateConfigurations() {
+        let hasErrors = false;
+        
+        selectedMedicationsData.forEach((med, index) => {
+            const days = $(`.interval-days[data-index="${index}"]`).val();
+            const nextDate = $(`.next-date[data-index="${index}"]`).val();
+            
+            if (!days || days < 1) {
+                showAlert(`${med.name}: Intervalo deve ser pelo menos 1 dia.`, 'warning');
+                hasErrors = true;
+            }
+            
+            if (!nextDate) {
+                showAlert(`${med.name}: Data da próxima liberação é obrigatória.`, 'warning');
+                hasErrors = true;
+            }
+            
+            const selectedDate = new Date(nextDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (selectedDate <= today) {
+                showAlert(`${med.name}: Data da próxima liberação deve ser futura.`, 'warning');
+                hasErrors = true;
+            }
+        });
+        
+        return !hasErrors;
+    }
+    
+    // ✅ COLETAR DADOS FINAIS
+    function collectMedicationData() {
+        return selectedMedicationsData.map((med, index) => ({
+            medication_id: med.id,
+            quantity: med.quantity,
+            observations: $(`.medication-observations[data-index="${index}"]`).val(),
+            interval_control: {
+                enabled: true,
+                interval_days: parseInt($(`.interval-days[data-index="${index}"]`).val()),
+                next_allowed_date: $(`.next-date[data-index="${index}"]`).val(),
+                justification: $(`.interval-justification[data-index="${index}"]`).val() || 
+                             `Controle padrão - categoria: ${$(`.interval-category[data-index="${index}"]`).val()}`,
+                category: $(`.interval-category[data-index="${index}"]`).val()
+            }
+        }));
+    }
+    
+    // ✅ PROCESSAR DISPENSAÇÃO
+    function processDispensation(dispensationData, forceRelease = false, forceJustification = '') {
+        const $btn = $('#confirmDispensation');
+        const originalText = $btn.html();
+        
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Processando...');
+        
+        // Adicionar parâmetros de força se necessário
+        if (forceRelease) {
+            dispensationData.force_release = true;
+            dispensationData.force_justification = forceJustification;
+        }
+        
+        $.ajax({
+            url: '/dispensation/create',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(dispensationData),
+            success: function(response) {
+                if (response.success) {
+                    showAlert(response.message, 'success');
+                    
+                    // ✅ USAR URL DE REDIRECIONAMENTO DO BACKEND
+                    setTimeout(() => {
+                        window.location.href = response.redirect_url || '/dispensation';
+                    }, 2000);
+                } else {
+                    showAlert('Erro na dispensação: ' + response.error, 'error');
+                }
+            },
+            error: function(xhr) {
+                const response = xhr.responseJSON;
+                
+                if (response && response.blocked_medications) {
+                    // Medicamentos bloqueados
+                    $('#configurationModal').modal('hide');
+                    showBlockedMedicationsModal(response.blocked_medications, dispensationData);
+                } else {
+                    showAlert('Erro interno do servidor', 'error');
+                }
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(originalText);
+            }
+        });
+    }
+    
+    // ✅ MODAL DE MEDICAMENTOS BLOQUEADOS
+    function showBlockedMedicationsModal(blockedMedications, originalData) {
+        blockedMedicationsData = blockedMedications;
+        
+        let html = '';
+        let hasConfigurationNeeded = false;
+        let hasCarencyBlocked = false;
+        
+        blockedMedications.forEach(med => {
+            if (med.requires_configuration) {
+                hasConfigurationNeeded = true;
+                html += `
+                    <div class="alert alert-danger border-start border-danger border-3">
+                        <div class="row align-items-center">
+                            <div class="col-8">
+                                <h6 class="mb-1">${med.name}</h6>
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    Controle de intervalo obrigatório não configurado
+                                </small>
+                                ${med.is_first_dispensation ? '<br><small class="text-muted">Primeira dispensação - configure o intervalo</small>' : ''}
+                            </div>
+                            <div class="col-4 text-end">
+                                <span class="badge bg-danger">Configuração Necessária</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                hasCarencyBlocked = true;
+                html += `
+                    <div class="alert alert-warning border-start border-warning border-3">
+                        <div class="row align-items-center">
+                            <div class="col-8">
+                                <h6 class="mb-1">${med.name}</h6>
+                                <small class="text-muted">Em carência - aguarde ${med.days_remaining} dias</small>
+                                <br><small class="text-info">Intervalo configurado: ${med.interval_days || 'N/A'} dias</small>
+                                ${med.last_dispensation ? `<br><small class="text-muted">Última: ${med.last_dispensation}</small>` : ''}
+                            </div>
+                            <div class="col-4 text-end">
+                                <small class="text-muted">Próxima liberação:</small><br>
+                                <span class="badge bg-warning text-dark">${med.next_date}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        $('#blockedMedicationsList').html(html);
+        $('#forceReleaseJustification').val('');
+        $('#forceReleaseError').addClass('d-none');
+        
+        // Configurar botões baseado no tipo de bloqueio
+        if (hasConfigurationNeeded) {
+            $('#forceReleaseSection').hide();
+            $('#configureIntervalsBtn').show();
+            $('#authorizeForceRelease').hide();
+        } else if (hasCarencyBlocked) {
+            $('#forceReleaseSection').show();
+            $('#configureIntervalsBtn').hide();
+            $('#authorizeForceRelease').show();
+        }
+        
+        // Armazenar dados para processamento posterior
+        $('#blockedMedicationsModal').data('originalData', originalData);
+        
+        $('#blockedMedicationsModal').modal('show');
+    }
+    
+    // ✅ VOLTAR PARA CONFIGURAÇÃO
+    $('#configureIntervalsBtn').on('click', function() {
+        $('#blockedMedicationsModal').modal('hide');
+        $('#configurationModal').modal('show');
+    });
+    
+    // ✅ AUTORIZAR LIBERAÇÃO ANTECIPADA
+    $('#authorizeForceRelease').on('click', function() {
+        const justification = $('#forceReleaseJustification').val().trim();
+        const errorDiv = $('#forceReleaseError');
+        
+        if (!justification || justification.length < 10) {
+            errorDiv.text('Justificativa deve ter pelo menos 10 caracteres').removeClass('d-none');
+            return;
+        }
+        
+        errorDiv.addClass('d-none');
+        
+        const originalData = $('#blockedMedicationsModal').data('originalData');
+        
+        $('#blockedMedicationsModal').modal('hide');
+        processDispensation(originalData, true, justification);
+    });
+    
+    // ✅ FUNÇÕES DE ESTADO DA INTERFACE
+    function showInitialState() {
+        $('#searchResults > div').hide();
+        $('#initialState').show();
+    }
+    
+    function showLoading() {
+        $('#searchResults > div').hide();
+        $('#searchLoading').show();
+    }
+    
+    function showNoResults() {
+        $('#searchResults > div').hide();
+        $('#noResults').show();
+    }
+    
+    function showResults() {
+        $('#searchResults > div').hide();
+        $('#resultsTable').show();
+    }
+    
+    function showError(message) {
+        $('#searchResults').html(`
+            <div class="text-center py-5">
+                <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
+                <h6 class="text-danger">${message}</h6>
+            </div>
+        `);
+    }
+    
+    // ✅ FUNÇÃO PARA ALERTAS
     function showAlert(message, type = 'info') {
         const alertClass = {
             'success': 'alert-success',
             'warning': 'alert-warning', 
             'danger': 'alert-danger',
+            'error': 'alert-danger',
             'info': 'alert-info'
         }[type] || 'alert-info';
         
         const alert = $(`
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         `);
         
-        $('.container-fluid').prepend(alert);
+        $('body').append(alert);
         
         setTimeout(() => {
-            alert.fadeOut();
-        }, 5000);
+            alert.fadeOut(() => alert.remove());
+        }, 6000);
     }
     
-    // CSRF Token
+    // ✅ CSRF TOKEN
     $.ajaxSetup({
         beforeSend: function(xhr, settings) {
             if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {

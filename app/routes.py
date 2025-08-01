@@ -1080,12 +1080,14 @@ def dispensation_confirm_page():
 @main.route('/dispensation/create', methods=['POST'])
 @staff_required
 def dispensation_create():
-    """Processar dispensação"""
+    """Processar dispensação com controle de intervalos UNIVERSAL"""
     data = request.get_json()
     
     patient_id = data.get('patient_id')
     medications = data.get('medications', [])
     general_observations = data.get('general_observations', '')
+    force_release = data.get('force_release', False)
+    force_justification = data.get('force_justification', '')
     
     if not patient_id or not medications:
         return jsonify({'error': 'Dados incompletos'}), 400
@@ -1095,7 +1097,74 @@ def dispensation_create():
         return jsonify({'error': 'Paciente não encontrado'}), 404
     
     try:
-        # Criar dispensação
+        # ✅ VERIFICAR INTERVALOS PARA TODOS OS MEDICAMENTOS - LÓGICA UNIVERSAL
+        blocked_medications = []
+        
+        for med_data in medications:
+            medication = Medication.query.get(med_data['medication_id'])
+            
+            if medication:
+                # ✅ BUSCAR CONTROLE EXISTENTE PARA QUALQUER MEDICAMENTO
+                existing_control = DispensationControl.query.filter_by(
+                    patient_id=patient_id,
+                    medication_id=medication.id,
+                    is_active=True
+                ).first()
+                
+                if existing_control:
+                    # ✅ MEDICAMENTO JÁ TEM CONTROLE - VERIFICAR SE PODE DISPENSAR
+                    if not existing_control.can_dispense_today:
+                        days_remaining = existing_control.days_until_next_allowed
+                        
+                        blocked_medications.append({
+                            'medication_id': medication.id,
+                            'name': medication.commercial_name,
+                            'days_remaining': days_remaining,
+                            'next_date': existing_control.next_allowed_date.strftime('%d/%m/%Y'),
+                            'control_id': existing_control.id,
+                            'reason': 'Em período de carência',
+                            'interval_days': existing_control.interval_days_used,
+                            'last_dispensation': existing_control.last_dispensation_date.strftime('%d/%m/%Y') if existing_control.last_dispensation_date else None,
+                            'can_force_release': True  # ✅ PERMITE LIBERAÇÃO ANTECIPADA
+                        })
+                else:
+                    # ✅ PRIMEIRA DISPENSAÇÃO - VERIFICAR SE HÁ DADOS DE CONTROLE
+                    interval_control_data = med_data.get('interval_control')
+                    
+                    if not interval_control_data or not interval_control_data.get('enabled'):
+                        # ✅ BLOQUEAR: TODO MEDICAMENTO PRECISA DE CONTROLE NA PRIMEIRA DISPENSAÇÃO
+                        blocked_medications.append({
+                            'medication_id': medication.id,
+                            'name': medication.commercial_name,
+                            'days_remaining': 0,
+                            'next_date': 'Não configurado',
+                            'control_id': None,
+                            'reason': 'Controle de intervalo obrigatório não configurado',
+                            'requires_configuration': True,
+                            'is_first_dispensation': True,
+                            'can_force_release': False  # ✅ NÃO PERMITE LIBERAÇÃO SEM CONFIGURAÇÃO
+                        })
+        
+        # ✅ SE TEM MEDICAMENTOS BLOQUEADOS E NÃO É LIBERAÇÃO FORÇADA
+        if blocked_medications and not force_release:
+            return jsonify({
+                'error': 'Medicamentos bloqueados para dispensação',
+                'blocked_medications': blocked_medications,
+                'requires_authorization': any(med.get('can_force_release', False) for med in blocked_medications),
+                'requires_configuration': any(med.get('requires_configuration', False) for med in blocked_medications)
+            }), 400
+        
+        # ✅ SE É LIBERAÇÃO FORÇADA, VERIFICAR SE TODOS PODEM SER LIBERADOS
+        if force_release:
+            cannot_force = [med for med in blocked_medications if not med.get('can_force_release', False)]
+            if cannot_force:
+                return jsonify({
+                    'error': 'Alguns medicamentos não podem ser liberados antecipadamente',
+                    'blocked_medications': cannot_force,
+                    'requires_configuration': True
+                }), 400
+        
+        # ✅ CRIAR DISPENSAÇÃO
         dispensation = Dispensation(
             patient_id=patient_id,
             dispenser_id=current_user.id,
@@ -1106,12 +1175,15 @@ def dispensation_create():
         db.session.flush()  # Para obter o ID
         
         total_cost = Decimal('0.00')
+        interval_controls_created = 0
+        early_releases_count = 0
         
-        # Processar cada medicamento
+        # ✅ PROCESSAR CADA MEDICAMENTO
         for med_data in medications:
             medication = Medication.query.get(med_data['medication_id'])
             quantity = int(med_data['quantity'])
             med_observations = med_data.get('observations', '')
+            interval_control_data = med_data.get('interval_control')
             
             if not medication:
                 raise ValueError(f"Medicamento {med_data['medication_id']} não encontrado")
@@ -1119,12 +1191,12 @@ def dispensation_create():
             if medication.current_stock < quantity:
                 raise ValueError(f"Estoque insuficiente para {medication.commercial_name}")
             
-            # Calcular custo
+            # ✅ CALCULAR CUSTO
             unit_cost = medication.unit_cost or Decimal('0.00')
             item_cost = unit_cost * quantity
             total_cost += item_cost
             
-            # Criar item da dispensação
+            # ✅ CRIAR ITEM DA DISPENSAÇÃO PRIMEIRO (OBRIGATÓRIO PARA O CONTROLE)
             dispensation_item = DispensationItem(
                 dispensation_id=dispensation.id,
                 medication_id=medication.id,
@@ -1134,12 +1206,86 @@ def dispensation_create():
                 observations=med_observations
             )
             db.session.add(dispensation_item)
+            db.session.flush()  # ✅ IMPORTANTE: Obter ID do item para o controle
             
-            # Atualizar estoque
+            # ✅ PROCESSAR CONTROLE DE INTERVALO (OBRIGATÓRIO PARA TODOS)
+            existing_control = DispensationControl.query.filter_by(
+                patient_id=patient_id,
+                medication_id=medication.id,
+                is_active=True
+            ).first()
+            
+            if existing_control:
+                # ✅ ATUALIZAR CONTROLE EXISTENTE
+                if force_release and existing_control.id in [bc.get('control_id') for bc in blocked_medications if bc.get('control_id')]:
+                    # Criar log de liberação antecipada
+                    early_release = EarlyReleaseLog(
+                        dispensation_control_id=existing_control.id,
+                        authorized_by=current_user.id,
+                        justification=force_justification,
+                        days_early=existing_control.days_until_next_allowed,
+                        original_date=existing_control.next_allowed_date,
+                        released_date=date.today()
+                    )
+                    db.session.add(early_release)
+                    early_releases_count += 1
+                
+                # Atualizar controle (usar intervalo configurado ou manter o atual)
+                if interval_control_data and interval_control_data.get('enabled'):
+                    interval_days = interval_control_data['interval_days']
+                    next_date = datetime.strptime(interval_control_data['next_allowed_date'], '%Y-%m-%d').date()
+                    existing_control.interval_days_used = interval_days
+                else:
+                    interval_days = existing_control.interval_days_used
+                    next_date = date.today() + timedelta(days=interval_days)
+                
+                existing_control.last_dispensation_date = date.today()
+                existing_control.next_allowed_date = next_date
+                existing_control.was_released_early = force_release
+                
+            else:
+                # ✅ CRIAR NOVO CONTROLE (OBRIGATÓRIO PARA TODOS)
+                if interval_control_data and interval_control_data.get('enabled'):
+                    interval_days = interval_control_data['interval_days']
+                    next_date = datetime.strptime(interval_control_data['next_allowed_date'], '%Y-%m-%d').date()
+                    justification = interval_control_data.get('justification', '')
+                else:
+                    # ✅ USAR VALORES PADRÃO BASEADOS NO TIPO DO MEDICAMENTO
+                    if hasattr(medication, 'medication_type') and medication.medication_type:
+                        if medication.medication_type.value in ['controlled', 'psychotropic']:
+                            interval_days = 30  # Controlados: 30 dias
+                        elif medication.medication_type.value == 'high_cost':
+                            interval_days = 90  # Alto custo: 90 dias
+                        else:
+                            interval_days = 30  # Padrão: 30 dias
+                    else:
+                        interval_days = 30  # Padrão geral
+                    
+                    next_date = date.today() + timedelta(days=interval_days)
+                    justification = f'Controle automático - medicamento {medication.medication_type.value if hasattr(medication, "medication_type") else "padrão"}'
+                
+                # ✅ CRIAR CONTROLE COM OS CAMPOS CORRETOS DO MODELO
+                new_control = DispensationControl(
+                    patient_id=patient_id,
+                    medication_id=medication.id,
+                    dispensation_item_id=dispensation_item.id,  # ✅ CAMPO OBRIGATÓRIO
+                    last_dispensation_date=date.today(),
+                    next_allowed_date=next_date,
+                    interval_days_used=interval_days,
+                    is_active=True,
+                    was_released_early=force_release
+                    # ✅ created_at será preenchido automaticamente
+                    # ✅ NÃO TEM created_by no modelo
+                )
+                
+                db.session.add(new_control)
+                interval_controls_created += 1
+            
+            # ✅ ATUALIZAR ESTOQUE
             old_stock = medication.current_stock
             medication.current_stock -= quantity
             
-            # Registrar movimento de estoque
+            # ✅ REGISTRAR MOVIMENTO DE ESTOQUE
             movement = InventoryMovement(
                 medication_id=medication.id,
                 user_id=current_user.id,
@@ -1153,28 +1299,959 @@ def dispensation_create():
             )
             db.session.add(movement)
         
-        # Atualizar custo total
+        # ✅ ATUALIZAR CUSTO TOTAL
         dispensation.total_cost = total_cost
         
         db.session.commit()
         
-        # Log da ação
+        # ✅ LOG DA AÇÃO
         log_action('CREATE', 'dispensations', dispensation.id, new_values={
             'patient_id': patient_id,
             'total_cost': float(total_cost),
-            'items_count': len(medications)
+            'items_count': len(medications),
+            'interval_controls_created': interval_controls_created,
+            'early_releases': early_releases_count,
+            'force_release': force_release,
+            'universal_control': True  # ✅ MARCAR COMO CONTROLE UNIVERSAL
         })
+        
+        # ✅ MENSAGEM DE SUCESSO
+        message = 'Dispensação realizada com sucesso!'
+        if interval_controls_created > 0:
+            message += f' {interval_controls_created} controle(s) de intervalo criado(s).'
+        if early_releases_count > 0:
+            message += f' {early_releases_count} liberação(ões) antecipada(s) autorizada(s).'
         
         return jsonify({
             'success': True,
             'dispensation_id': dispensation.id,
-            'message': 'Dispensação realizada com sucesso!'
+            'message': message,
+            'interval_controls_created': interval_controls_created,
+            'early_releases': early_releases_count,
+            'universal_control_applied': True,
+            'redirect_url': url_for('main.dispensation_index')  # ✅ URL CORRETA PARA REDIRECIONAMENTO
         })
         
     except Exception as e:
         db.session.rollback()
+        current_app.logger.error(f"Erro na dispensação universal: {e}")
         return jsonify({'error': str(e)}), 500
     
+@main.route('/api/patients/<int:patient_id>/medication-controls', methods=['GET'])
+@staff_required
+def api_patient_medication_controls(patient_id):
+    """API para obter controles de medicamentos do paciente"""
+    try:
+        patient = Patient.query.get_or_404(patient_id)
+        
+        # Obter controles ativos
+        controls = patient.get_active_medication_controls()
+        
+        # Converter para dicionários serializáveis
+        controls_data = []
+        for control in controls:
+            controls_data.append({
+                'id': control.id,
+                'medication_name': control.medication.commercial_name if control.medication else 'N/A',
+                'last_dispensation_date': control.last_dispensation_date.strftime('%d/%m/%Y') if control.last_dispensation_date else 'N/A',
+                'next_allowed_date': control.next_allowed_date.strftime('%d/%m/%Y') if control.next_allowed_date else 'N/A',
+                'interval_days': control.interval_days_used,
+                'days_until_next_allowed': control.days_until_next_allowed,
+                'can_dispense_today': control.can_dispense_today,
+                'status_display': control.status_display
+            })
+        
+        return jsonify({
+            'success': True,
+            'controls': controls_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro ao obter controles do paciente {patient_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Erro interno do servidor'
+        }), 500
+
+@main.route('/dispensation/details', methods=['POST'])
+@staff_required
+def dispensation_details():
+    """API para buscar detalhes de uma dispensação"""
+    
+    dispensation_id = request.form.get('dispensation_id')
+    
+    if not dispensation_id:
+        return jsonify({'success': False, 'message': 'ID da dispensação não fornecido'})
+    
+    try:
+        dispensation = Dispensation.query.options(
+            joinedload(Dispensation.patient),
+            joinedload(Dispensation.dispenser),
+            joinedload(Dispensation.items).joinedload(DispensationItem.medication)
+        ).get_or_404(dispensation_id)
+        
+        # Verificar permissões
+        if current_user.role == UserRole.ATTENDANT and dispensation.dispenser_id != current_user.id:
+            return jsonify({'success': False, 'message': 'Sem permissão para ver esta dispensação'})
+        
+        dispensation_data = {
+            'id': dispensation.id,
+            'formatted_date': dispensation.dispensation_date.strftime('%d/%m/%Y %H:%M'),
+            'dispenser_name': dispensation.dispenser.full_name,
+            'status': dispensation.status.value,
+            'status_text': dispensation.status.value.title(),
+            'observations': dispensation.observations,
+            'total_cost': f"{dispensation.total_cost:.2f}".replace('.', ',') if dispensation.total_cost else '0,00',
+            'items': []
+        }
+        
+        for item in dispensation.items:
+            item_data = {
+                'medication_name': item.medication.commercial_name,
+                'dosage': item.medication.dosage,
+                'quantity': item.quantity_dispensed,
+                'observations': item.observations,
+                'cost': f"{item.total_cost:.2f}".replace('.', ',') if item.total_cost else None
+            }
+            dispensation_data['items'].append(item_data)
+        
+        return jsonify({'success': True, 'dispensation': dispensation_data})
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro ao buscar dispensação {dispensation_id}: {str(e)}")
+        return jsonify({'success': False, 'message': 'Erro interno do servidor'})    
+
+
+# =================== RELATÓRIOS DO PACIENTE ===================
+
+@main.route('/patients/<int:patient_id>/report')
+@staff_required
+def patient_report(patient_id):
+    """✅ RELATÓRIO ESPECÍFICO DO PACIENTE"""
+    patient = Patient.query.get_or_404(patient_id)
+    
+    # Parâmetros de filtro
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    format_type = request.args.get('format', 'html')
+    
+    # Converter datas
+    start_date = None
+    end_date = None
+    
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    # Se não especificado, usar últimos 6 meses
+    if not start_date:
+        start_date = date.today() - timedelta(days=180)
+    if not end_date:
+        end_date = date.today()
+    
+    return generate_patient_report(patient, start_date, end_date, format_type)
+
+@main.route('/patients/<int:patient_id>/report/export')
+@staff_required
+def patient_report_export(patient_id):
+    """✅ EXPORTAÇÃO DO RELATÓRIO DO PACIENTE"""
+    format_type = request.args.get('format', 'pdf')
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
+    # Converter datas
+    start_date = None
+    end_date = None
+    
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    # Se não especificado, usar últimos 6 meses
+    if not start_date:
+        start_date = date.today() - timedelta(days=180)
+    if not end_date:
+        end_date = date.today()
+    
+    patient = Patient.query.get_or_404(patient_id)
+    return generate_patient_report(patient, start_date, end_date, format_type)
+
+def generate_patient_report(patient, start_date, end_date, format_type):
+    """✅ GERAR RELATÓRIO ESPECÍFICO DO PACIENTE"""
+    
+    # Buscar dispensações do paciente no período
+    dispensations_query = Dispensation.query.filter(
+        and_(
+            Dispensation.patient_id == patient.id,
+            Dispensation.dispensation_date >= start_date,
+            Dispensation.dispensation_date <= end_date
+        )
+    ).options(
+        joinedload(Dispensation.items).joinedload(DispensationItem.medication),
+        joinedload(Dispensation.dispenser)
+    ).order_by(desc(Dispensation.dispensation_date))
+    
+    dispensations = dispensations_query.all()
+    
+    # Buscar processos alto custo no período (se existir a tabela)
+    high_cost_processes = []
+    try:
+        from app.models import HighCostProcess
+        high_cost_query = HighCostProcess.query.filter(
+            and_(
+                HighCostProcess.patient_id == patient.id,
+                HighCostProcess.request_date >= start_date,
+                HighCostProcess.request_date <= end_date
+            )
+        ).options(
+            joinedload(HighCostProcess.medication)
+        ).order_by(desc(HighCostProcess.request_date))
+        
+        high_cost_processes = high_cost_query.all()
+    except:
+        # Tabela não existe ainda
+        pass
+    
+    # Calcular estatísticas
+    total_dispensations = len(dispensations)
+    total_high_cost = len(high_cost_processes)
+    
+    # Medicamentos únicos
+    unique_medications = set()
+    total_cost = 0
+    total_quantity = 0
+    
+    # Timeline de eventos
+    timeline_events = []
+    
+    # Adicionar dispensações à timeline
+    for dispensation in dispensations:
+        for item in dispensation.items:
+            unique_medications.add(item.medication_id)
+            total_quantity += item.quantity_dispensed
+            total_cost += item.total_cost or 0
+            
+            timeline_events.append({
+                'date': dispensation.dispensation_date,
+                'type': 'dispensation',
+                'description': f"Dispensação: {item.medication.commercial_name}",
+                'details': f"{item.quantity_dispensed} unidades",
+                'cost': item.total_cost or 0,
+                'pharmacist': dispensation.dispenser.full_name,
+                'status': dispensation.status.value
+            })
+    
+    # Adicionar processos alto custo à timeline
+    for process in high_cost_processes:
+        timeline_events.append({
+            'date': process.request_date,
+            'type': 'high_cost',
+            'description': f"Alto Custo: {process.medication.commercial_name}",
+            'details': f"Protocolo {process.protocol_number} - {process.status.value.title()}",
+            'cost': 0,
+            'pharmacist': 'Sistema',
+            'status': process.status.value
+        })
+    
+    # Ordenar timeline por data
+    timeline_events.sort(key=lambda x: x['date'], reverse=True)
+    
+    # Estatísticas do período
+    stats = {
+        'total_dispensations': total_dispensations,
+        'total_high_cost': total_high_cost,
+        'unique_medications': len(unique_medications),
+        'total_quantity': total_quantity,
+        'total_cost': total_cost,
+        'period_start': start_date,
+        'period_end': end_date,
+        'avg_cost_per_dispensation': total_cost / total_dispensations if total_dispensations > 0 else 0
+    }
+    
+    if format_type == 'html':
+        return render_template('reports/patient_report.html',
+                             patient=patient,
+                             dispensations=dispensations,
+                             high_cost_processes=high_cost_processes,
+                             timeline_events=timeline_events,
+                             stats=stats,
+                             start_date=start_date,
+                             end_date=end_date)
+    elif format_type == 'pdf':
+        return generate_patient_report_pdf(patient, dispensations, high_cost_processes, timeline_events, stats, start_date, end_date)
+    elif format_type == 'excel':
+        return generate_patient_report_excel(patient, dispensations, high_cost_processes, timeline_events, stats, start_date, end_date)
+
+def generate_patient_report_pdf(patient, dispensations, high_cost_processes, timeline_events, stats, start_date, end_date):
+    """Gerar PDF do relatório do paciente"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    # Título
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=30,
+        alignment=1
+    )
+    
+    title = Paragraph(f"Relatório do Paciente: {patient.full_name}", title_style)
+    story.append(title)
+    
+    # Período
+    period = Paragraph(f"Período: {format_date(start_date)} a {format_date(end_date)}", styles['Normal'])
+    story.append(period)
+    story.append(Spacer(1, 12))
+    
+    # Dados do paciente
+    patient_data = [
+        ['Dados do Paciente', ''],
+        ['Nome', patient.full_name],
+        ['CPF', format_cpf(patient.cpf)],
+        ['CNS', format_cns(patient.cns) if patient.cns else 'N/A'],
+        ['Idade', f"{patient.age} anos"],
+        ['Telefone', patient.primary_phone or 'N/A']
+    ]
+    
+    patient_table = Table(patient_data)
+    patient_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    story.append(patient_table)
+    story.append(Spacer(1, 12))
+    
+    # Estatísticas do período
+    stats_data = [
+        ['Estatísticas do Período', ''],
+        ['Total de Dispensações', str(stats['total_dispensations'])],
+        ['Processos Alto Custo', str(stats['total_high_cost'])],
+        ['Medicamentos Únicos', str(stats['unique_medications'])],
+        ['Quantidade Total', str(stats['total_quantity'])],
+        ['Custo Total', f"R$ {stats['total_cost']:.2f}"]
+    ]
+    
+    stats_table = Table(stats_data)
+    stats_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgreen),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    story.append(stats_table)
+    story.append(Spacer(1, 12))
+    
+    # Timeline de eventos (últimos 20)
+    if timeline_events:
+        timeline_title = Paragraph("Timeline de Eventos (Últimos 20)", styles['Heading2'])
+        story.append(timeline_title)
+        story.append(Spacer(1, 6))
+        
+        timeline_data = [['Data', 'Tipo', 'Descrição', 'Detalhes']]
+        
+        for event in timeline_events[:20]:
+            timeline_data.append([
+                format_date(event['date']),
+                'Dispensação' if event['type'] == 'dispensation' else 'Alto Custo',
+                event['description'][:40],
+                event['details'][:30]
+            ])
+        
+        timeline_table = Table(timeline_data)
+        timeline_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 8)
+        ]))
+        
+        story.append(timeline_table)
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f'relatorio_paciente_{patient.full_name.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d")}.pdf',
+        mimetype='application/pdf'
+    )
+
+def generate_patient_report_excel(patient, dispensations, high_cost_processes, timeline_events, stats, start_date, end_date):
+    """Gerar Excel do relatório do paciente"""
+    output = BytesIO()
+    
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Aba com dados do paciente
+        patient_data = pd.DataFrame([
+            {'Campo': 'Nome', 'Valor': patient.full_name},
+            {'Campo': 'CPF', 'Valor': format_cpf(patient.cpf)},
+            {'Campo': 'CNS', 'Valor': format_cns(patient.cns) if patient.cns else 'N/A'},
+            {'Campo': 'Idade', 'Valor': f"{patient.age} anos"},
+            {'Campo': 'Telefone', 'Valor': patient.primary_phone or 'N/A'},
+            {'Campo': 'Email', 'Valor': patient.email or 'N/A'},
+            {'Campo': 'Endereço', 'Valor': patient.full_address},
+            {'Campo': 'Período do Relatório', 'Valor': f"{format_date(start_date)} a {format_date(end_date)}"}
+        ])
+        patient_data.to_excel(writer, sheet_name='Dados do Paciente', index=False)
+        
+        # Aba com estatísticas
+        stats_data = pd.DataFrame([
+            {'Indicador': 'Total de Dispensações', 'Valor': stats['total_dispensations']},
+            {'Indicador': 'Processos Alto Custo', 'Valor': stats['total_high_cost']},
+            {'Indicador': 'Medicamentos Únicos', 'Valor': stats['unique_medications']},
+            {'Indicador': 'Quantidade Total Dispensada', 'Valor': stats['total_quantity']},
+            {'Indicador': 'Custo Total', 'Valor': f"R$ {stats['total_cost']:.2f}"},
+            {'Indicador': 'Custo Médio por Dispensação', 'Valor': f"R$ {stats['avg_cost_per_dispensation']:.2f}"}
+        ])
+        stats_data.to_excel(writer, sheet_name='Estatísticas', index=False)
+        
+        # Aba com dispensações
+        if dispensations:
+            dispensations_data = []
+            for dispensation in dispensations:
+                for item in dispensation.items:
+                    dispensations_data.append({
+                        'Data': dispensation.dispensation_date.strftime('%d/%m/%Y'),
+                        'Medicamento': item.medication.commercial_name,
+                        'Dosagem': item.medication.dosage,
+                        'Quantidade': item.quantity_dispensed,
+                        'Custo': f"R$ {item.total_cost:.2f}" if item.total_cost else "R$ 0,00",
+                        'Lote': item.batch_number or '',
+                        'Validade': item.expiry_date.strftime('%d/%m/%Y') if item.expiry_date else '',
+                        'Farmacêutico': dispensation.dispenser.full_name,
+                        'Status': dispensation.status.value.title(),
+                        'Observações': item.observations or dispensation.observations or ''
+                    })
+            
+            dispensations_df = pd.DataFrame(dispensations_data)
+            dispensations_df.to_excel(writer, sheet_name='Dispensações', index=False)
+        
+        # Aba com processos alto custo
+        if high_cost_processes:
+            high_cost_data = []
+            for process in high_cost_processes:
+                high_cost_data.append({
+                    'Data Solicitação': process.request_date.strftime('%d/%m/%Y'),
+                    'Protocolo': process.protocol_number,
+                    'Medicamento': process.medication.commercial_name,
+                    'Status': process.status.value.title(),
+                    'CID-10': process.cid10,
+                    'Médico': process.doctor_name,
+                    'Quantidade Solicitada': process.requested_quantity
+                })
+            
+            high_cost_df = pd.DataFrame(high_cost_data)
+            high_cost_df.to_excel(writer, sheet_name='Alto Custo', index=False)
+        
+        # Aba com timeline
+        if timeline_events:
+            timeline_data = []
+            for event in timeline_events:
+                timeline_data.append({
+                    'Data': event['date'].strftime('%d/%m/%Y'),
+                    'Tipo': 'Dispensação' if event['type'] == 'dispensation' else 'Alto Custo',
+                    'Descrição': event['description'],
+                    'Detalhes': event['details'],
+                    'Custo': f"R$ {event['cost']:.2f}" if event['cost'] > 0 else '',
+                    'Responsável': event['pharmacist'],
+                    'Status': event['status'].title()
+                })
+            
+            timeline_df = pd.DataFrame(timeline_data)
+            timeline_df.to_excel(writer, sheet_name='Timeline', index=False)
+        
+        # Ajustar larguras
+        for sheet_name in writer.sheets:
+            worksheet = writer.sheets[sheet_name]
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+    
+    output.seek(0)
+    
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f'relatorio_paciente_{patient.full_name.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d")}.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+@main.route('/api/patients/<int:patient_id>/medication-intervals')
+@staff_required
+def api_patient_medication_intervals(patient_id):
+    """✅ API para histórico de intervalos e dispensações do paciente"""
+    try:
+        medication_id = request.args.get('medication_id', type=int)
+        
+        # Buscar dispensações do paciente
+        dispensations_query = Dispensation.query.filter_by(patient_id=patient_id).options(
+            joinedload(Dispensation.items).joinedload(DispensationItem.medication),
+            joinedload(Dispensation.dispenser)
+        ).order_by(desc(Dispensation.dispensation_date))
+        
+        # Filtrar por medicamento se especificado
+        if medication_id:
+            dispensations_query = dispensations_query.join(DispensationItem).filter(
+                DispensationItem.medication_id == medication_id
+            )
+        
+        dispensations = dispensations_query.limit(10).all()
+        
+        # Buscar controles ativos
+        from app.models import DispensationControl
+        controls_query = DispensationControl.query.filter_by(
+            patient_id=patient_id,
+            is_active=True
+        ).options(joinedload(DispensationControl.medication))
+        
+        if medication_id:
+            controls_query = controls_query.filter_by(medication_id=medication_id)
+            
+        active_controls = controls_query.all()
+        
+        # Formatar dados de dispensações
+        dispensations_data = []
+        for disp in dispensations:
+            for item in disp.items:
+                if not medication_id or item.medication_id == medication_id:
+                    dispensations_data.append({
+                        'date': disp.dispensation_date.strftime('%d/%m/%Y'),
+                        'quantity': item.quantity_dispensed,
+                        'dispenser': disp.dispenser.full_name,
+                        'observations': item.observations or disp.observations
+                    })
+        
+        # Formatar dados de medicamentos com controle
+        medications_data = []
+        for control in active_controls:
+            medications_data.append({
+                'name': control.medication.commercial_name,
+                'dosage': control.medication.dosage,
+                'has_active_control': True,
+                'can_dispense': control.can_dispense_today,
+                'last_dispensation': control.last_dispensation_date.strftime('%d/%m/%Y') if control.last_dispensation_date else None,
+                'next_allowed_date': control.next_allowed_date.strftime('%d/%m/%Y') if control.next_allowed_date else None,
+                'days_remaining': (control.next_allowed_date - date.today()).days if control.next_allowed_date and control.next_allowed_date > date.today() else 0
+            })
+        
+        return jsonify({
+            'success': True,
+            'dispensations': dispensations_data,
+            'medications': medications_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro ao buscar intervalos do paciente: {e}")
+        return jsonify({
+            'success': False,
+            'dispensations': [],
+            'medications': []
+        })
+
+@main.route('/api/dispensation/interval-status/<int:patient_id>/<int:medication_id>')
+@staff_required
+def api_interval_status(patient_id, medication_id):
+    """✅ API específica para status de intervalo (usado pelo template)"""
+    try:
+        patient = Patient.query.get_or_404(patient_id)
+        medication = Medication.query.get_or_404(medication_id)
+        
+        # Verificar se há controle ativo
+        has_control = medication.has_interval_control
+        can_dispense = True
+        control_id = None
+        last_dispensation = None
+        next_allowed_date = None
+        days_remaining = 0
+        interval_days = 0
+        
+        if has_control:
+            can_dispense = medication.can_dispense_to_patient(patient_id)
+            next_allowed_date = medication.get_next_allowed_date_for_patient(patient_id)
+            
+            if not can_dispense and next_allowed_date:
+                days_remaining = (next_allowed_date - date.today()).days
+                
+            # Buscar último controle para detalhes
+            from app.models import DispensationControl
+            last_control = DispensationControl.query.filter_by(
+                patient_id=patient_id,
+                medication_id=medication_id,
+                is_active=True
+            ).order_by(desc(DispensationControl.last_dispensation_date)).first()
+            
+            if last_control:
+                control_id = last_control.id
+                last_dispensation = last_control.last_dispensation_date.isoformat()
+                interval_days = last_control.interval_days
+        
+        return jsonify({
+            'success': True,
+            'has_control': has_control,
+            'can_dispense': can_dispense,
+            'control_id': control_id,
+            'last_dispensation': last_dispensation,
+            'next_allowed_date': next_allowed_date.isoformat() if next_allowed_date else None,
+            'days_remaining': days_remaining,
+            'interval_days': interval_days
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro na verificação de intervalo: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main.route('/inventory/<int:medication_id>/interval-config', methods=['GET', 'POST'])
+@pharmacist_required
+def medication_interval_config(medication_id):
+    """Configurar intervalo de dispensação para medicamento"""
+    medication = Medication.query.get_or_404(medication_id)
+    
+    if request.method == 'POST':
+        try:
+            interval_days = request.form.get('interval_days', type=int)
+            interval_type = request.form.get('interval_type', 'predefined')
+            is_active = request.form.get('is_active') == 'on'
+            requires_justification = request.form.get('requires_justification') == 'on'
+            
+            if not interval_days or interval_days < 1:
+                flash('Intervalo deve ser pelo menos 1 dia.', 'error')
+                return redirect(request.url)
+            
+            # Buscar ou criar configuração
+            from app.models import MedicationInterval
+            interval_config = medication.interval_control
+            if not interval_config:
+                interval_config = MedicationInterval(
+                    medication_id=medication_id,
+                    created_by=current_user.id
+                )
+                db.session.add(interval_config)
+            
+            # Atualizar configuração
+            interval_config.interval_days = interval_days
+            interval_config.interval_type = interval_type
+            interval_config.is_active = is_active
+            interval_config.requires_justification = requires_justification
+            interval_config.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            log_action('UPDATE', 'medication_intervals', interval_config.id, new_values={
+                'medication_id': medication_id,
+                'interval_days': interval_days,
+                'is_active': is_active
+            })
+            
+            status_text = 'ativado' if is_active else 'desativado'
+            flash(f'Controle de intervalo {status_text} para {medication.commercial_name} - {interval_days} dias.', 'success')
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao configurar intervalo: {str(e)}', 'error')
+        
+        return redirect(url_for('main.medication_view', id=medication_id))
+    
+    # GET - exibir formulário
+    return render_template('inventory/interval_config.html', medication=medication)
+
+@main.route('/dispensation/check-interval', methods=['POST'])
+@staff_required
+def dispensation_check_interval():
+    """API para verificar se medicamento pode ser dispensado"""
+    try:
+        patient_id = request.form.get('patient_id', type=int)
+        medication_id = request.form.get('medication_id', type=int)
+        
+        if not patient_id or not medication_id:
+            return jsonify({'error': 'Parâmetros inválidos'}), 400
+        
+        patient = Patient.query.get(patient_id)
+        medication = Medication.query.get(medication_id)
+        
+        if not patient or not medication:
+            return jsonify({'error': 'Paciente ou medicamento não encontrado'}), 404
+        
+        # Verificar se pode dispensar
+        can_dispense = medication.can_dispense_to_patient(patient_id)
+        next_allowed_date = medication.get_next_allowed_date_for_patient(patient_id)
+        
+        if can_dispense:
+            return jsonify({
+                'can_dispense': True,
+                'message': 'Dispensação liberada',
+                'next_date': None
+            })
+        else:
+            # Buscar último controle para detalhes
+            from app.models import DispensationControl
+            last_control = DispensationControl.query.filter_by(
+                patient_id=patient_id,
+                medication_id=medication_id,
+                is_active=True
+            ).order_by(desc(DispensationControl.last_dispensation_date)).first()
+            
+            days_remaining = (next_allowed_date - date.today()).days
+            
+            return jsonify({
+                'can_dispense': False,
+                'blocked': True,
+                'message': f'Aguarde {days_remaining} dias para nova dispensação',
+                'days_remaining': days_remaining,
+                'last_dispensation': last_control.last_dispensation_date.strftime('%d/%m/%Y') if last_control else None,
+                'next_allowed_date': next_allowed_date.strftime('%d/%m/%Y'),
+                'interval_days': medication.interval_days,
+                'medication_name': medication.commercial_name,
+                'patient_name': patient.full_name,
+                'control_id': last_control.id if last_control else None
+            })
+            
+    except Exception as e:
+        current_app.logger.error(f"Erro na verificação de intervalo: {e}")
+        return jsonify({'error': 'Erro interno do servidor'}), 500
+
+@main.route('/dispensation/early-release', methods=['POST'])
+@pharmacist_required
+def dispensation_early_release():
+    """Liberar dispensação antes do prazo com justificativa"""
+    try:
+        control_id = request.form.get('control_id', type=int)
+        justification = request.form.get('justification', '').strip()
+        
+        if not control_id or not justification:
+            return jsonify({'error': 'Controle ID e justificativa são obrigatórios'}), 400
+        
+        if len(justification) < 10:
+            return jsonify({'error': 'Justificativa deve ter pelo menos 10 caracteres'}), 400
+        
+        # Buscar controle
+        from app.models import DispensationControl, EarlyReleaseLog
+        control = DispensationControl.query.get(control_id)
+        if not control:
+            return jsonify({'error': 'Controle não encontrado'}), 404
+        
+        if control.can_dispense_today:
+            return jsonify({'error': 'Dispensação já está liberada'}), 400
+        
+        # Calcular dias de antecipação
+        days_early = (control.next_allowed_date - date.today()).days
+        
+        # Criar log de liberação antecipada
+        early_release = EarlyReleaseLog(
+            dispensation_control_id=control_id,
+            authorized_by=current_user.id,
+            justification=justification,
+            days_early=days_early,
+            original_date=control.next_allowed_date,
+            released_date=date.today()
+        )
+        
+        # Atualizar controle
+        control.next_allowed_date = date.today()
+        control.was_released_early = True
+        
+        db.session.add(early_release)
+        db.session.commit()
+        
+        log_action('CREATE', 'early_release_logs', early_release.id, new_values={
+            'control_id': control_id,
+            'days_early': days_early,
+            'authorized_by': current_user.id
+        })
+        
+        return jsonify({
+            'success': True,
+            'message': f'Dispensação liberada {days_early} dias antes do prazo',
+            'authorized_by': current_user.full_name,
+            'justification': justification
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Erro na liberação antecipada: {e}")
+        return jsonify({'error': 'Erro interno do servidor'}), 500
+
+@main.route('/dispensation/interval-history/<int:patient_id>')
+@staff_required
+def dispensation_interval_history(patient_id):
+    """Histórico de controles de intervalo do paciente"""
+    patient = Patient.query.get_or_404(patient_id)
+    
+    # Controles ativos
+    from app.models import DispensationControl
+    active_controls = DispensationControl.query.filter_by(
+        patient_id=patient_id,
+        is_active=True
+    ).options(
+        joinedload(DispensationControl.medication),
+        joinedload(DispensationControl.early_releases)
+    ).order_by(DispensationControl.next_allowed_date).all()
+    
+    # Histórico de controles
+    all_controls = DispensationControl.query.filter_by(
+        patient_id=patient_id
+    ).options(
+        joinedload(DispensationControl.medication),
+        joinedload(DispensationControl.early_releases)
+    ).order_by(desc(DispensationControl.last_dispensation_date)).limit(50).all()
+    
+    return render_template('dispensation/interval_history.html',
+                         patient=patient,
+                         active_controls=active_controls,
+                         all_controls=all_controls)
+
+@main.route('/admin/interval-controls')
+@admin_required
+def admin_interval_controls():
+    """Administração de controles de intervalo"""
+    page = request.args.get('page', 1, type=int)
+    
+    # Medicamentos com controle ativo
+    from app.models import MedicationInterval, DispensationControl, EarlyReleaseLog
+    controlled_medications = Medication.query.join(MedicationInterval).filter(
+        MedicationInterval.is_active == True
+    ).order_by(Medication.commercial_name).all()
+    
+    # Controles ativos próximos ao vencimento (próximos 7 dias)
+    upcoming_releases = DispensationControl.query.filter(
+        and_(
+            DispensationControl.is_active == True,
+            DispensationControl.next_allowed_date <= date.today() + timedelta(days=7),
+            DispensationControl.next_allowed_date >= date.today()
+        )
+    ).options(
+        joinedload(DispensationControl.patient),
+        joinedload(DispensationControl.medication)
+    ).order_by(DispensationControl.next_allowed_date).all()
+    
+    # Liberações antecipadas recentes (últimos 30 dias)
+    recent_early_releases = EarlyReleaseLog.query.filter(
+        EarlyReleaseLog.authorized_at >= datetime.now() - timedelta(days=30)
+    ).options(
+        joinedload(EarlyReleaseLog.dispensation_control).joinedload(DispensationControl.patient),
+        joinedload(EarlyReleaseLog.dispensation_control).joinedload(DispensationControl.medication),
+        joinedload(EarlyReleaseLog.authorizer)
+    ).order_by(desc(EarlyReleaseLog.authorized_at)).limit(20).all()
+    
+    return render_template('admin/interval_controls.html',
+                         controlled_medications=controlled_medications,
+                         upcoming_releases=upcoming_releases,
+                         recent_early_releases=recent_early_releases)
+
+# =================== MODIFICAR API DE BUSCA DE MEDICAMENTOS ===================
+
+@main.route('/api/medications/search-with-intervals')
+@staff_required
+def api_medications_search_with_intervals():
+    """API para buscar medicamentos com verificação de intervalos"""
+    term = request.args.get('q', '').strip()
+    patient_id = request.args.get('patient_id', type=int)
+    medication_type = request.args.get('type', '')
+    
+    if len(term) < 3:
+        return jsonify([])
+    
+    # Query base
+    query = Medication.query.filter(
+        and_(
+            Medication.is_active == True,
+            Medication.current_stock > 0,
+            or_(
+                Medication.commercial_name.ilike(f'%{term}%'),
+                Medication.generic_name.ilike(f'%{term}%')
+            )
+        )
+    )
+    
+    # Filtro por tipo se especificado
+    if medication_type:
+        query = query.filter(Medication.medication_type == medication_type)
+    
+    medications = query.limit(20).all()
+    
+    results = []
+    for med in medications:
+        # Dados básicos do medicamento
+        med_data = {
+            'id': med.id,
+            'commercial_name': med.commercial_name,
+            'generic_name': med.generic_name,
+            'dosage': med.dosage,
+            'pharmaceutical_form': med.pharmaceutical_form,
+            'current_stock': med.current_stock,
+            'minimum_stock': med.minimum_stock,
+            'unit_cost': float(med.unit_cost) if med.unit_cost else 0,
+            'requires_prescription': med.requires_prescription,
+            'controlled_substance': med.controlled_substance,
+            'has_interval_control': med.has_interval_control,
+            'interval_days': med.interval_days
+        }
+        
+        # Verificar controle de intervalo se paciente especificado
+        if patient_id and med.has_interval_control:
+            can_dispense = med.can_dispense_to_patient(patient_id)
+            next_date = med.get_next_allowed_date_for_patient(patient_id)
+            
+            med_data.update({
+                'can_dispense': can_dispense,
+                'next_allowed_date': next_date.isoformat() if next_date else None,
+                'days_until_allowed': (next_date - date.today()).days if next_date and next_date > date.today() else 0
+            })
+        else:
+            med_data.update({
+                'can_dispense': True,
+                'next_allowed_date': None,
+                'days_until_allowed': 0
+            })
+        
+        results.append(med_data)
+    
+    return jsonify(results)
+
 # =================== GESTÃO DE MEDICAMENTOS ===================
 
 @main.route('/inventory')

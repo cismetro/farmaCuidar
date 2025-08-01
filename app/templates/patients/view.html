@@ -41,9 +41,9 @@
                     <i class="fas fa-edit me-1"></i>Editar
                 </a>
                 {% endif %}
-                <a href="{{ url_for('main.dispensation_index') }}?patient_id={{ patient.id }}" class="btn btn-success">
+                <button class="btn btn-success" onclick="createDispensation()">
                     <i class="fas fa-pills me-1"></i>Dispensar
-                </a>
+                </button>
                 <a href="{{ url_for('main.patient_history', id=patient.id) }}" class="btn btn-info">
                     <i class="fas fa-history me-1"></i>Histórico
                 </a>
@@ -319,7 +319,7 @@
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
                                     <div class="fs-6 fw-bold">Alto Custo</div>
-                                    <div class="fs-4 fw-bold">{{ patient.high_cost_processes|length }}</div>
+                                    <div class="fs-4 fw-bold">{{ patient.high_cost_processes|length if patient.high_cost_processes else 0 }}</div>
                                 </div>
                                 <i class="fas fa-star fa-2x opacity-75"></i>
                             </div>
@@ -348,7 +348,7 @@
                 </div>
             </div>
 
-            <!-- Ações Rápidas -->
+            <!-- ✅ AÇÕES RÁPIDAS - CORRIGIDAS -->
             <div class="card mb-4">
                 <div class="card-header">
                     <h6 class="card-title mb-0">
@@ -358,17 +358,17 @@
                 <div class="card-body">
                     <div class="row g-2">
                         <div class="col-md-3">
-                            <a href="{{ url_for('main.dispensation_index') }}?patient_id={{ patient.id }}" class="btn btn-outline-success w-100">
+                            <button class="btn btn-outline-success w-100" onclick="createDispensation()">
                                 <i class="fas fa-pills me-2"></i>Nova Dispensação
-                            </a>
+                            </button>
                         </div>
                         <div class="col-md-3">
-                            {% if has_permission('create_high_cost') %}
-                            <a href="{{ url_for('main.high_cost_request', patient_id=patient.id) }}" class="btn btn-outline-warning w-100">
+                            {% if current_user.role.value in ['admin', 'pharmacist'] %}
+                            <button class="btn btn-outline-warning w-100" onclick="createHighCost()">
                                 <i class="fas fa-star me-2"></i>Alto Custo
-                            </a>
+                            </button>
                             {% else %}
-                            <button class="btn btn-outline-warning w-100" disabled title="Sem permissão">
+                            <button class="btn btn-outline-warning w-100" disabled title="Apenas farmacêuticos podem criar processos de alto custo">
                                 <i class="fas fa-star me-2"></i>Alto Custo
                             </button>
                             {% endif %}
@@ -466,9 +466,9 @@
                 <div class="card-body text-center py-4">
                     <i class="fas fa-pills fa-2x text-muted mb-2"></i>
                     <p class="text-muted mb-2">Nenhuma dispensação registrada</p>
-                    <a href="{{ url_for('main.dispensation_index') }}?patient_id={{ patient.id }}" class="btn btn-sm btn-primary">
+                    <button class="btn btn-sm btn-primary" onclick="createDispensation()">
                         <i class="fas fa-plus me-1"></i>Primeira Dispensação
-                    </a>
+                    </button>
                 </div>
                 {% endif %}
             </div>
@@ -480,10 +480,10 @@
                         <h5 class="card-title mb-0">
                             <i class="fas fa-star me-2"></i>Processos Alto Custo
                         </h5>
-                        {% if has_permission('create_high_cost') %}
-                        <a href="{{ url_for('main.high_cost_request', patient_id=patient.id) }}" class="btn btn-sm btn-primary">
+                        {% if current_user.role.value in ['admin', 'pharmacist'] %}
+                        <button class="btn btn-sm btn-primary" onclick="createHighCost()">
                             <i class="fas fa-plus me-1"></i>Novo Processo
-                        </a>
+                        </button>
                         {% endif %}
                     </div>
                 </div>
@@ -514,12 +514,14 @@
     </div>
 </div>
 
-<!-- Modal para Detalhes da Dispensação -->
+<!-- ✅ Modal para Detalhes da Dispensação - ATUALIZADO -->
 <div class="modal fade" id="dispensationDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Detalhes da Dispensação</h5>
+                <h5 class="modal-title">
+                    <i class="fas fa-pills me-2"></i>Detalhes da Dispensação
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" id="dispensationDetailsContent">
@@ -528,6 +530,95 @@
                         <span class="visually-hidden">Carregando...</span>
                     </div>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação para Dispensação -->
+<div class="modal fade" id="confirmDispensationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nova Dispensação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Criar nova dispensação para <strong>{{ patient.full_name }}</strong>?</p>
+                <p class="text-muted small">Você será direcionado para a tela de seleção de medicamentos.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmCreateDispensation()">
+                    <i class="fas fa-pills me-1"></i>Continuar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação para Alto Custo -->
+<div class="modal fade" id="confirmHighCostModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title text-dark">Novo Processo Alto Custo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Criar novo processo de medicamento de alto custo para <strong>{{ patient.full_name }}</strong>?</p>
+                <p class="text-muted small">Você será direcionado para o formulário de solicitação.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="confirmCreateHighCost()">
+                    <i class="fas fa-star me-1"></i>Continuar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ Modal do Relatório do Paciente - CORRIGIDO -->
+<div class="modal fade" id="reportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-alt me-2"></i>Relatório do Paciente
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Paciente:</strong> {{ patient.full_name }}</p>
+                <div class="mb-3">
+                    <label class="form-label">Período:</label>
+                    <div class="row">
+                        <div class="col-6">
+                            <input type="date" class="form-control" id="reportStartDate" value="">
+                        </div>
+                        <div class="col-6">
+                            <input type="date" class="form-control" id="reportEndDate" value="">
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Formato:</label>
+                    <select class="form-select" id="reportFormat">
+                        <option value="html">Visualizar na Tela</option>
+                        <option value="pdf">PDF</option>
+                        <option value="excel">Excel</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="downloadPatientReport()">
+                    <i class="fas fa-download me-1"></i>Gerar Relatório
+                </button>
             </div>
         </div>
     </div>
@@ -700,6 +791,191 @@ function printPatient() {
     window.print();
 }
 
+// ✅ CRIAR NOVA DISPENSAÇÃO - USAR ROTAS EXISTENTES
+function createDispensation() {
+    const modal = new bootstrap.Modal(document.getElementById('confirmDispensationModal'));
+    modal.show();
+}
+
+function confirmCreateDispensation() {
+    // Fechar modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('confirmDispensationModal'));
+    modal.hide();
+    
+    // Redirecionar para seleção de medicamentos (rota existente)
+    window.location.href = '{{ url_for("main.dispensation_select_medications", patient_id=patient.id) }}';
+}
+
+// ✅ CRIAR PROCESSO ALTO CUSTO - USAR ROTAS EXISTENTES
+function createHighCost() {
+    const modal = new bootstrap.Modal(document.getElementById('confirmHighCostModal'));
+    modal.show();
+}
+
+function confirmCreateHighCost() {
+    // Fechar modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('confirmHighCostModal'));
+    modal.hide();
+    
+    // Redirecionar para solicitação de alto custo (rota existente)
+    window.location.href = '{{ url_for("main.high_cost_request", patient_id=patient.id) }}';
+}
+
+// ✅ GERAR RELATÓRIO DO PACIENTE - CORRIGIDO
+function generateReport() {
+    const patientId = {{ patient.id }};
+    const patientName = "{{ patient.full_name|safe }}";
+    
+    // Definir datas padrão (últimos 6 meses)
+    const today = new Date();
+    const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 6, today.getDate());
+    
+    document.getElementById('reportStartDate').value = sixMonthsAgo.toISOString().split('T')[0];
+    document.getElementById('reportEndDate').value = today.toISOString().split('T')[0];
+    
+    const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+    modal.show();
+}
+
+// ✅ DOWNLOAD DO RELATÓRIO - USANDO ROTAS ESPECÍFICAS DO PACIENTE
+function downloadPatientReport() {
+    const format = document.getElementById('reportFormat').value;
+    const startDate = document.getElementById('reportStartDate').value;
+    const endDate = document.getElementById('reportEndDate').value;
+    const patientId = {{ patient.id }};
+    
+    // Validar datas
+    if (!startDate || !endDate) {
+        showSimpleAlert('Por favor, selecione o período para o relatório.', 'warning');
+        return;
+    }
+    
+    if (new Date(startDate) > new Date(endDate)) {
+        showSimpleAlert('A data inicial não pode ser maior que a data final.', 'warning');
+        return;
+    }
+    
+    // Mostrar loading
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Gerando...';
+    button.disabled = true;
+    
+    // ✅ USAR ROTAS ESPECÍFICAS DO PACIENTE
+    const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        format: format
+    });
+    
+    let reportUrl;
+    if (format === 'html') {
+        // Relatório HTML específico do paciente
+        reportUrl = `/patients/${patientId}/report?${params.toString()}`;
+    } else {
+        // Export (PDF/Excel) específico do paciente
+        reportUrl = `/patients/${patientId}/report/export?${params.toString()}`;
+    }
+    
+    // Abrir relatório
+    window.open(reportUrl, '_blank');
+    
+    // Fechar modal e restaurar botão
+    setTimeout(() => {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
+        if (modal) modal.hide();
+        button.innerHTML = originalText;
+        button.disabled = false;
+        showSimpleAlert(`Relatório ${format.toUpperCase()} do paciente gerado com sucesso!`, 'success');
+    }, 1500);
+}
+
+function showDispensationDetails(dispensationId) {
+    const modal = new bootstrap.Modal(document.getElementById('dispensationDetailsModal'));
+    const content = document.getElementById('dispensationDetailsContent');
+    
+    // Loading
+    content.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2 text-muted">Carregando...</p>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Fazer requisição
+    const formData = new FormData();
+    formData.append('dispensation_id', dispensationId);
+    
+    fetch('/dispensation/details', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const dispensation = data.dispensation;
+            
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-pills me-2"></i>Dispensação #${dispensation.id}</h6>
+                        <p><strong>Data:</strong> ${dispensation.formatted_date}</p>
+                        <p><strong>Farmacêutico:</strong> ${dispensation.dispenser_name}</p>
+                        <p><strong>Status:</strong> <span class="badge bg-success">${dispensation.status_text}</span></p>
+                        <p><strong>Total:</strong> R$ ${dispensation.total_cost}</p>
+                        ${dispensation.observations ? `<p><strong>Obs:</strong> ${dispensation.observations}</p>` : ''}
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <h6><i class="fas fa-list me-2"></i>Medicamentos</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Medicamento</th>
+                                <th>Dosagem</th>
+                                <th>Quantidade</th>
+                                <th>Custo</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${dispensation.items.map(item => `
+                                <tr>
+                                    <td>${item.medication_name}</td>
+                                    <td>${item.dosage}</td>
+                                    <td><span class="badge bg-primary">${item.quantity}</span></td>
+                                    <td>${item.cost ? 'R$ ' + item.cost : '--'}</td>
+                                    <td>${item.observations || '--'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } else {
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ${data.message}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        content.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Erro ao carregar detalhes: ${error.message}
+            </div>
+        `;
+    });
+}
+
 // ✅ FUNÇÃO DE COPY MELHORADA COM MÚLTIPLOS FALLBACKS
 function copyToClipboard(text) {
     // Remover aspas extras que podem vir do template
@@ -833,27 +1109,6 @@ function openMaps() {
     const address = `{{ patient.full_address|safe|replace("'", "\\'") }}`.replace(/\n/g, ' ');
     const encodedAddress = encodeURIComponent(address);
     window.open(`https://www.google.com/maps/search/${encodedAddress}`, '_blank');
-}
-
-function generateReport() {
-    showSimpleAlert('Funcionalidade de relatório em desenvolvimento', 'info');
-}
-
-function showDispensationDetails(dispensationId) {
-    const modal = new bootstrap.Modal(document.getElementById('dispensationDetailsModal'));
-    const content = document.getElementById('dispensationDetailsContent');
-    
-    // Simular carregamento de detalhes
-    content.innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <h6>Dispensação #${dispensationId}</h6>
-                <p class="text-muted">Detalhes completos da dispensação aparecerão aqui quando a funcionalidade estiver implementada.</p>
-            </div>
-        </div>
-    `;
-    
-    modal.show();
 }
 
 // ✅ FUNÇÃO PARA ALERTS SIMPLES

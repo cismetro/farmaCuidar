@@ -149,6 +149,55 @@
     </div>
 </div>
 
+<!-- ✅ MODAL DE MEDICAMENTOS BLOQUEADOS -->
+<div class="modal fade" id="blockedMedicationsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Medicamentos com Controle de Intervalo
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <strong>Atenção:</strong> Os seguintes medicamentos estão em período de carência do controle de intervalo.
+                </div>
+                
+                <div id="blockedMedicationsList">
+                    <!-- Preenchido dinamicamente -->
+                </div>
+                
+                <hr>
+                
+                <div class="mb-3">
+                    <label for="forceReleaseJustification" class="form-label">
+                        <strong>Justificativa para liberação antecipada <span class="text-danger">*</span></strong>
+                    </label>
+                    <textarea id="forceReleaseJustification" class="form-control" rows="4" 
+                              placeholder="Descreva detalhadamente o motivo da liberação antecipada. Por exemplo: emergência médica, viagem, mudança de tratamento, etc."
+                              required></textarea>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Mínimo 10 caracteres. Esta justificativa será registrada no log de auditoria.
+                    </div>
+                </div>
+                
+                <div id="forceReleaseError" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-warning" id="authorizeForceRelease">
+                    <i class="fas fa-unlock me-2"></i>Autorizar Liberação Antecipada
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de Confirmação -->
 <div class="modal fade" id="confirmModal" tabindex="-1">
     <div class="modal-dialog">
@@ -203,7 +252,7 @@
             <div class="modal-body text-center py-5">
                 <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
                 <h3 class="text-success">Dispensação Realizada!</h3>
-                <p class="text-muted mb-4">A dispensação foi processada com sucesso.</p>
+                <p class="text-muted mb-4" id="successMessage">A dispensação foi processada com sucesso.</p>
                 
                 <div class="d-grid gap-2 col-8 mx-auto">
                     <button class="btn btn-primary" onclick="viewDispensation()">
@@ -323,6 +372,8 @@ let dispensationData = {
     general_observations: ""
 };
 
+let blockedMedicationsData = [];
+
 $(document).ready(function() {
     // Definir data/hora atual
     updateDateTime();
@@ -409,12 +460,20 @@ function createMedicationsTable() {
     
     dispensationData.medications.forEach((medication, index) => {
         const subtotal = (medication.unit_cost || 0) * medication.quantity;
+        
+        // Indicador de controle de intervalo
+        const intervalBadge = medication.interval_control ? 
+            '<span class="badge bg-warning ms-2"><i class="fas fa-clock"></i></span>' : '';
+        
         html += `
             <tr class="medication-row" data-medication-index="${index}">
                 <td>
                     <div>
-                        <div class="fw-semibold">${medication.medication_name}</div>
+                        <div class="fw-semibold">
+                            ${medication.medication_name}${intervalBadge}
+                        </div>
                         <small class="text-muted">ID: ${medication.medication_id}</small>
+                        ${medication.interval_control ? `<br><small class="text-warning">Controle: ${medication.interval_control.interval_days} dias</small>` : ''}
                     </div>
                 </td>
                 <td>
@@ -575,9 +634,10 @@ function confirmDispensation() {
     new bootstrap.Modal(document.getElementById('confirmModal')).show();
 }
 
-function processDispensation() {
-    // Fechar modal de confirmação
-    bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+function processDispensation(forceRelease = false, forceJustification = '') {
+    // Fechar modais
+    bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
+    bootstrap.Modal.getInstance(document.getElementById('blockedMedicationsModal'))?.hide();
     
     // Mostrar loading no botão
     $('#confirmBtn').html('<i class="fas fa-spinner fa-spin me-1"></i>Processando...').prop('disabled', true);
@@ -589,8 +649,11 @@ function processDispensation() {
         medications: dispensationData.medications.map(med => ({
             medication_id: med.medication_id,
             quantity: med.quantity,
-            observations: med.observations || ''
-        }))
+            observations: med.observations || '',
+            interval_control: med.interval_control || null
+        })),
+        force_release: forceRelease,
+        force_justification: forceJustification
     };
     
     // Enviar dispensação
@@ -604,6 +667,9 @@ function processDispensation() {
                 // Armazenar ID da dispensação
                 window.dispensationId = response.dispensation_id;
                 
+                // Atualizar mensagem de sucesso
+                $('#successMessage').text(response.message);
+                
                 // Mostrar modal de sucesso
                 setTimeout(() => {
                     new bootstrap.Modal(document.getElementById('successModal')).show();
@@ -615,11 +681,63 @@ function processDispensation() {
         },
         error: function(xhr) {
             const response = xhr.responseJSON;
-            showAlert('Erro: ' + (response ? response.message || response.error : 'Erro de conexão'), 'danger');
+            
+            // ✅ VERIFICAR SE É ERRO DE MEDICAMENTOS BLOQUEADOS
+            if (response && response.blocked_medications && response.requires_authorization) {
+                showBlockedMedicationsModal(response.blocked_medications);
+            } else {
+                showAlert('Erro: ' + (response ? response.message || response.error : 'Erro de conexão'), 'danger');
+            }
+            
             resetConfirmButton();
         }
     });
 }
+
+// ✅ FUNÇÃO PARA MOSTRAR MODAL DE MEDICAMENTOS BLOQUEADOS
+function showBlockedMedicationsModal(blockedMedications) {
+    blockedMedicationsData = blockedMedications;
+    
+    let html = '';
+    blockedMedications.forEach(med => {
+        html += `
+            <div class="alert alert-warning border-start border-warning border-3">
+                <div class="row align-items-center">
+                    <div class="col-8">
+                        <h6 class="mb-1">${med.name}</h6>
+                        <small class="text-muted">Aguarde ${med.days_remaining} dias</small>
+                    </div>
+                    <div class="col-4 text-end">
+                        <small class="text-muted">Próxima liberação:</small><br>
+                        <span class="badge bg-warning text-dark">${med.next_date}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    $('#blockedMedicationsList').html(html);
+    $('#forceReleaseJustification').val('');
+    $('#forceReleaseError').addClass('d-none');
+    
+    new bootstrap.Modal(document.getElementById('blockedMedicationsModal')).show();
+}
+
+// ✅ AUTORIZAR LIBERAÇÃO ANTECIPADA
+$('#authorizeForceRelease').on('click', function() {
+    const justification = $('#forceReleaseJustification').val().trim();
+    const errorDiv = $('#forceReleaseError');
+    
+    if (!justification || justification.length < 10) {
+        errorDiv.text('Justificativa deve ter pelo menos 10 caracteres').removeClass('d-none');
+        return;
+    }
+    
+    errorDiv.addClass('d-none');
+    
+    // Processar dispensação com liberação forçada
+    processDispensation(true, justification);
+});
 
 function resetConfirmButton() {
     $('#confirmBtn').html('<i class="fas fa-check me-1"></i>Confirmar Dispensação').prop('disabled', false);
