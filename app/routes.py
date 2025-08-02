@@ -2302,6 +2302,14 @@ def medication_dispensing_config(medication_id):
             config.medication_id = medication_id
             config.updated_at = datetime.utcnow()
             
+            # ✅ ADICIONAR ESTA LINHA:
+            config.is_active = True  # ← ESTA LINHA RESOLVE O PROBLEMA!
+            
+            # ✅ ADICIONAR CAMPOS EXTRAS DO TEMPLATE:
+            config.drops_per_ml = int(request.form.get('drops_per_ml')) if request.form.get('drops_per_ml') else None
+            config.stability_days = int(request.form.get('stability_days')) if request.form.get('stability_days') else None
+            config.notes = request.form.get('calculation_notes') or None
+            
             db.session.commit()
             flash('✅ Configuração de cálculos salva com sucesso!', 'success')
             
