@@ -1,0 +1,696 @@
+{% extends "base.html" %}
+
+{% block title %}Testar Cálculos - {{ medication.commercial_name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.inventory_list') }}">Inventário</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.medication_view', id=medication.id) }}">{{ medication.commercial_name }}</a>
+                    </li>
+                    <li class="breadcrumb-item active">Testar Cálculos</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-calculator me-2 text-primary"></i>
+                Testar Cálculos Farmacológicos
+            </h1>
+            <p class="text-muted mb-0">{{ medication.commercial_name }} - {{ medication.generic_name }}</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                <a href="{{ url_for('main.medication_dispensing_config', medication_id=medication.id) }}" class="btn btn-outline-primary">
+                    <i class="fas fa-cog me-1"></i>Configurar
+                </a>
+                <a href="{{ url_for('main.medication_view', id=medication.id) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informações do Medicamento e Configuração -->
+        <div class="col-xl-4">
+            <!-- Informações do Medicamento -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-pills me-2"></i>Informações do Medicamento
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-5">Nome:</dt>
+                        <dd class="col-7">{{ medication.commercial_name }}</dd>
+                        
+                        <dt class="col-5">Genérico:</dt>
+                        <dd class="col-7">{{ medication.generic_name }}</dd>
+                        
+                        <dt class="col-5">Dosagem:</dt>
+                        <dd class="col-7">{{ medication.dosage }}</dd>
+                        
+                        <dt class="col-5">Forma:</dt>
+                        <dd class="col-7">{{ medication.pharmaceutical_form }}</dd>
+                        
+                        <dt class="col-5">Estoque:</dt>
+                        <dd class="col-7">
+                            {% if medication.current_stock <= 0 %}
+                                <span class="badge bg-danger">{{ medication.current_stock }}</span>
+                            {% elif medication.current_stock <= medication.minimum_stock %}
+                                <span class="badge bg-warning">{{ medication.current_stock }}</span>
+                            {% else %}
+                                <span class="badge bg-success">{{ medication.current_stock }}</span>
+                            {% endif %}
+                            unidades
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Configuração Atual -->
+            {% if medication.dispensing_config %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-flask me-2 text-success"></i>Configuração Atual
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-5">Concentração:</dt>
+                        <dd class="col-7">{{ medication.dispensing_config.strength_value }}{{ medication.dispensing_config.strength_unit }}</dd>
+                        
+                        <dt class="col-5">Volume/Dose:</dt>
+                        <dd class="col-7">{{ medication.dispensing_config.volume_per_dose }}{{ medication.dispensing_config.volume_unit }}</dd>
+                        
+                        <dt class="col-5">Embalagem:</dt>
+                        <dd class="col-7">{{ medication.dispensing_config.package_size }}{{ medication.dispensing_config.package_unit }}</dd>
+                        
+                        {% if medication.dispensing_config.drops_per_ml %}
+                        <dt class="col-5">Gotas/ml:</dt>
+                        <dd class="col-7">{{ medication.dispensing_config.drops_per_ml }}</dd>
+                        {% endif %}
+                        
+                        {% if medication.dispensing_config.stability_days %}
+                        <dt class="col-5">Estabilidade:</dt>
+                        <dd class="col-7">{{ medication.dispensing_config.stability_days }} dias</dd>
+                        {% endif %}
+                        
+                        <dt class="col-5">Status:</dt>
+                        <dd class="col-7">
+                            {% if medication.dispensing_config.is_active %}
+                                <span class="badge bg-success">Ativo</span>
+                            {% else %}
+                                <span class="badge bg-danger">Inativo</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            {% else %}
+            <div class="card mb-4">
+                <div class="card-body text-center">
+                    <i class="fas fa-exclamation-triangle fa-2x text-warning mb-3"></i>
+                    <h6 class="text-muted">Sem Configuração</h6>
+                    <p class="text-muted">Este medicamento não possui configuração de cálculos.</p>
+                    <a href="{{ url_for('main.medication_dispensing_config', medication_id=medication.id) }}" class="btn btn-primary">
+                        <i class="fas fa-cog me-1"></i>Configurar Agora
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Histórico de Testes -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>Histórico de Testes
+                    </h6>
+                </div>
+                <div class="card-body" id="testHistory">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-clipboard-list fa-2x mb-2"></i>
+                        <p class="mb-0">Nenhum teste realizado</p>
+                        <small>Execute um teste para ver o histórico</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Área de Teste -->
+        <div class="col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-calculator me-2"></i>Simulador de Cálculos
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if not medication.dispensing_config or not medication.dispensing_config.is_active %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Aviso:</strong> Este medicamento não possui configuração ativa de cálculos. 
+                        <a href="{{ url_for('main.medication_dispensing_config', medication_id=medication.id) }}" class="alert-link">Configure primeiro</a>.
+                    </div>
+                    {% endif %}
+
+                    <form id="testForm" novalidate>
+                        {{ form.hidden_tag() if form else '' }}
+                        
+                        <!-- Dados da Prescrição -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label for="prescribedDose" class="form-label">Dose Prescrita <span class="text-danger">*</span>:</label>
+                                <div class="input-group">
+                                    {% if form and form.prescribed_dose %}
+                                        {{ form.prescribed_dose(class="form-control", id="prescribedDose") }}
+                                        {{ form.prescribed_unit(class="form-select", id="prescribedUnit", style="max-width: 120px;") }}
+                                    {% else %}
+                                        <input type="number" id="prescribedDose" class="form-control" 
+                                               placeholder="Ex: 250" step="0.1" min="0" required>
+                                        <select id="prescribedUnit" class="form-select" style="max-width: 120px;">
+                                            <option value="mg">mg</option>
+                                            <option value="ml">ml</option>
+                                            <option value="g">g</option>
+                                            <option value="mcg">mcg</option>
+                                            <option value="UI">UI</option>
+                                            <option value="gotas">gotas</option>
+                                        </select>
+                                    {% endif %}
+                                </div>
+                                <div class="form-text">Dose por administração</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="frequency" class="form-label">Frequência por dia <span class="text-danger">*</span>:</label>
+                                {% if form and form.frequency_per_day %}
+                                    {{ form.frequency_per_day(class="form-select", id="frequency") }}
+                                {% else %}
+                                    <select id="frequency" class="form-select" required>
+                                        <option value="1">1x ao dia</option>
+                                        <option value="2" selected>2x ao dia</option>
+                                        <option value="3">3x ao dia</option>
+                                        <option value="4">4x ao dia</option>
+                                        <option value="6">6x ao dia</option>
+                                        <option value="8">8x ao dia</option>
+                                        <option value="12">12x ao dia</option>
+                                    </select>
+                                {% endif %}
+                                <div class="form-text">Administrações por dia</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="treatmentDays" class="form-label">Dias de tratamento <span class="text-danger">*</span>:</label>
+                                {% if form and form.treatment_days %}
+                                    {{ form.treatment_days(class="form-control", id="treatmentDays") }}
+                                {% else %}
+                                    <input type="number" id="treatmentDays" class="form-control" 
+                                           value="30" min="1" max="365" required>
+                                {% endif %}
+                                <div class="form-text">Duração total</div>
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="row g-2 mb-4">
+                            <div class="col-md-6">
+                                <button type="submit" class="btn btn-primary w-100" id="calculateBtn">
+                                    <i class="fas fa-calculator me-2"></i>Calcular Dispensação
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="button" class="btn btn-outline-secondary w-100" id="clearBtn">
+                                    <i class="fas fa-eraser me-2"></i>Limpar
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="button" class="btn btn-outline-info w-100" id="exampleBtn">
+                                    <i class="fas fa-lightbulb me-2"></i>Exemplo
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Área de Resultado -->
+                    <div id="calculationResult" style="display: none;">
+                        <!-- Resultado inserido dinamicamente -->
+                    </div>
+
+                    <!-- Exemplos Rápidos -->
+                    <div class="card bg-light">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Exemplos Comuns</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-primary btn-sm w-100 example-btn" 
+                                            data-dose="500" data-unit="mg" data-freq="2" data-days="7">
+                                        <strong>Antibiótico</strong><br>
+                                        <small>500mg, 2x/dia, 7 dias</small>
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-success btn-sm w-100 example-btn" 
+                                            data-dose="5" data-unit="ml" data-freq="3" data-days="5">
+                                        <strong>Xarope Infantil</strong><br>
+                                        <small>5ml, 3x/dia, 5 dias</small>
+                                    </button>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-outline-info btn-sm w-100 example-btn" 
+                                            data-dose="20" data-unit="mg" data-freq="1" data-days="30">
+                                        <strong>Uso Contínuo</strong><br>
+                                        <small>20mg, 1x/dia, 30 dias</small>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.example-btn {
+    height: auto;
+    padding: 0.75rem 0.5rem;
+    text-align: center;
+}
+
+.calculation-result {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.result-card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.result-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.result-label {
+    font-size: 0.875rem;
+    opacity: 0.8;
+}
+
+.calculation-details {
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    border-left: 4px solid #007bff;
+}
+
+.test-history-item {
+    border-bottom: 1px solid #dee2e6;
+    padding: 0.75rem 0;
+}
+
+.test-history-item:last-child {
+    border-bottom: none;
+}
+
+#testForm .was-validated .form-control:invalid {
+    border-color: #dc3545;
+}
+
+#testForm .was-validated .form-control:valid {
+    border-color: #28a745;
+}
+
+.loading-overlay {
+    position: relative;
+}
+
+.loading-overlay::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 10;
+    border-radius: 0.375rem;
+}
+
+.loading-overlay::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2rem;
+    height: 2rem;
+    border: 0.25rem solid #f3f3f3;
+    border-top: 0.25rem solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 11;
+}
+
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const medication = {
+        id: {{ medication.id }},
+        name: "{{ medication.commercial_name }}",
+        hasConfig: {{ 'true' if medication.dispensing_config and medication.dispensing_config.is_active else 'false' }}
+    };
+    
+    let testHistory = [];
+    
+    // ✅ SUBMIT DO FORMULÁRIO
+    $('#testForm').on('submit', function(e) {
+        e.preventDefault();
+        performCalculation();
+    });
+    
+    // ✅ BOTÕES DE AÇÃO
+    $('#clearBtn').on('click', clearForm);
+    $('#exampleBtn').on('click', loadRandomExample);
+    
+    // ✅ EXEMPLOS RÁPIDOS
+    $('.example-btn').on('click', function() {
+        const dose = $(this).data('dose');
+        const unit = $(this).data('unit');
+        const freq = $(this).data('freq');
+        const days = $(this).data('days');
+        
+        $('#prescribedDose').val(dose);
+        $('#prescribedUnit').val(unit);
+        $('#frequency').val(freq);
+        $('#treatmentDays').val(days);
+        
+        showAlert('Exemplo carregado! Clique em "Calcular" para ver o resultado.', 'info');
+    });
+    
+    // ✅ FUNÇÃO PRINCIPAL DE CÁLCULO
+    function performCalculation() {
+        const formData = {
+            prescribed_dose: parseFloat($('#prescribedDose').val()),
+            prescribed_unit: $('#prescribedUnit').val(),
+            frequency_per_day: parseInt($('#frequency').val()),
+            treatment_days: parseInt($('#treatmentDays').val())
+        };
+        
+        // Validações
+        if (!formData.prescribed_dose || formData.prescribed_dose <= 0) {
+            showAlert('Digite uma dose prescrita válida!', 'warning');
+            $('#prescribedDose').focus();
+            return;
+        }
+        
+        if (!formData.frequency_per_day || formData.frequency_per_day <= 0) {
+            showAlert('Selecione a frequência de uso!', 'warning');
+            return;
+        }
+        
+        if (!formData.treatment_days || formData.treatment_days <= 0) {
+            showAlert('Digite os dias de tratamento!', 'warning');
+            $('#treatmentDays').focus();
+            return;
+        }
+        
+        // Verificar se medicamento tem configuração
+        if (!medication.hasConfig) {
+            showAlert('Este medicamento não possui configuração ativa de cálculos!', 'error');
+            return;
+        }
+        
+        // Iniciar cálculo
+        const $btn = $('#calculateBtn');
+        const originalText = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Calculando...');
+        
+        // Adicionar loading overlay
+        $('#calculationResult').addClass('loading-overlay');
+        
+        $.ajax({
+            url: `/dispensation/calculate/1/${medication.id}`,  // patient_id=1 para teste
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    displayResult(response, formData);
+                    addToHistory(formData, response);
+                } else {
+                    showAlert('Erro no cálculo: ' + response.error, 'error');
+                }
+            },
+            error: function(xhr) {
+                const response = xhr.responseJSON;
+                if (response && response.error) {
+                    showAlert('Erro no cálculo: ' + response.error, 'error');
+                } else {
+                    showAlert('Erro interno do servidor', 'error');
+                }
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(originalText);
+                $('#calculationResult').removeClass('loading-overlay');
+            }
+        });
+    }
+    
+    // ✅ EXIBIR RESULTADO
+    function displayResult(result, inputData) {
+        let html = `
+            <div class="calculation-result">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="result-card text-center">
+                            <div class="result-value">${result.recommended_quantity || '?'}</div>
+                            <div class="result-label">Embalagens</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="result-card text-center">
+                            <div class="result-value">${result.volume_per_dose || '?'} ${result.volume_unit || ''}</div>
+                            <div class="result-label">Por Dose</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="result-card text-center">
+                            <div class="result-value">${result.daily_volume || '?'} ${result.volume_unit || ''}</div>
+                            <div class="result-label">Por Dia</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="result-card text-center">
+                            <div class="result-value">${result.actual_duration || '?'}</div>
+                            <div class="result-label">Dias</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6><i class="fas fa-info-circle me-2"></i>Resumo do Cálculo</h6>
+                    <p class="mb-1"><strong>Prescrição:</strong> ${inputData.prescribed_dose}${inputData.prescribed_unit}, ${inputData.frequency_per_day}x/dia, ${inputData.treatment_days} dias</p>
+                    <p class="mb-0"><strong>Dispensação:</strong> ${result.recommended_quantity || '?'} embalagem(s) para ${result.actual_duration || '?'} dias de tratamento</p>
+                </div>
+            </div>
+        `;
+        
+        // Adicionar detalhes se disponíveis
+        if (result.conversions && result.conversions.length > 0) {
+            html += `
+                <div class="calculation-details">
+                    <h6><i class="fas fa-exchange-alt me-2"></i>Conversões Aplicadas</h6>
+                    <ul class="mb-0">
+                        ${result.conversions.map(conv => `<li>${conv}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        if (result.notes && result.notes.length > 0) {
+            html += `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-sticky-note me-2"></i>Observações</h6>
+                    <ul class="mb-0">
+                        ${result.notes.map(note => `<li>${note}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        $('#calculationResult').html(html).show();
+        
+        // Scroll para o resultado
+        $('html, body').animate({
+            scrollTop: $('#calculationResult').offset().top - 100
+        }, 500);
+    }
+    
+    // ✅ ADICIONAR AO HISTÓRICO
+    function addToHistory(inputData, result) {
+        const historyItem = {
+            timestamp: new Date(),
+            input: inputData,
+            result: result
+        };
+        
+        testHistory.unshift(historyItem);
+        if (testHistory.length > 5) testHistory.pop(); // Manter apenas 5
+        
+        updateHistoryDisplay();
+    }
+    
+    // ✅ ATUALIZAR DISPLAY DO HISTÓRICO
+    function updateHistoryDisplay() {
+        const historyContainer = $('#testHistory');
+        
+        if (testHistory.length === 0) {
+            historyContainer.html(`
+                <div class="text-center text-muted py-3">
+                    <i class="fas fa-clipboard-list fa-2x mb-2"></i>
+                    <p class="mb-0">Nenhum teste realizado</p>
+                    <small>Execute um teste para ver o histórico</small>
+                </div>
+            `);
+            return;
+        }
+        
+        let html = '';
+        testHistory.forEach((item, index) => {
+            const time = item.timestamp.toLocaleTimeString();
+            html += `
+                <div class="test-history-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <small class="text-muted">${time}</small>
+                            <div class="fw-semibold">${item.input.prescribed_dose}${item.input.prescribed_unit}, ${item.input.frequency_per_day}x/dia, ${item.input.treatment_days}d</div>
+                            <small class="text-success">→ ${item.result.recommended_quantity || '?'} embalagem(s)</small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary replay-test" 
+                                data-index="${index}" title="Repetir teste">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        historyContainer.html(html);
+        
+        // Event listeners para repetir testes
+        $('.replay-test').on('click', function() {
+            const index = $(this).data('index');
+            const item = testHistory[index];
+            
+            $('#prescribedDose').val(item.input.prescribed_dose);
+            $('#prescribedUnit').val(item.input.prescribed_unit);
+            $('#frequency').val(item.input.frequency_per_day);
+            $('#treatmentDays').val(item.input.treatment_days);
+            
+            showAlert('Dados carregados do histórico!', 'info');
+        });
+    }
+    
+    // ✅ LIMPAR FORMULÁRIO
+    function clearForm() {
+        $('#prescribedDose').val('');
+        $('#prescribedUnit').val('mg');
+        $('#frequency').val('2');
+        $('#treatmentDays').val('30');
+        $('#calculationResult').hide();
+        $('#prescribedDose').focus();
+    }
+    
+    // ✅ CARREGAR EXEMPLO ALEATÓRIO
+    function loadRandomExample() {
+        const examples = [
+            { dose: 250, unit: 'mg', freq: 3, days: 7 },
+            { dose: 5, unit: 'ml', freq: 2, days: 5 },
+            { dose: 20, unit: 'mg', freq: 1, days: 30 },
+            { dose: 500, unit: 'mg', freq: 2, days: 10 },
+            { dose: 10, unit: 'gotas', freq: 4, days: 3 }
+        ];
+        
+        const example = examples[Math.floor(Math.random() * examples.length)];
+        
+        $('#prescribedDose').val(example.dose);
+        $('#prescribedUnit').val(example.unit);
+        $('#frequency').val(example.freq);
+        $('#treatmentDays').val(example.days);
+        
+        showAlert('Exemplo aleatório carregado!', 'info');
+    }
+    
+    // ✅ FUNÇÃO PARA ALERTAS
+    function showAlert(message, type = 'info') {
+        const alertClass = {
+            'success': 'alert-success',
+            'warning': 'alert-warning', 
+            'danger': 'alert-danger',
+            'error': 'alert-danger',
+            'info': 'alert-info'
+        }[type] || 'alert-info';
+        
+        // Remover alertas antigos
+        $('.alert.position-fixed').remove();
+        
+        const alert = $(`
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `);
+        
+        $('body').append(alert);
+        
+        setTimeout(() => {
+            alert.fadeOut(() => alert.remove());
+        }, 5000);
+    }
+    
+    // ✅ CSRF TOKEN
+    const csrfToken = $('meta[name=csrf-token]').attr('content');
+    if (csrfToken) {
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", csrfToken);
+                }
+            }
+        });
+    }
+    
+    // ✅ AUTO-FOCUS
+    $('#prescribedDose').focus();
+});
+</script>
+{% endblock %}
