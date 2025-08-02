@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Serviço Indisponível - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid d-flex align-items-center justify-content-center min-vh-100">
+    <div class="row justify-content-center w-100">
+        <div class="col-md-6 col-lg-5">
+            <div class="text-center">
+                <!-- Ícone de erro -->
+                <div class="mb-4">
+                    <i class="fas fa-cogs text-info" style="font-size: 5rem;"></i>
+                </div>
+                
+                <!-- Código do erro -->
+                <h1 class="display-1 fw-bold text-primary">503</h1>
+                
+                <!-- Título -->
+                <h2 class="h4 mb-3">Serviço Temporariamente Indisponível</h2>
+                
+                <!-- Descrição -->
+                <p class="text-muted mb-4">
+                    O sistema está passando por manutenção programada. Voltaremos em breve com melhorias.
+                </p>
+                
+                <!-- Sugestões -->
+                <div class="alert alert-info border-info">
+                    <h6 class="mb-2"><i class="fas fa-calendar-alt me-2"></i>Manutenção programada:</h6>
+                    <ul class="text-start mb-0 small">
+                        <li>Estamos implementando melhorias no sistema</li>
+                        <li>O serviço será restaurado automaticamente</li>
+                        <li>Agradecemos sua paciência</li>
+                    </ul>
+                </div>
+                
+                <!-- Contador regressivo (opcional) -->
+                <div class="mt-4 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        <strong>Tempo estimado:</strong> <span id="countdown">Calculando...</span>
+                    </small>
+                </div>
+                
+                <!-- Botões de ação -->
+                <div class="d-grid gap-2 d-md-block mt-4">
+                    <button onclick="location.reload()" class="btn btn-info">
+                        <i class="fas fa-sync-alt me-2"></i>Verificar Novamente
+                    </button>
+                    <button onclick="history.back()" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.min-vh-100 {
+    min-height: 100vh;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Simular countdown (você pode integrar com dados reais de manutenção)
+    function updateCountdown() {
+        const countdownElement = document.getElementById('countdown');
+        const now = new Date();
+        const futureTime = new Date(now.getTime() + 30 * 60000); // 30 minutos
+        
+        const timeLeft = futureTime - now;
+        
+        if (timeLeft > 0) {
+            const minutes = Math.floor(timeLeft / 60000);
+            const seconds = Math.floor((timeLeft % 60000) / 1000);
+            countdownElement.textContent = `${minutes}m ${seconds}s`;
+        } else {
+            countdownElement.textContent = 'Serviço deve estar disponível';
+        }
+    }
+    
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+});
+</script>
+{% endblock %}

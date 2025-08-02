@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Página Não Encontrada - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid d-flex align-items-center justify-content-center min-vh-100">
+    <div class="row justify-content-center w-100">
+        <div class="col-md-6 col-lg-5">
+            <div class="text-center">
+                <!-- Ícone de erro -->
+                <div class="mb-4">
+                    <i class="fas fa-search text-muted" style="font-size: 5rem;"></i>
+                </div>
+                
+                <!-- Código do erro -->
+                <h1 class="display-1 fw-bold text-primary">404</h1>
+                
+                <!-- Título -->
+                <h2 class="h4 mb-3">Página Não Encontrada</h2>
+                
+                <!-- Descrição -->
+                <p class="text-muted mb-4">
+                    A página que você está procurando não existe ou foi movida para outro local.
+                </p>
+                
+                <!-- Sugestões -->
+                <div class="alert alert-light border">
+                    <h6 class="mb-2"><i class="fas fa-compass me-2"></i>Possíveis soluções:</h6>
+                    <ul class="text-start mb-0 small">
+                        <li>Verifique se o endereço foi digitado corretamente</li>
+                        <li>Use o menu de navegação para encontrar o que procura</li>
+                        <li>Volte à página anterior e tente novamente</li>
+                    </ul>
+                </div>
+                
+                <!-- Botões de ação -->
+                <div class="d-grid gap-2 d-md-block">
+                    <button onclick="history.back()" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    </button>
+                    <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i>Página Inicial
+                    </a>
+                </div>
+                
+                <!-- Links rápidos -->
+                <div class="mt-4">
+                    <small class="text-muted">Links rápidos:</small><br>
+                    <div class="mt-2">
+                        <a href="{{ url_for('main.patient_list') }}" class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="fas fa-users me-1"></i>Pacientes
+                        </a>
+                        <a href="{{ url_for('main.inventory_list') }}" class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="fas fa-pills me-1"></i>Medicamentos
+                        </a>
+                        <a href="{{ url_for('main.dispensation_index') }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-hand-holding-medical me-1"></i>Dispensação
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.min-vh-100 {
+    min-height: 100vh;
+}
+</style>
+{% endblock %}

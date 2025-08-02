@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 from config import config
 import os
 
@@ -28,7 +28,53 @@ def create_app(config_name=None):
     from app.routes import main
     app.register_blueprint(main)
     
+    # ✅ NOVO: Registrar error handlers
+    register_error_handlers(app)
+    
     return app
+
+def register_error_handlers(app):
+    """Registrar handlers para páginas de erro"""
+    
+    @app.errorhandler(400)
+    def bad_request(error):
+        """Requisição inválida"""
+        return render_template('errors/400.html'), 400
+    
+    @app.errorhandler(401)
+    def unauthorized(error):
+        """Não autorizado"""
+        return render_template('errors/401.html'), 401
+    
+    @app.errorhandler(403)
+    def forbidden(error):
+        """Acesso negado"""
+        return render_template('errors/403.html'), 403
+    
+    @app.errorhandler(404)
+    def not_found(error):
+        """Página não encontrada"""
+        return render_template('errors/404.html'), 404
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        """Erro interno do servidor"""
+        try:
+            from app.database import db
+            db.session.rollback()
+        except:
+            pass
+        return render_template('errors/500.html'), 500
+    
+    @app.errorhandler(502)
+    def bad_gateway(error):
+        """Bad Gateway"""
+        return render_template('errors/502.html'), 502
+    
+    @app.errorhandler(503)
+    def service_unavailable(error):
+        """Serviço indisponível"""
+        return render_template('errors/503.html'), 503
 
 def add_template_functions(app):
     """Adicionar funções básicas para templates"""
@@ -116,6 +162,37 @@ def add_template_functions(app):
         }
         return gender_map.get(gender, 'Não informado')
     
+    def format_currency(value):
+        """Formatar valor monetário: 1234.56 -> R$ 1.234,56"""
+        if not value:
+            return 'R$ 0,00'
+        try:
+            # Converter para float se for string
+            if isinstance(value, str):
+                value = float(value.replace(',', '.'))
+            elif hasattr(value, '__float__'):
+                value = float(value)
+            
+            # Formatar com separadores brasileiros
+            formatted = f"R$ {value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+            return formatted
+        except:
+            return f"R$ {value}"
+    
+    def format_percentage(value):
+        """Formatar porcentagem: 0.15 -> 15%"""
+        if value is None:
+            return '0%'
+        try:
+            if isinstance(value, str):
+                value = float(value)
+            elif hasattr(value, '__float__'):
+                value = float(value)
+            
+            return f"{value * 100:.1f}%"
+        except:
+            return f"{value}%"
+    
     # Registrar como funções globais (para usar {{ format_cpf(value) }})
     app.jinja_env.globals.update(
         format_cpf=format_cpf,
@@ -124,7 +201,9 @@ def add_template_functions(app):
         format_date=format_date,
         format_datetime=format_datetime,
         calculate_age=calculate_age,
-        format_gender=format_gender
+        format_gender=format_gender,
+        format_currency=format_currency,
+        format_percentage=format_percentage
     )
     
     # Registrar também como filtros (para usar {{ value|format_cpf }})
@@ -135,3 +214,5 @@ def add_template_functions(app):
     app.jinja_env.filters['format_datetime'] = format_datetime
     app.jinja_env.filters['calculate_age'] = calculate_age
     app.jinja_env.filters['format_gender'] = format_gender
+    app.jinja_env.filters['format_currency'] = format_currency
+    app.jinja_env.filters['format_percentage'] = format_percentage

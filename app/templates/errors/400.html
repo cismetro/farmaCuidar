@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Acesso Negado - {{ super() }}{% endblock %}
+{% block title %}Requisição Inválida - {{ super() }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid d-flex align-items-center justify-content-center min-vh-100">
@@ -9,27 +9,27 @@
             <div class="text-center">
                 <!-- Ícone de erro -->
                 <div class="mb-4">
-                    <i class="fas fa-ban text-danger" style="font-size: 5rem;"></i>
+                    <i class="fas fa-exclamation-triangle text-warning" style="font-size: 5rem;"></i>
                 </div>
                 
                 <!-- Código do erro -->
-                <h1 class="display-1 fw-bold text-primary">403</h1>
+                <h1 class="display-1 fw-bold text-primary">400</h1>
                 
                 <!-- Título -->
-                <h2 class="h4 mb-3">Acesso Negado</h2>
+                <h2 class="h4 mb-3">Requisição Inválida</h2>
                 
                 <!-- Descrição -->
                 <p class="text-muted mb-4">
-                    Você não tem permissão para acessar este recurso.
+                    A requisição enviada não pôde ser processada devido a dados incorretos ou malformados.
                 </p>
                 
                 <!-- Sugestões -->
                 <div class="alert alert-light border">
-                    <h6 class="mb-2"><i class="fas fa-shield-alt me-2"></i>Informações importantes:</h6>
+                    <h6 class="mb-2"><i class="fas fa-lightbulb me-2"></i>Possíveis soluções:</h6>
                     <ul class="text-start mb-0 small">
-                        <li>Este recurso requer permissões especiais</li>
-                        <li>Entre em contato com o administrador se necessário</li>
-                        <li>Verifique se você está logado com a conta correta</li>
+                        <li>Verifique se todos os campos foram preenchidos corretamente</li>
+                        <li>Confirme se os dados estão no formato adequado</li>
+                        <li>Tente recarregar a página e enviar novamente</li>
                     </ul>
                 </div>
                 

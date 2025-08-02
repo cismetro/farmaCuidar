@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Acesso Negado - {{ super() }}{% endblock %}
+{% block title %}Bad Gateway - {{ super() }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid d-flex align-items-center justify-content-center min-vh-100">
@@ -9,36 +9,36 @@
             <div class="text-center">
                 <!-- Ícone de erro -->
                 <div class="mb-4">
-                    <i class="fas fa-ban text-danger" style="font-size: 5rem;"></i>
+                    <i class="fas fa-network-wired text-warning" style="font-size: 5rem;"></i>
                 </div>
                 
                 <!-- Código do erro -->
-                <h1 class="display-1 fw-bold text-primary">403</h1>
+                <h1 class="display-1 fw-bold text-primary">502</h1>
                 
                 <!-- Título -->
-                <h2 class="h4 mb-3">Acesso Negado</h2>
+                <h2 class="h4 mb-3">Erro de Gateway</h2>
                 
                 <!-- Descrição -->
                 <p class="text-muted mb-4">
-                    Você não tem permissão para acessar este recurso.
+                    O servidor está temporariamente indisponível. Nossos serviços estão sendo restaurados.
                 </p>
                 
                 <!-- Sugestões -->
-                <div class="alert alert-light border">
-                    <h6 class="mb-2"><i class="fas fa-shield-alt me-2"></i>Informações importantes:</h6>
+                <div class="alert alert-warning border-warning">
+                    <h6 class="mb-2"><i class="fas fa-wrench me-2"></i>Manutenção em andamento:</h6>
                     <ul class="text-start mb-0 small">
-                        <li>Este recurso requer permissões especiais</li>
-                        <li>Entre em contato com o administrador se necessário</li>
-                        <li>Verifique se você está logado com a conta correta</li>
+                        <li>Os serviços estão sendo atualizados</li>
+                        <li>Tente novamente em alguns minutos</li>
+                        <li>A funcionalidade será restaurada em breve</li>
                     </ul>
                 </div>
                 
                 <!-- Botões de ação -->
                 <div class="d-grid gap-2 d-md-block">
-                    <button onclick="history.back()" class="btn btn-outline-primary">
-                        <i class="fas fa-arrow-left me-2"></i>Voltar
+                    <button onclick="location.reload()" class="btn btn-warning">
+                        <i class="fas fa-sync-alt me-2"></i>Tentar Novamente
                     </button>
-                    <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary">
+                    <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-primary">
                         <i class="fas fa-home me-2"></i>Página Inicial
                     </a>
                 </div>
