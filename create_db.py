@@ -116,7 +116,7 @@ if __name__ == '__main__':
         print("✅ SETUP COMPLETO!")
         print("\n🚀 Próximos passos:")
         print("   1. python run.py")
-        print("   2. Abrir http://localhost:5000")
+        print("   2. Abrir http://localhost:5454")
         print("   3. Login: admin / admin123")
     else:
         print("❌ FALHA NO SETUP!")

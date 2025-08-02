@@ -1,0 +1,715 @@
+{% extends "base.html" %}
+
+{% block title %}Configurar Cálculos - {{ medication.commercial_name }} - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.inventory_list') }}">Inventário</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('main.medication_view', id=medication.id) }}">{{ medication.commercial_name }}</a>
+                    </li>
+                    <li class="breadcrumb-item active">Configurar Cálculos</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="fas fa-calculator me-2 text-primary"></i>
+                Configurar Cálculos Farmacológicos
+            </h1>
+            <p class="text-muted mb-0">{{ medication.commercial_name }} - {{ medication.generic_name }}</p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                {% if config %}
+                <a href="{{ url_for('main.test_medication_calculation', medication_id=medication.id) }}" class="btn btn-success">
+                    <i class="fas fa-calculator me-1"></i>Testar Cálculo
+                </a>
+                {% endif %}
+                <a href="{{ url_for('main.medication_view', id=medication.id) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-xl-10">
+            <form method="POST" novalidate>
+                {{ form.hidden_tag() }}
+                
+                <!-- Informações do Medicamento -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-pills me-2"></i>Informações do Medicamento
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <dl class="row">
+                                    <dt class="col-sm-4">Nome:</dt>
+                                    <dd class="col-sm-8">{{ medication.commercial_name }}</dd>
+                                    
+                                    <dt class="col-sm-4">Genérico:</dt>
+                                    <dd class="col-sm-8">{{ medication.generic_name }}</dd>
+                                    
+                                    <dt class="col-sm-4">Dosagem:</dt>
+                                    <dd class="col-sm-8">{{ medication.dosage }}</dd>
+                                </dl>
+                            </div>
+                            <div class="col-md-6">
+                                <dl class="row">
+                                    <dt class="col-sm-5">Forma Farmacêutica:</dt>
+                                    <dd class="col-sm-7">{{ medication.pharmaceutical_form }}</dd>
+                                    
+                                    <dt class="col-sm-5">Tipo:</dt>
+                                    <dd class="col-sm-7">
+                                        {% set type_class = {
+                                            'basic': 'primary',
+                                            'controlled': 'warning',
+                                            'high_cost': 'danger',
+                                            'psychotropic': 'info'
+                                        }[medication.medication_type.value] %}
+                                        <span class="badge bg-{{ type_class }}">
+                                            {% if medication.medication_type.value == 'basic' %}Básico
+                                            {% elif medication.medication_type.value == 'controlled' %}Controlado
+                                            {% elif medication.medication_type.value == 'high_cost' %}Alto Custo
+                                            {% elif medication.medication_type.value == 'psychotropic' %}Psicotrópico
+                                            {% endif %}
+                                        </span>
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuração de Concentração -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-flask me-2"></i>Concentração e Dosagem
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.strength_value.label(class="form-label required") }}
+                                    {{ form.strength_value(class="form-control" + (" is-invalid" if form.strength_value.errors else "")) }}
+                                    {% if form.strength_value.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.strength_value.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Concentração do princípio ativo</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.strength_unit.label(class="form-label required") }}
+                                    {{ form.strength_unit(class="form-select" + (" is-invalid" if form.strength_unit.errors else "")) }}
+                                    {% if form.strength_unit.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.strength_unit.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Unidade da concentração</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Exemplos para diferentes tipos -->
+                        <div class="alert alert-info">
+                            <h6 class="mb-2"><i class="fas fa-lightbulb me-2"></i>Exemplos de Configuração:</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Comprimidos/Cápsulas:</strong>
+                                    <ul class="mb-0 small">
+                                        <li>Paracetamol 500mg: 500 mg</li>
+                                        <li>Omeprazol 20mg: 20 mg</li>
+                                        <li>Ácido Fólico 5mg: 5 mg</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Líquidos:</strong>
+                                    <ul class="mb-0 small">
+                                        <li>Dipirona 500mg/ml: 500 mg/ml</li>
+                                        <li>Amoxicilina 250mg/5ml: 50 mg/ml</li>
+                                        <li>Xarope 2mg/ml: 2 mg/ml</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuração de Volume/Dose -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-prescription-bottle me-2"></i>Volume e Dose Unitária
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.volume_per_dose.label(class="form-label required") }}
+                                    {{ form.volume_per_dose(class="form-control" + (" is-invalid" if form.volume_per_dose.errors else "")) }}
+                                    {% if form.volume_per_dose.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.volume_per_dose.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Volume ou quantidade por dose</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.volume_unit.label(class="form-label required") }}
+                                    {{ form.volume_unit(class="form-select" + (" is-invalid" if form.volume_unit.errors else "")) }}
+                                    {% if form.volume_unit.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.volume_unit.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Unidade do volume/dose</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <h6 class="mb-2"><i class="fas fa-exclamation-triangle me-2"></i>Importante:</h6>
+                            <ul class="mb-0 small">
+                                <li><strong>Comprimidos/Cápsulas:</strong> Volume = 1 unidade</li>
+                                <li><strong>Líquidos:</strong> Volume = ml, gotas, ou colheres por dose</li>
+                                <li><strong>Pomadas/Cremes:</strong> Volume = gramas por aplicação</li>
+                                <li><strong>Inaladores:</strong> Volume = borrifadas por dose</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuração de Embalagem -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-box me-2"></i>Informações da Embalagem
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.package_size.label(class="form-label required") }}
+                                    {{ form.package_size(class="form-control" + (" is-invalid" if form.package_size.errors else "")) }}
+                                    {% if form.package_size.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.package_size.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Quantidade total por embalagem</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.package_unit.label(class="form-label required") }}
+                                    {{ form.package_unit(class="form-select" + (" is-invalid" if form.package_unit.errors else "")) }}
+                                    {% if form.package_unit.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.package_unit.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">Unidade da embalagem</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configurações Específicas -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-cogs me-2"></i>Configurações Específicas
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Gotas por ml (líquidos):</label>
+                                    <input type="number" name="drops_per_ml" class="form-control" 
+                                           placeholder="20" value="{{ config.drops_per_ml if config else '' }}">
+                                    <div class="form-text">Apenas para medicamentos líquidos (padrão: 20 gotas/ml)</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Dias de estabilidade:</label>
+                                    <input type="number" name="stability_days" class="form-control"
+                                           placeholder="30" value="{{ config.stability_days if config else '' }}">
+                                    <div class="form-text">Dias de estabilidade após abertura (opcional)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Observações sobre Cálculos:</label>
+                            <textarea name="calculation_notes" class="form-control" rows="3" 
+                                      placeholder="Observações sobre os cálculos ou instruções especiais...">{{ config.notes if config else '' }}</textarea>
+                            <div class="form-text">Observações sobre os cálculos ou instruções especiais</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Área de Teste -->
+                {% if config %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-calculator me-2"></i>Teste Rápido
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Dose Prescrita:</label>
+                                <div class="input-group">
+                                    <input type="number" id="testDose" class="form-control" placeholder="0" step="0.1">
+                                    <select id="testDoseUnit" class="form-select">
+                                        <option value="mg">mg</option>
+                                        <option value="ml">ml</option>
+                                        <option value="mcg">mcg</option>
+                                        <option value="g">g</option>
+                                        <option value="gotas">gotas</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Frequência/dia:</label>
+                                <input type="number" id="testFrequency" class="form-control" value="1" min="1" max="24">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Dias:</label>
+                                <input type="number" id="testDays" class="form-control" value="30" min="1" max="365">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-primary d-block" id="performTest">
+                                    <i class="fas fa-calculator me-1"></i>Calcular
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-outline-secondary d-block" id="clearTest">
+                                    <i class="fas fa-times me-1"></i>Limpar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="testResult" class="mt-3" style="display: none;">
+                            <div class="alert alert-info">
+                                <h6 class="mb-2"><i class="fas fa-check-circle me-2"></i>Resultado do Teste</h6>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <strong>Volume por Dose:</strong><br>
+                                        <span id="resultVolumePerDose" class="text-primary"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Quantidade Total:</strong><br>
+                                        <span id="resultTotalQuantity" class="text-success"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Embalagens:</strong><br>
+                                        <span id="resultPackages" class="text-info"></span>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <span id="resultNotes"></span>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Botões -->
+                <div class="card">
+                    <div class="card-footer bg-light">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('main.medication_view', id=medication.id) }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </a>
+                            <div class="btn-group">
+                                {% if config %}
+                                <button type="button" class="btn btn-outline-danger" id="deleteConfig">
+                                    <i class="fas fa-trash me-1"></i>Remover Configuração
+                                </button>
+                                {% endif %}
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i>
+                                    {% if config %}Atualizar{% else %}Salvar{% endif %} Configuração
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação para Remoção -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    Remover Configuração
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja remover a configuração de cálculo para <strong>{{ medication.commercial_name }}</strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Atenção:</strong> Esta ação não pode ser desfeita. Todos os cálculos automáticos serão desabilitados para este medicamento.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">
+                    <i class="fas fa-trash me-1"></i>Confirmar Remoção
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.required:after {
+    content: " *";
+    color: #dc3545;
+}
+
+.form-text {
+    font-size: 0.8rem;
+}
+
+#testResult .alert {
+    margin-bottom: 0;
+}
+
+.calculation-example {
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.test-section {
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    console.log('Configuração de cálculos carregada');
+    
+    // Verificar se jQuery está disponível
+    if (typeof $ === 'undefined') {
+        console.error('jQuery não está carregado!');
+        showAlert('Erro: jQuery não carregado', 'error');
+        return;
+    }
+    
+    // Auto-focus no primeiro campo
+    $('#strength_value').focus();
+    
+    // Teste rápido de cálculo - CORRIGIDO COM URL DO ROUTES.PY
+    $('#performTest').on('click', function() {
+        performQuickTest();
+    });
+    
+    $('#clearTest').on('click', function() {
+        clearTestForm();
+    });
+    
+    // Remoção de configuração
+    $('#deleteConfig').on('click', function() {
+        $('#deleteModal').modal('show');
+    });
+    
+    $('#confirmDelete').on('click', function() {
+        deleteConfiguration();
+    });
+    
+    // Validação em tempo real
+    $('input[type="number"]').on('input', function() {
+        validateField($(this));
+    });
+    
+    // Função para teste rápido - CORRIGIDA COM URL CORRETA
+    function performQuickTest() {
+        const dose = parseFloat($('#testDose').val());
+        const doseUnit = $('#testDoseUnit').val();
+        const frequency = parseInt($('#testFrequency').val());
+        const days = parseInt($('#testDays').val());
+        
+        if (!dose || dose <= 0) {
+            showAlert('Informe a dose prescrita!', 'warning');
+            return;
+        }
+        
+        if (!frequency || frequency <= 0) {
+            showAlert('Informe a frequência!', 'warning');
+            return;
+        }
+        
+        if (!days || days <= 0) {
+            showAlert('Informe os dias de tratamento!', 'warning');
+            return;
+        }
+        
+        const $btn = $('#performTest');
+        const originalText = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Calculando...');
+        
+        // ✅ USAR URL CORRETA DO ROUTES.PY
+        const testUrl = "{{ url_for('main.test_medication_calculation', medication_id=medication.id) }}";
+        
+        // ✅ USAR DADOS DO FORMULÁRIO (não JSON)
+        const formData = new FormData();
+        formData.append('prescribed_dose', dose);
+        formData.append('prescribed_unit', doseUnit);
+        formData.append('frequency_per_day', frequency);
+        formData.append('treatment_days', days);
+        formData.append('csrf_token', $('input[name="csrf_token"]').val());
+        
+        $.ajax({
+            url: testUrl,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                console.log('Resposta do teste:', response);
+                // Como é uma página HTML, extrair dados se for JSON ou mostrar resultado
+                if (typeof response === 'object' && response.success) {
+                    displayTestResult(response);
+                } else {
+                    // Se retornou HTML da página de teste, abrir em nova aba
+                    const newWindow = window.open('', '_blank');
+                    newWindow.document.write(response);
+                    showAlert('Teste aberto em nova aba', 'info');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Erro no teste:', xhr, status, error);
+                let errorMsg = 'Erro ao realizar teste';
+                
+                if (xhr.status === 404) {
+                    errorMsg = 'Rota de teste não encontrada';
+                } else if (xhr.status === 500) {
+                    errorMsg = 'Erro interno do servidor';
+                } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+                
+                showAlert(errorMsg, 'error');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(originalText);
+            }
+        });
+    }
+    
+    // Exibir resultado do teste - MELHORADO
+    function displayTestResult(result) {
+        try {
+            $('#resultVolumePerDose').text((result.volume_per_dose || 0) + ' ' + (result.volume_unit || ''));
+            $('#resultTotalQuantity').text((result.total_quantity || 0) + ' ' + (result.volume_unit || ''));
+            $('#resultPackages').text((result.packages_needed || 0) + ' embalagem(ns)');
+            
+            const notes = [];
+            if (result.notes) notes.push(result.notes);
+            if (result.warnings && result.warnings.length > 0) {
+                notes.push('⚠️ ' + result.warnings.join(', '));
+            }
+            
+            $('#resultNotes').text(notes.join(' | ') || 'Cálculo realizado com sucesso');
+            $('#testResult').show();
+        } catch (e) {
+            console.error('Erro ao exibir resultado:', e);
+            showAlert('Erro ao exibir resultado do teste', 'error');
+        }
+    }
+    
+    // Limpar formulário de teste
+    function clearTestForm() {
+        $('#testDose').val('');
+        $('#testFrequency').val(1);
+        $('#testDays').val(30);
+        $('#testResult').hide();
+    }
+    
+    // Remover configuração - CORRIGIDO COM URL CORRETA
+    function deleteConfiguration() {
+        const $btn = $('#confirmDelete');
+        const originalText = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Removendo...');
+        
+        // ✅ USAR URL CORRETA DO ROUTES.PY
+        const deleteUrl = "{{ url_for('main.delete_dispensing_config', medication_id=medication.id) }}";
+        
+        // ✅ USAR FORM DATA COM CSRF
+        const formData = new FormData();
+        formData.append('csrf_token', $('input[name="csrf_token"]').val());
+        
+        $.ajax({
+            url: deleteUrl,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                showAlert('Configuração removida com sucesso!', 'success');
+                setTimeout(() => {
+                    window.location.href = "{{ url_for('main.medication_view', id=medication.id) }}";
+                }, 1500);
+            },
+            error: function(xhr) {
+                console.error('Erro ao deletar:', xhr);
+                showAlert('Erro interno do servidor', 'error');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(originalText);
+                $('#deleteModal').modal('hide');
+            }
+        });
+    }
+    
+    // Validar campo numérico
+    function validateField($field) {
+        try {
+            const value = parseFloat($field.val());
+            const min = parseFloat($field.attr('min')) || 0;
+            const max = parseFloat($field.attr('max')) || Infinity;
+            
+            if (isNaN(value) || value < min || value > max) {
+                $field.addClass('is-invalid');
+            } else {
+                $field.removeClass('is-invalid');
+            }
+        } catch (e) {
+            console.error('Erro na validação:', e);
+        }
+    }
+    
+    // Máscara para valores decimais - MELHORADA
+    $('input[step="0.1"]').on('input', function() {
+        try {
+            let value = this.value.replace(/[^\d.,]/g, '');
+            const parts = value.split(/[.,]/);
+            if (parts.length > 2) {
+                value = parts[0] + '.' + parts.slice(1).join('');
+            }
+            if (parts[1] && parts[1].length > 2) {
+                value = parts[0] + '.' + parts[1].substring(0, 2);
+            }
+            this.value = value;
+        } catch (e) {
+            console.error('Erro na máscara:', e);
+        }
+    });
+    
+    // Sugestões baseadas no tipo de medicamento
+    try {
+        const medicationType = "{{ medication.medication_type.value }}";
+        const pharmaceuticalForm = "{{ medication.pharmaceutical_form }}";
+        
+        // Auto-preencher gotas por ml para líquidos
+        if (pharmaceuticalForm.toLowerCase().includes('xarope') || 
+            pharmaceuticalForm.toLowerCase().includes('solução') ||
+            pharmaceuticalForm.toLowerCase().includes('suspensão')) {
+            if ($('input[name="drops_per_ml"]').length && !$('input[name="drops_per_ml"]').val()) {
+                $('input[name="drops_per_ml"]').val(20);
+            }
+        }
+    } catch (e) {
+        console.warn('Erro nas sugestões automáticas:', e);
+    }
+    
+    // Função para alertas - MELHORADA
+    function showAlert(message, type = 'info') {
+        try {
+            const alertClass = {
+                'success': 'alert-success',
+                'warning': 'alert-warning', 
+                'danger': 'alert-danger',
+                'error': 'alert-danger',
+                'info': 'alert-info'
+            }[type] || 'alert-info';
+            
+            // Remover alertas antigos
+            $('.alert.position-fixed').remove();
+            
+            const alert = $(`
+                <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                     style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `);
+            
+            $('body').append(alert);
+            
+            setTimeout(() => {
+                alert.fadeOut(() => alert.remove());
+            }, 5000);
+        } catch (e) {
+            console.error('Erro ao mostrar alerta:', e);
+            console.log('ALERTA:', message);
+        }
+    }
+    
+    // Configurar CSRF Token - CORRIGIDO
+    const csrfToken = $('meta[name=csrf-token]').attr('content') || $('input[name="csrf_token"]').val();
+    if (csrfToken) {
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", csrfToken);
+                }
+            }
+        });
+    } else {
+        console.warn('CSRF Token não encontrado');
+    }
+});
+</script>
+{% endblock %}

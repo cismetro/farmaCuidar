@@ -19,6 +19,17 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 import csv
 
+# ✅ ADICIONAR NO TOPO DO routes.py:
+from app.calculations import (
+    validate_medication_configuration,
+    calculate_from_database, 
+    calculate_complete_dispensation,
+    validate_calculation_inputs,
+    get_supported_units,
+    convert_units,
+    format_calculation_result
+)
+
 from app.database import db, login_manager
 from app.models import *
 from app.forms import *
@@ -2252,12 +2263,591 @@ def api_medications_search_with_intervals():
     
     return jsonify(results)
 
+# ✅ ROTA PARA CONFIGURAR CÁLCULOS DE MEDICAMENTO
+@main.route('/medication/<int:medication_id>/dispensing_config', methods=['GET', 'POST'])
+@login_required
+def medication_dispensing_config(medication_id):
+    """Configurar cálculos de dispensação para medicamento"""
+    medication = Medication.query.get_or_404(medication_id)
+    
+    config = medication.dispensing_config
+    if not config:
+        config = MedicationDispensing(medication_id=medication_id)
+    
+    form = MedicationDispensingForm(obj=config)
+    form.medication_id.data = medication_id
+    
+    if form.validate_on_submit():
+        try:
+            # ✅ VALIDAR ANTES DE SALVAR:
+            is_valid, validation_msg = validate_medication_configuration(
+                strength_value=float(form.strength_value.data),
+                strength_unit=form.strength_unit.data,
+                volume_per_dose=float(form.volume_per_dose.data),
+                volume_unit=form.volume_unit.data,
+                package_size=float(form.package_size.data),
+                package_unit=form.package_unit.data
+            )
+            
+            if not is_valid:
+                flash(f'❌ {validation_msg}', 'error')
+                return render_template('medications/dispensing_config.html', 
+                                     form=form, medication=medication, config=config)
+            
+            # Continuar com o salvamento...
+            if not config.id:
+                db.session.add(config)
+            
+            form.populate_obj(config)
+            config.medication_id = medication_id
+            config.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            flash('✅ Configuração de cálculos salva com sucesso!', 'success')
+            
+            return redirect(url_for('main.medication_view', id=medication_id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao salvar configuração: {str(e)}', 'error')
+            current_app.logger.error(f"Erro ao salvar config dispensação: {e}")
+    
+    return render_template('medications/dispensing_config.html', 
+                         form=form, medication=medication, config=config)
+
+# ✅ ROTA PARA TESTAR CÁLCULOS
+@main.route('/medication/<int:medication_id>/test_calculation', methods=['GET', 'POST'])
+@login_required
+def test_medication_calculation(medication_id):
+    """Testar cálculos de dispensação"""
+    medication = Medication.query.get_or_404(medication_id)
+    
+    if not medication.has_dispensing_config:
+        flash('Medicamento não possui configuração de cálculos', 'warning')
+        return redirect(url_for('main.medication_view', id=medication_id))
+    
+    form = CalculationTestForm()
+    form.medication_id.data = medication_id
+    
+    calculation_result = None
+    
+    if form.validate_on_submit():
+        try:
+            # Chamar função de cálculo do banco
+            result = calculate_from_database(
+                medication_id=medication_id,
+                prescribed_dose=float(form.prescribed_dose.data),
+                prescribed_unit=form.prescribed_unit.data,
+                frequency=int(form.frequency_per_day.data),
+                treatment_days=int(form.treatment_days.data)
+            )
+            
+            calculation_result = result
+            
+            if result.get('success'):
+                flash('Cálculo realizado com sucesso!', 'success')
+            else:
+                flash(f"Erro no cálculo: {result.get('error')}", 'error')
+                
+        except Exception as e:
+            flash(f'Erro ao calcular: {str(e)}', 'error')
+            current_app.logger.error(f"Erro no teste de cálculo: {e}")
+    
+    return render_template('medications/test_calculation.html', 
+                         form=form, medication=medication, 
+                         calculation_result=calculation_result)
+
+# ✅ ROTA PARA CÁLCULO RÁPIDO (SEM CONFIGURAÇÃO PRÉVIA)
+@main.route('/quick_calculation', methods=['GET', 'POST'])
+@login_required
+def quick_calculation():
+    """Cálculo rápido sem configuração prévia"""
+    form = QuickCalculationForm()
+    calculation_result = None
+    
+    if form.validate_on_submit():
+        try:
+            # Validar dados de entrada
+            calc_data = {
+                'prescribed_dose': float(form.prescribed_dose.data),
+                'prescribed_unit': form.prescribed_unit.data,
+                'strength_value': float(form.strength_value.data),
+                'strength_unit': form.strength_unit.data,
+                'volume_per_dose': float(form.volume_per_dose.data),
+                'volume_unit': form.volume_unit.data,
+                'frequency_per_day': int(form.frequency_per_day.data),
+                'treatment_days': int(form.treatment_days.data),
+                'package_size': float(form.package_size.data)
+            }
+            
+            # Validar entradas
+            is_valid, validation_msg = validate_calculation_inputs(calc_data)
+            
+            if not is_valid:
+                flash(f'Dados inválidos: {validation_msg}', 'error')
+            else:
+                # Chamar função de cálculo completo
+                result = calculate_complete_dispensation(
+                    prescribed_dose=calc_data['prescribed_dose'],
+                    prescribed_unit=calc_data['prescribed_unit'],
+                    strength_value=calc_data['strength_value'],
+                    strength_unit=calc_data['strength_unit'],
+                    volume_per_dose=calc_data['volume_per_dose'],
+                    volume_unit=calc_data['volume_unit'],
+                    frequency=calc_data['frequency_per_day'],
+                    days=calc_data['treatment_days'],
+                    package_size=calc_data['package_size'],
+                    package_unit=calc_data['volume_unit']  # Assumir mesma unidade
+                )
+                
+                calculation_result = result
+                
+                if result.get('success'):
+                    flash('Cálculo realizado com sucesso!', 'success')
+                else:
+                    flash(f"Erro no cálculo: {result.get('error')}", 'error')
+                    
+        except Exception as e:
+            flash(f'Erro ao calcular: {str(e)}', 'error')
+            current_app.logger.error(f"Erro no cálculo rápido: {e}")
+    
+    return render_template('calculations/quick_calculation.html', 
+                         form=form, calculation_result=calculation_result)
+
+# ✅ ROTA PARA LISTAR MEDICAMENTOS COM CONFIGURAÇÕES
+@main.route('/medications/with_calculations')
+@login_required
+def medications_with_calculations():
+    """Listar medicamentos com configurações de cálculo"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+    
+    # Buscar medicamentos que têm configuração ativa
+    medications = Medication.query.join(MedicationDispensing).filter(
+        MedicationDispensing.is_active == True,
+        Medication.is_active == True
+    ).order_by(Medication.commercial_name).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return render_template('medications/with_calculations.html', 
+                         medications=medications)
+
+# ✅ ROTA PARA MEDICAMENTOS SEM CONFIGURAÇÕES
+@main.route('/medications/without_calculations')
+@login_required
+def medications_without_calculations():
+    """Listar medicamentos sem configurações de cálculo"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+    
+    # Medicamentos sem configuração ou com configuração inativa
+    medications = Medication.query.outerjoin(MedicationDispensing).filter(
+        or_(
+            MedicationDispensing.id == None,
+            MedicationDispensing.is_active == False
+        ),
+        Medication.is_active == True
+    ).order_by(Medication.commercial_name).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return render_template('medications/without_calculations.html', 
+                         medications=medications)
+
+# ✅ ROTA PARA EXCLUIR CONFIGURAÇÃO DE CÁLCULO
+@main.route('/medication/<int:medication_id>/dispensing_config/delete', methods=['POST'])
+@login_required
+def delete_dispensing_config(medication_id):
+    """Excluir configuração de cálculos"""
+    medication = Medication.query.get_or_404(medication_id)
+    config = medication.dispensing_config
+    
+    if not config:
+        flash('Configuração não encontrada', 'error')
+        return redirect(url_for('main.medication_view', id=medication_id))
+    
+    try:
+        # Log antes de excluir
+        log_action('DELETE', 'medication_dispensing', config.id, 
+                  old_values=f"Configuração para {medication.commercial_name}")
+        
+        db.session.delete(config)
+        db.session.commit()
+        
+        flash('Configuração de cálculos removida com sucesso!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao remover configuração: {str(e)}', 'error')
+        current_app.logger.error(f"Erro ao deletar config dispensação: {e}")
+    
+    return redirect(url_for('main.medication_view', id=medication_id))
+
+# ✅ ROTA PARA OBTER UNIDADES SUPORTADAS (AJAX)
+@main.route('/api/supported_units')
+@login_required
+def api_supported_units():
+    """API para obter unidades suportadas"""
+    try:
+        units = get_supported_units()
+        return jsonify(units)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ✅ ROTA PARA CONVERTER UNIDADES (AJAX)
+@main.route('/api/convert_units', methods=['POST'])
+@login_required
+def api_convert_units():
+    """API para converter entre unidades"""
+    try:
+        data = request.get_json()
+        
+        value = float(data.get('value', 0))
+        from_unit = data.get('from_unit', '')
+        to_unit = data.get('to_unit', '')
+        
+        if not all([value > 0, from_unit, to_unit]):
+            return jsonify({'error': 'Parâmetros inválidos'}), 400
+        
+        converted_value = convert_units(value, from_unit, to_unit)
+        
+        return jsonify({
+            'success': True,
+            'original_value': value,
+            'converted_value': converted_value,
+            'from_unit': from_unit,
+            'to_unit': to_unit
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ✅ INTEGRAÇÃO COM DISPENSAÇÃO EXISTENTE
+@main.route('/dispensation/calculate/<int:patient_id>/<int:medication_id>', methods=['POST'])
+@login_required
+def calculate_dispensation_for_patient(patient_id, medication_id):
+    """Calcular dispensação durante processo de dispensação"""
+    try:
+        data = request.get_json()
+        
+        prescribed_dose = float(data.get('prescribed_dose', 0))
+        prescribed_unit = data.get('prescribed_unit', '')
+        frequency = int(data.get('frequency', 1))
+        treatment_days = int(data.get('treatment_days', 1))
+        
+        # ✅ AGORA A FUNÇÃO ESTÁ IMPORTADA CORRETAMENTE:
+        result = calculate_from_database(
+            medication_id=medication_id,
+            prescribed_dose=prescribed_dose,
+            prescribed_unit=prescribed_unit,
+            frequency=frequency,
+            treatment_days=treatment_days
+        )
+        
+        # ✅ MAPEAR RESULTADO PARA O TEMPLATE:
+        if result['success']:
+            mapped_result = {
+                'success': True,
+                'recommended_quantity': result['packages_needed'],
+                'volume_per_dose': result['dose_per_administration'],
+                'volume_unit': result['dose_unit'],
+                'daily_volume': result['dose_per_administration'] * frequency,
+                'actual_duration': treatment_days,
+                'total_volume': result['total_volume'],
+                'conversions': [],
+                'notes': [result.get('medication_name', '')]
+            }
+            
+            if result.get('drops_info'):
+                mapped_result['conversions'].append(result['drops_info']['conversion_text'])
+            
+            return jsonify(mapped_result)
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Erro no cálculo: {str(e)}'
+        }), 500
+
+# ✅ ROTA PARA DASHBOARD DE CÁLCULOS
+@main.route('/calculations/dashboard')
+@login_required
+def calculations_dashboard():
+    """Dashboard com estatísticas de cálculos"""
+    try:
+        # Estatísticas gerais
+        total_medications = Medication.query.filter_by(is_active=True).count()
+        
+        with_config = db.session.query(Medication).join(MedicationDispensing).filter(
+            MedicationDispensing.is_active == True,
+            Medication.is_active == True
+        ).count()
+        
+        without_config = total_medications - with_config
+        
+        # Medicamentos por tipo com configuração
+        config_by_type = db.session.query(
+            Medication.medication_type,
+            func.count(Medication.id).label('count')
+        ).join(MedicationDispensing).filter(
+            MedicationDispensing.is_active == True,
+            Medication.is_active == True
+        ).group_by(Medication.medication_type).all()
+        
+        # Medicamentos com configuração de gotas
+        with_drops = db.session.query(MedicationDispensing).filter(
+            MedicationDispensing.is_active == True,
+            MedicationDispensing.drops_per_ml.isnot(None)
+        ).count()
+        
+        # Medicamentos com configuração de estabilidade
+        with_stability = db.session.query(MedicationDispensing).filter(
+            MedicationDispensing.is_active == True,
+            MedicationDispensing.stability_days.isnot(None)
+        ).count()
+        
+        stats = {
+            'total_medications': total_medications,
+            'with_config': with_config,
+            'without_config': without_config,
+            'config_percentage': round((with_config / total_medications * 100) if total_medications > 0 else 0, 1),
+            'config_by_type': dict(config_by_type),
+            'with_drops': with_drops,
+            'with_stability': with_stability
+        }
+        
+        return render_template('calculations/dashboard.html', stats=stats)
+        
+    except Exception as e:
+        flash(f'Erro ao carregar dashboard: {str(e)}', 'error')
+        return redirect(url_for('main.index'))
+
+# ✅ ROTA PARA RELATÓRIO DE CÁLCULOS
+@main.route('/reports/calculations')
+@login_required
+def calculations_report():
+    """Relatório de configurações de cálculo"""
+    try:
+        # Buscar todos os medicamentos com configuração
+        medications_with_config = db.session.query(
+            Medication, MedicationDispensing
+        ).join(MedicationDispensing).filter(
+            MedicationDispensing.is_active == True,
+            Medication.is_active == True
+        ).order_by(Medication.commercial_name).all()
+        
+        # Buscar medicamentos sem configuração
+        medications_without_config = Medication.query.outerjoin(MedicationDispensing).filter(
+            or_(
+                MedicationDispensing.id == None,
+                MedicationDispensing.is_active == False
+            ),
+            Medication.is_active == True
+        ).order_by(Medication.commercial_name).all()
+        
+        return render_template('reports/calculations_report.html',
+                             medications_with_config=medications_with_config,
+                             medications_without_config=medications_without_config)
+        
+    except Exception as e:
+        flash(f'Erro ao gerar relatório: {str(e)}', 'error')
+        return redirect(url_for('main.reports_index'))
+
+# ✅ ROTA PARA VALIDAR CONFIGURAÇÃO (AJAX)
+@main.route('/api/validate_calculation_config', methods=['POST'])
+@login_required
+def api_validate_calculation_config():
+    """Validar configuração de cálculo via API"""
+    try:
+        data = request.get_json()
+        
+        # ✅ AGORA A FUNÇÃO ESTÁ IMPORTADA CORRETAMENTE:
+        is_valid, message = validate_medication_configuration(
+            strength_value=float(data.get('strength_value', 0)),
+            strength_unit=data.get('strength_unit', ''),
+            volume_per_dose=float(data.get('volume_per_dose', 0)),
+            volume_unit=data.get('volume_unit', ''),
+            package_size=float(data.get('package_size', 0)),
+            package_unit=data.get('package_unit', '')
+        )
+        
+        return jsonify({
+            'valid': is_valid,
+            'message': message
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'valid': False,
+            'message': f'Erro na validação: {str(e)}'
+        }), 500
+
+# ✅ ROTA PARA EXPORTAR CONFIGURAÇÕES
+@main.route('/calculations/export')
+@login_required
+def export_calculations_config():
+    """Exportar configurações de cálculo para Excel"""
+    try:
+        import pandas as pd
+        from io import BytesIO
+        
+        # Buscar dados
+        query = db.session.query(
+            Medication.commercial_name,
+            Medication.generic_name,
+            Medication.dosage,
+            Medication.pharmaceutical_form,
+            MedicationDispensing.strength_value,
+            MedicationDispensing.strength_unit,
+            MedicationDispensing.volume_per_dose,
+            MedicationDispensing.volume_unit,
+            MedicationDispensing.package_size,
+            MedicationDispensing.package_unit,
+            MedicationDispensing.drops_per_ml,
+            MedicationDispensing.stability_days,
+            MedicationDispensing.is_active
+        ).join(MedicationDispensing).filter(
+            Medication.is_active == True
+        ).order_by(Medication.commercial_name)
+        
+        # Converter para DataFrame
+        df = pd.DataFrame(query.all(), columns=[
+            'Nome Comercial', 'Nome Genérico', 'Dosagem', 'Forma Farmacêutica',
+            'Concentração', 'Unidade Concentração', 'Volume por Dose', 'Unidade Volume',
+            'Tamanho Embalagem', 'Unidade Embalagem', 'Gotas/ml', 'Estabilidade (dias)', 'Ativo'
+        ])
+        
+        # Criar arquivo Excel
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, sheet_name='Configurações Cálculo', index=False)
+            
+            # Formatação
+            workbook = writer.book
+            worksheet = writer.sheets['Configurações Cálculo']
+            
+            # Formato de cabeçalho
+            header_format = workbook.add_format({
+                'bold': True,
+                'text_wrap': True,
+                'valign': 'top',
+                'fg_color': '#D7E4BC',
+                'border': 1
+            })
+            
+            # Aplicar formato
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+                worksheet.set_column(col_num, col_num, 15)
+        
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'configuracoes_calculo_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        )
+        
+    except Exception as e:
+        flash(f'Erro ao exportar: {str(e)}', 'error')
+        return redirect(url_for('main.calculations_dashboard'))
+
+@main.route('/calculations/import', methods=['GET', 'POST'])
+@login_required
+@pharmacist_required  # ✅ ADICIONE ISSO
+def import_calculations_config():
+    """Importar configurações de cálculo via Excel"""
+    if request.method == 'POST':
+        try:
+            file = request.files.get('file')
+            if not file or not file.filename.endswith(('.xlsx', '.xls')):
+                flash('Arquivo Excel inválido', 'error')
+                return redirect(request.url)
+            
+            import pandas as pd
+            
+            # Ler arquivo
+            df = pd.read_excel(file)
+            
+            # Validar colunas esperadas
+            required_columns = [
+                'Nome Comercial', 'Concentração', 'Unidade Concentração',
+                'Volume por Dose', 'Unidade Volume', 'Tamanho Embalagem'
+            ]
+            
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                flash(f'Colunas obrigatórias ausentes: {", ".join(missing_columns)}', 'error')
+                return redirect(request.url)
+            
+            imported_count = 0
+            errors = []
+            
+            for index, row in df.iterrows():
+                try:
+                    # Buscar medicamento
+                    medication = Medication.query.filter_by(
+                        commercial_name=row['Nome Comercial']
+                    ).first()
+                    
+                    if not medication:
+                        errors.append(f"Linha {index + 2}: Medicamento '{row['Nome Comercial']}' não encontrado")
+                        continue
+                    
+                    # Criar ou atualizar configuração
+                    config = medication.dispensing_config
+                    if not config:
+                        config = MedicationDispensing(medication_id=medication.id)
+                        db.session.add(config)
+                    
+                    config.strength_value = float(row['Concentração'])
+                    config.strength_unit = str(row['Unidade Concentração'])
+                    config.volume_per_dose = float(row['Volume por Dose'])
+                    config.volume_unit = str(row['Unidade Volume'])
+                    config.package_size = float(row['Tamanho Embalagem'])
+                    config.package_unit = str(row.get('Unidade Embalagem', row['Unidade Volume']))
+                    
+                    # Campos opcionais
+                    if 'Gotas/ml' in row and pd.notna(row['Gotas/ml']):
+                        config.drops_per_ml = int(row['Gotas/ml'])
+                    
+                    if 'Estabilidade (dias)' in row and pd.notna(row['Estabilidade (dias)']):
+                        config.stability_days = int(row['Estabilidade (dias)'])
+                    
+                    config.is_active = True
+                    imported_count += 1
+                    
+                except Exception as e:
+                    errors.append(f"Linha {index + 2}: {str(e)}")
+            
+            db.session.commit()
+            
+            flash(f'{imported_count} configurações importadas com sucesso!', 'success')
+            
+            if errors:
+                error_msg = f"{len(errors)} erros encontrados:\n" + "\n".join(errors[:5])
+                if len(errors) > 5:
+                    error_msg += f"\n... e mais {len(errors) - 5} erros"
+                flash(error_msg, 'warning')
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao importar: {str(e)}', 'error')
+    
+    return render_template('calculations/import_config.html')
+
+
+
 # =================== GESTÃO DE MEDICAMENTOS ===================
 
 @main.route('/inventory')
 @staff_required
 def inventory_list():
-    """Lista de medicamentos"""
+    """Lista de medicamentos com filtros de cálculo"""
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('MEDICATIONS_PER_PAGE', 50)
     
@@ -2266,6 +2856,7 @@ def inventory_list():
     search_term = request.args.get('search_term', '')
     medication_type = request.args.get('medication_type', '')
     low_stock_only = request.args.get('low_stock_only', False, type=bool)
+    has_calculations_filter = request.args.get('has_calculations', '')  # ✅ NOVO
     
     query = Medication.query.filter_by(is_active=True)
     
@@ -2283,6 +2874,14 @@ def inventory_list():
     if low_stock_only:
         query = query.filter(Medication.current_stock <= Medication.minimum_stock)
     
+    # ✅ NOVO FILTRO DE CÁLCULOS
+    if has_calculations_filter == 'yes':
+        query = query.join(MedicationDispensing).filter(MedicationDispensing.is_active == True)
+    elif has_calculations_filter == 'no':
+        query = query.outerjoin(MedicationDispensing).filter(
+            or_(MedicationDispensing.id == None, MedicationDispensing.is_active == False)
+        )
+    
     medications = query.order_by(Medication.commercial_name).paginate(
         page=page, per_page=per_page, error_out=False
     )
@@ -2292,7 +2891,8 @@ def inventory_list():
                          search_form=search_form,
                          search_term=search_term,
                          medication_type=medication_type,
-                         low_stock_only=low_stock_only)
+                         low_stock_only=low_stock_only,
+                         has_calculations_filter=has_calculations_filter)  # ✅ NOVO
 
 @main.route('/inventory/create', methods=['GET', 'POST'])
 @pharmacist_required
@@ -2346,7 +2946,7 @@ def medication_create():
 @main.route('/inventory/<int:id>')
 @staff_required
 def medication_view(id):
-    """Visualizar medicamento"""
+    """Visualizar medicamento com configurações de cálculo"""
     medication = Medication.query.get_or_404(id)
     
     # Movimentações recentes
@@ -2357,7 +2957,9 @@ def medication_view(id):
     return render_template('inventory/view.html', 
                          medication=medication,
                          movements=movements,
-                         current_date=date.today())
+                         current_date=date.today(),
+                         has_calculation_config=medication.has_dispensing_config,  # ✅ NOVO
+                         calculation_config=medication.dispensing_config)         # ✅ NOVO
 
 @main.route('/inventory/<int:id>/edit', methods=['GET', 'POST'])
 @pharmacist_required
@@ -4328,7 +4930,7 @@ def format_phone(phone):
 @main.route('/api/medications/search')
 @staff_required
 def api_medications_search():
-    """API para buscar medicamentos"""
+    """API para buscar medicamentos com informações de cálculo"""
     term = request.args.get('q', '').strip()
     
     if len(term) < 2:
@@ -4354,7 +4956,9 @@ def api_medications_search():
             'current_stock': med.current_stock,
             'unit_cost': float(med.unit_cost) if med.unit_cost else None,
             'requires_prescription': med.requires_prescription,
-            'controlled_substance': med.controlled_substance
+            'controlled_substance': med.controlled_substance,
+            'has_calculation_config': med.has_dispensing_config,        # ✅ NOVO
+            'calculation_config_display': med.dispensing_config_display  # ✅ NOVO
         })
     
     return jsonify(results)

@@ -228,9 +228,18 @@
                             <a href="{{ url_for('main.inventory_list') }}" class="btn btn-outline-secondary">
                                 <i class="fas fa-times me-1"></i>Cancelar
                             </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-1"></i>Salvar Medicamento
-                            </button>
+                            <div class="btn-group">
+                                <!-- ✅ ADICIONADO: Link para cálculos se editando -->
+                                {% if medication and current_user.role.value in ['admin', 'pharmacist'] %}
+                                <a href="{{ url_for('main.medication_dispensing_config', medication_id=medication.id) }}" 
+                                   class="btn btn-outline-primary">
+                                    <i class="fas fa-calculator me-1"></i>Configurar Cálculos
+                                </a>
+                                {% endif %}
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i>Salvar Medicamento
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -266,6 +275,15 @@ $(document).ready(function() {
             value = parts[0] + ',' + parts[1].substring(0, 2);
         }
         this.value = value;
+    });
+    
+    // ✅ ADICIONADO: Redirect para configurar cálculos após salvar novo medicamento
+    $('form').on('submit', function(e) {
+        const isNewMedication = !window.location.pathname.includes('/edit');
+        if (isNewMedication) {
+            // Adicionar flag para mostrar prompt de configuração
+            $(this).append('<input type="hidden" name="configure_calculations" value="1">');
+        }
     });
 });
 </script>

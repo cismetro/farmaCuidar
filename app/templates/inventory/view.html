@@ -27,7 +27,13 @@
                 <a href="{{ url_for('main.medication_edit', id=medication.id) }}" class="btn btn-primary">
                     <i class="fas fa-edit me-1"></i>Editar
                 </a>
-                <a href="{{ url_for('main.stock_entry') }}?medication_id={{ medication.id }}" class="btn btn-success">
+                <!-- ✅ BOTÃO CÁLCULOS CORRIGIDO -->
+                <a href="{{ url_for('main.medication_dispensing_config', medication_id=medication.id) }}" 
+                   class="btn btn-success">
+                    <i class="fas fa-calculator me-1"></i>
+                    {% if medication.dispensing_config %}Cálculos{% else %}+ Cálculos{% endif %}
+                </a>
+                <a href="{{ url_for('main.stock_entry') }}?medication_id={{ medication.id }}" class="btn btn-outline-success">
                     <i class="fas fa-plus-circle me-1"></i>Entrada
                 </a>
                 {% endif %}
@@ -98,6 +104,105 @@
                     </dl>
                 </div>
             </div>
+
+            <!-- ✅ SEÇÃO CORRIGIDA: Configuração de Cálculos -->
+            {% if medication.dispensing_config %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-calculator me-2 text-success"></i>Configuração de Cálculos
+                    </h6>
+                    <span class="badge bg-success">Configurado</span>
+                </div>
+                <div class="card-body">
+                    <!-- ✅ USAR medication.dispensing_config DIRETAMENTE -->
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Concentração:</dt>
+                        <dd class="col-sm-7">
+                            <strong>{{ medication.dispensing_config.strength_value }} {{ medication.dispensing_config.strength_unit }}</strong>
+                        </dd>
+                        
+                        <dt class="col-sm-5">Volume/Dose:</dt>
+                        <dd class="col-sm-7">
+                            <strong>{{ medication.dispensing_config.volume_per_dose }} {{ medication.dispensing_config.volume_unit }}</strong>
+                        </dd>
+                        
+                        <dt class="col-sm-5">Embalagem:</dt>
+                        <dd class="col-sm-7">
+                            <strong>{{ medication.dispensing_config.package_size }} {{ medication.dispensing_config.package_unit }}</strong>
+                        </dd>
+                        
+                        {% if medication.dispensing_config.drops_per_ml %}
+                        <dt class="col-sm-5">Gotas/ml:</dt>
+                        <dd class="col-sm-7"><span class="badge bg-info">{{ medication.dispensing_config.drops_per_ml }}</span></dd>
+                        {% endif %}
+                        
+                        {% if medication.dispensing_config.stability_days %}
+                        <dt class="col-sm-5">Estabilidade:</dt>
+                        <dd class="col-sm-7"><span class="badge bg-warning">{{ medication.dispensing_config.stability_days }} dias</span></dd>
+                        {% endif %}
+                        
+                        <dt class="col-sm-5">Status:</dt>
+                        <dd class="col-sm-7">
+                            {% if medication.dispensing_config.is_active %}
+                                <span class="badge bg-success">Ativo</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inativo</span>
+                            {% endif %}
+                        </dd>
+                        
+                        <dt class="col-sm-5">Atualizado:</dt>
+                        <dd class="col-sm-7">
+                            <small class="text-muted">{{ format_datetime(medication.dispensing_config.updated_at) if medication.dispensing_config.updated_at else format_datetime(medication.dispensing_config.created_at) }}</small>
+                        </dd>
+                    </dl>
+                    
+                    <!-- ✅ MOSTRAR OBSERVAÇÕES SE EXISTIREM -->
+                    {% if medication.dispensing_config.notes %}
+                    <div class="mt-3">
+                        <small class="text-muted d-block">Observações:</small>
+                        <div class="alert alert-info py-2">
+                            <small>{{ medication.dispensing_config.notes }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-3 d-grid gap-2 d-md-flex">
+                        <a href="{{ url_for('main.medication_dispensing_config', medication_id=medication.id) }}" 
+                           class="btn btn-outline-primary btn-sm flex-fill">
+                            <i class="fas fa-cog me-1"></i>Editar Configuração
+                        </a>
+                        <a href="{{ url_for('main.test_medication_calculation', medication_id=medication.id) }}" 
+                           class="btn btn-outline-success btn-sm flex-fill">
+                            <i class="fas fa-calculator me-1"></i>Testar Cálculo
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-calculator me-2 text-muted"></i>Cálculos Farmacológicos
+                    </h6>
+                    <span class="badge bg-secondary">Não configurado</span>
+                </div>
+                <div class="card-body text-center">
+                    <i class="fas fa-calculator fa-2x text-muted mb-3"></i>
+                    <p class="text-muted mb-3">Configure os cálculos para automatizar dispensações</p>
+                    <div class="alert alert-warning py-2 mb-3">
+                        <small><i class="fas fa-info-circle me-1"></i>
+                        Configuração permite cálculos automáticos de dose, volume e embalagens necessárias</small>
+                    </div>
+                    {% if current_user.role.value in ['admin', 'pharmacist'] %}
+                    <a href="{{ url_for('main.medication_dispensing_config', medication_id=medication.id) }}" 
+                       class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Configurar Cálculos
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Status do Estoque -->
             <div class="card mb-4">
@@ -230,8 +335,8 @@
                                         <small class="text-muted">{{ movement.previous_stock }} →</small>
                                         <strong>{{ movement.new_stock }}</strong>
                                     </td>
-                                    <td>{{ movement.user.full_name if movement.user else '—' }}</td>
-                                    <td>{{ movement.reason or '—' }}</td>
+                                    <td>{{ movement.user.full_name if movement.user else '--' }}</td>
+                                    <td>{{ movement.reason or '--' }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -254,13 +359,14 @@
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Adicionar data atual para cálculos
+    // Atualizar indicadores de validade em tempo real
     window.currentDate = new Date();
     
-    // Atualizar a cada 30 segundos (para alertas)
+    // Refresh de alertas a cada 60 segundos
     setInterval(function() {
-        // Você pode adicionar atualizações automáticas aqui
-    }, 30000);
+        // Você pode adicionar atualizações automáticas de estoque aqui
+        console.log('Verificando atualizações...');
+    }, 60000);
 });
 </script>
 {% endblock %}

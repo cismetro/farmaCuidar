@@ -31,7 +31,7 @@ from wtforms.widgets import (
 from app.models import (
     User, Patient, Medication, UserRole, MedicationType,
     ProcessStatus, DispensationStatus, HighCostProcess,
-    Dispensation, InventoryMovement
+    Dispensation, InventoryMovement, MedicationDispensing  # ✅ NOVO
 )
 
 # Utilities
@@ -97,6 +97,33 @@ PHARMACEUTICAL_FORMS = [
     ('outros', 'Outros')
 ]
 
+# ✅ UNIDADES PARA CÁLCULOS FARMACOLÓGICOS
+STRENGTH_UNITS = [
+    ('mg', 'mg (miligramas)'),
+    ('g', 'g (gramas)'),
+    ('mcg', 'mcg (microgramas)'),
+    ('UI', 'UI (Unidades Internacionais)'),
+    ('%', '% (percentual)')
+]
+
+VOLUME_UNITS = [
+    ('ml', 'ml (mililitros)'),
+    ('comp', 'comprimido'),
+    ('cap', 'cápsula'),
+    ('ampola', 'ampola'),
+    ('frasco', 'frasco'),
+    ('sachê', 'sachê')
+]
+
+FREQUENCY_CHOICES = [
+    ('1', '1x ao dia'),
+    ('2', '2x ao dia (12/12h)'),
+    ('3', '3x ao dia (8/8h)'),
+    ('4', '4x ao dia (6/6h)'),
+    ('6', '6x ao dia (4/4h)'),
+    ('8', '8x ao dia (3/3h)')
+]
+
 # Níveis de urgência
 URGENCY_LEVELS = [
     ('baixa', 'Baixa'),
@@ -126,7 +153,8 @@ REPORT_TYPES = [
     ('financial', 'Relatório Financeiro'),
     ('esus_integration', 'Integração e-SUS'),  # ✅ NOVO
     ('inventory_movement', 'Movimentação de Estoque'),
-    ('user_activity', 'Atividade de Usuários')
+    ('user_activity', 'Atividade de Usuários'),
+    ('pharmaceutical_calculations', 'Cálculos Farmacológicos')  # ✅ NOVO
 ]
 
 # Formatos de relatório
@@ -205,6 +233,27 @@ def validate_percentage(form, field):
     if field.data is not None and (field.data < 0 or field.data > 100):
         raise ValidationError('Valor deve estar entre 0 e 100')
 
+# ✅ NOVOS VALIDADORES PARA CÁLCULOS FARMACOLÓGICOS
+def validate_concentration(form, field):
+    """Valida concentração farmacológica"""
+    if field.data is not None and field.data <= 0:
+        raise ValidationError('Concentração deve ser maior que zero')
+
+def validate_volume_per_dose(form, field):
+    """Valida volume por dose"""
+    if field.data is not None and field.data <= 0:
+        raise ValidationError('Volume por dose deve ser maior que zero')
+
+def validate_stability_days(form, field):
+    """Valida dias de estabilidade"""
+    if field.data is not None and (field.data < 1 or field.data > 365):
+        raise ValidationError('Estabilidade deve estar entre 1 e 365 dias')
+
+def validate_drops_per_ml(form, field):
+    """Valida gotas por ml"""
+    if field.data is not None and (field.data < 10 or field.data > 50):
+        raise ValidationError('Gotas por ml deve estar entre 10 e 50')
+
 # =================================
 # WIDGETS CUSTOMIZADOS
 # =================================
@@ -224,6 +273,15 @@ class CurrencyWidget(TextInput):
         kwargs.setdefault('class', 'form-control currency-input')
         kwargs.setdefault('placeholder', '0,00')
         return super(CurrencyWidget, self).__call__(field, **kwargs)
+
+# ✅ WIDGET PARA CAMPOS DE CONCENTRAÇÃO
+class ConcentrationWidget(TextInput):
+    """Widget para campos de concentração farmacológica"""
+    def __call__(self, field, **kwargs):
+        kwargs.setdefault('class', 'form-control concentration-input')
+        kwargs.setdefault('step', '0.001')
+        kwargs.setdefault('min', '0')
+        return super(ConcentrationWidget, self).__call__(field, **kwargs)
 
 # =================================
 # CAMPOS CUSTOMIZADOS
@@ -285,6 +343,17 @@ class CEPField(StringField):
             'maxlength': '9'
         })
         super(CEPField, self).__init__(label, validators, **kwargs)
+
+# ✅ NOVO CAMPO PARA CONCENTRAÇÃO
+class ConcentrationField(DecimalField):
+    """Campo específico para concentrações farmacológicas"""
+    widget = ConcentrationWidget()
+    
+    def __init__(self, label='Concentração', validators=None, **kwargs):
+        validators = validators or []
+        validators.append(validate_concentration)
+        kwargs.setdefault('places', 3)  # 3 casas decimais
+        super(ConcentrationField, self).__init__(label, validators, **kwargs)
 
 # Validadores customizados de classe
 class CPFValidator:
@@ -758,6 +827,135 @@ class MedicationForm(FlaskForm):
     ], render_kw={'class': 'form-control'})
     
     submit = SubmitField('Salvar Medicamento', render_kw={'class': 'btn btn-primary'})
+
+# ✅ =================== FORMULÁRIOS DE CÁLCULOS FARMACOLÓGICOS ===================
+
+class MedicationDispensingForm(FlaskForm):
+    """Formulário para configurar cálculos de dispensação"""
+    medication_id = HiddenField('Medication ID', validators=[DataRequired()])
+    
+    # ✅ CONCENTRAÇÃO/DOSAGEM
+    strength_value = ConcentrationField('Concentração/Dosagem', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=0.001, message='Concentração deve ser maior que zero')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 250', 'step': '0.001'})
+    
+    strength_unit = SelectField('Unidade da Concentração', choices=STRENGTH_UNITS, 
+                               validators=[DataRequired()], render_kw={'class': 'form-select'})
+    
+    # ✅ VOLUME/QUANTIDADE POR UNIDADE
+    volume_per_dose = ConcentrationField('Volume/Quantidade por Unidade', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=0.001, message='Volume deve ser maior que zero')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 5', 'step': '0.001'})
+    
+    volume_unit = SelectField('Unidade do Volume', choices=VOLUME_UNITS, 
+                             validators=[DataRequired()], render_kw={'class': 'form-select'})
+    
+    # ✅ EMBALAGEM
+    package_size = ConcentrationField('Tamanho da Embalagem', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=0.001, message='Tamanho deve ser maior que zero')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 150', 'step': '0.001'})
+    
+    package_unit = SelectField('Unidade da Embalagem', choices=VOLUME_UNITS, 
+                              validators=[DataRequired()], render_kw={'class': 'form-select'})
+    
+    # ✅ CONFIGURAÇÕES ESPECIAIS
+    drops_per_ml = IntegerField('Gotas por ml (se líquido)', validators=[
+        Optional(),
+        NumberRange(min=10, max=50, message='Deve estar entre 10 e 50 gotas/ml')
+    ], render_kw={'class': 'form-control', 'value': '20', 'placeholder': '20'})
+    
+    stability_days = IntegerField('Estabilidade após aberto (dias)', validators=[
+        Optional(),
+        NumberRange(min=1, max=365, message='Deve estar entre 1 e 365 dias')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 7'})
+    
+    is_active = BooleanField('Configuração Ativa', default=True, render_kw={'class': 'form-check-input'})
+    
+    submit = SubmitField('Salvar Configuração', render_kw={'class': 'btn btn-primary'})
+    
+    def validate_package_unit(self, package_unit):
+        """Validar se unidade da embalagem é compatível com volume"""
+        if self.volume_unit.data and package_unit.data:
+            # Volume e embalagem devem ter unidades compatíveis
+            liquid_units = ['ml']
+            solid_units = ['comp', 'cap', 'ampola', 'frasco', 'sachê']
+            
+            vol_is_liquid = self.volume_unit.data in liquid_units
+            pack_is_liquid = package_unit.data in liquid_units
+            
+            if vol_is_liquid != pack_is_liquid:
+                raise ValidationError('Unidade da embalagem deve ser compatível com unidade do volume')
+
+class CalculationTestForm(FlaskForm):
+    """Formulário para testar cálculos de dispensação"""
+    medication_id = HiddenField('Medication ID', validators=[DataRequired()])
+    
+    # ✅ DADOS DA PRESCRIÇÃO
+    prescribed_dose = ConcentrationField('Dose Prescrita', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=0.001, message='Dose deve ser maior que zero')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 500', 'step': '0.001'})
+    
+    prescribed_unit = SelectField('Unidade Prescrita', choices=STRENGTH_UNITS, 
+                                 validators=[DataRequired()], render_kw={'class': 'form-select'})
+    
+    frequency_per_day = SelectField('Frequência por Dia', choices=FREQUENCY_CHOICES, 
+                                   validators=[DataRequired()], render_kw={'class': 'form-select'})
+    
+    treatment_days = IntegerField('Dias de Tratamento', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=1, max=365, message='Deve estar entre 1 e 365 dias')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 7'})
+    
+    submit = SubmitField('Calcular', render_kw={'class': 'btn btn-primary'})
+
+class QuickCalculationForm(FlaskForm):
+    """Formulário para cálculo rápido sem configuração prévia"""
+    
+    # ✅ DADOS DO MEDICAMENTO
+    strength_value = ConcentrationField('Concentração Disponível', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=0.001, message='Concentração deve ser maior que zero')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 250'})
+    
+    strength_unit = SelectField('Unidade', choices=STRENGTH_UNITS, 
+                               validators=[DataRequired()], render_kw={'class': 'form-select'})
+    
+    volume_per_dose = ConcentrationField('Volume por Dose', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=0.001, message='Volume deve ser maior que zero')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 5'})
+    
+    volume_unit = SelectField('Unidade', choices=VOLUME_UNITS, 
+                             validators=[DataRequired()], render_kw={'class': 'form-select'})
+    
+    # ✅ DADOS DA PRESCRIÇÃO
+    prescribed_dose = ConcentrationField('Dose Prescrita', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=0.001, message='Dose deve ser maior que zero')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 500'})
+    
+    prescribed_unit = SelectField('Unidade', choices=STRENGTH_UNITS, 
+                                 validators=[DataRequired()], render_kw={'class': 'form-select'})
+    
+    frequency_per_day = SelectField('Frequência', choices=FREQUENCY_CHOICES, 
+                                   validators=[DataRequired()], render_kw={'class': 'form-select'})
+    
+    treatment_days = IntegerField('Dias de Tratamento', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=1, max=365, message='Entre 1 e 365 dias')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 7'})
+    
+    # ✅ EMBALAGEM
+    package_size = ConcentrationField('Tamanho da Embalagem', validators=[
+        DataRequired(message='Campo obrigatório'),
+        NumberRange(min=0.001, message='Tamanho deve ser maior que zero')
+    ], render_kw={'class': 'form-control', 'placeholder': 'Ex: 150'})
+    
+    submit = SubmitField('Calcular Dispensação', render_kw={'class': 'btn btn-success'})
 
 class StockEntryForm(FlaskForm):
     medication_id = SelectField('Medicamento', coerce=int, validators=[

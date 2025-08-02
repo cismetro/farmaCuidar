@@ -212,64 +212,154 @@
     </div>
 </div>
 
-<!-- ✅ MODAL DE QUANTIDADE -->
+<!-- ✅ MODAL DE QUANTIDADE COM CÁLCULOS INTEGRADOS -->
 <div class="modal fade" id="quantityModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-pills me-2"></i>Definir Quantidade
+                    <i class="fas fa-pills me-2"></i>Definir Quantidade e Cálculos
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Medicamento:</label>
-                    <div id="selectedMedicationName" class="fw-semibold"></div>
-                    <small class="text-muted" id="selectedMedicationDetails"></small>
+                <!-- Informações do medicamento -->
+                <div class="card mb-3">
+                    <div class="card-body py-2">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <div class="fw-semibold" id="selectedMedicationName"></div>
+                                <small class="text-muted" id="selectedMedicationDetails"></small>
+                            </div>
+                            <div class="col-auto">
+                                <span class="badge bg-info" id="calculationStatus">
+                                    <i class="fas fa-calculator me-1"></i>Verificando cálculos...
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <div class="mb-3">
-                    <label for="medicationQuantity" class="form-label">Quantidade <span class="text-danger">*</span>:</label>
-                    <div class="input-group">
-                        <button type="button" class="btn btn-outline-secondary" id="decreaseQty">
-                            <i class="fas fa-minus"></i>
+
+                <div class="row">
+                    <!-- ✅ LADO ESQUERDO: PRESCRIÇÃO E CÁLCULOS -->
+                    <div class="col-md-6">
+                        <h6 class="mb-3">
+                            <i class="fas fa-prescription me-2"></i>Dados da Prescrição
+                        </h6>
+                        
+                        <!-- Dose prescrita -->
+                        <div class="mb-3">
+                            <label for="prescribedDose" class="form-label">Dose Prescrita:</label>
+                            <div class="input-group">
+                                <input type="number" id="prescribedDose" class="form-control" 
+                                       placeholder="Ex: 5" step="0.1" min="0">
+                                <select id="prescribedUnit" class="form-select" style="max-width: 120px;">
+                                    <option value="mg">mg</option>
+                                    <option value="ml">ml</option>
+                                    <option value="g">g</option>
+                                    <option value="mcg">mcg</option>
+                                    <option value="UI">UI</option>
+                                    <option value="gotas">gotas</option>
+                                </select>
+                            </div>
+                            <div class="form-text">Dose por administração conforme prescrição</div>
+                        </div>
+
+                        <!-- Frequência -->
+                        <div class="mb-3">
+                            <label for="frequency" class="form-label">Frequência por dia:</label>
+                            <select id="frequency" class="form-select">
+                                <option value="1">1x ao dia</option>
+                                <option value="2">2x ao dia</option>
+                                <option value="3">3x ao dia</option>
+                                <option value="4">4x ao dia</option>
+                                <option value="6">6x ao dia</option>
+                                <option value="8">8x ao dia</option>
+                                <option value="12">12x ao dia</option>
+                            </select>
+                        </div>
+
+                        <!-- Dias de tratamento -->
+                        <div class="mb-3">
+                            <label for="treatmentDays" class="form-label">Dias de tratamento:</label>
+                            <div class="input-group">
+                                <input type="number" id="treatmentDays" class="form-control" 
+                                       value="30" min="1" max="365">
+                                <span class="input-group-text">dias</span>
+                            </div>
+                        </div>
+
+                        <!-- Botão calcular -->
+                        <button type="button" id="calculateBtn" class="btn btn-primary w-100">
+                            <i class="fas fa-calculator me-2"></i>Calcular Quantidade
                         </button>
-                        <input type="number" id="medicationQuantity" class="form-control text-center" 
-                               min="1" max="999" value="1" style="font-size: 1.1rem; font-weight: 600;">
-                        <button type="button" class="btn btn-outline-secondary" id="increaseQty">
-                            <i class="fas fa-plus"></i>
-                        </button>
                     </div>
-                    <div class="form-text">
-                        <i class="fas fa-box me-1"></i>
-                        Estoque disponível: <span id="availableStock" class="fw-semibold"></span> unidades
+
+                    <!-- ✅ LADO DIREITO: QUANTIDADE E RESULTADO -->
+                    <div class="col-md-6">
+                        <h6 class="mb-3">
+                            <i class="fas fa-box me-2"></i>Quantidade a Dispensar
+                        </h6>
+
+                        <!-- Resultado do cálculo -->
+                        <div id="calculationResult" class="alert alert-light mb-3" style="display: none;">
+                            <h6 class="mb-2">
+                                <i class="fas fa-check-circle text-success me-2"></i>Resultado do Cálculo
+                            </h6>
+                            <div id="calculationDetails"></div>
+                        </div>
+
+                        <!-- Quantidade manual/ajustada -->
+                        <div class="mb-3">
+                            <label for="medicationQuantity" class="form-label">
+                                Quantidade Final <span class="text-danger">*</span>:
+                            </label>
+                            <div class="input-group">
+                                <button type="button" class="btn btn-outline-secondary" id="decreaseQty">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <input type="number" id="medicationQuantity" class="form-control text-center" 
+                                       min="1" max="999" value="1" style="font-size: 1.1rem; font-weight: 600;">
+                                <button type="button" class="btn btn-outline-secondary" id="increaseQty">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-box me-1"></i>
+                                Estoque disponível: <span id="availableStock" class="fw-semibold"></span> unidades
+                            </div>
+                        </div>
+
+                        <!-- Observações -->
+                        <div class="mb-3">
+                            <label for="medicationObservations" class="form-label">Observações:</label>
+                            <textarea id="medicationObservations" class="form-control" rows="3" 
+                                      placeholder="Instruções de uso, observações específicas..."></textarea>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="mb-3">
-                    <label for="medicationObservations" class="form-label">Observações do Medicamento:</label>
-                    <textarea id="medicationObservations" class="form-control" rows="3" 
-                              placeholder="Instruções de uso, observações específicas deste medicamento..."></textarea>
-                    <div class="form-text">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Observações específicas que serão anexadas a este medicamento
-                    </div>
-                </div>
-                
-                <!-- Resumo do item -->
-                <div class="bg-light p-3 rounded">
+
+                <!-- ✅ RESUMO EXPANDIDO -->
+                <div class="bg-light p-3 rounded mt-3">
                     <h6 class="mb-2">
-                        <i class="fas fa-calculator me-2"></i>Resumo do Item
+                        <i class="fas fa-calculator me-2"></i>Resumo da Dispensação
                     </h6>
                     <div class="row">
-                        <div class="col-6">
+                        <div class="col-md-3">
                             <small class="text-muted">Quantidade:</small><br>
                             <span id="summaryQuantity" class="fw-semibold">1</span> unidades
                         </div>
-                        <div class="col-6">
+                        <div class="col-md-3">
                             <small class="text-muted">Custo Total:</small><br>
                             <span id="summaryTotal" class="fw-semibold text-primary">R$ 0,00</span>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Dose/Dia:</small><br>
+                            <span id="summaryDailyDose" class="fw-semibold">--</span>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Duração:</small><br>
+                            <span id="summaryDuration" class="fw-semibold">--</span>
                         </div>
                     </div>
                 </div>
@@ -529,7 +619,8 @@ $(document).ready(function() {
     let selectedMedicationsData = [];
     let searchTimeout = null;
     let blockedMedicationsData = [];
-    let selectedMedication = null;  // ✅ Para o modal de quantidade
+    let selectedMedication = null;
+    let lastCalculationResult = null;  // ✅ NOVO: Último resultado de cálculo
     
     // ✅ CARREGAR CONTROLES ATIVOS AO INICIAR
     loadActiveControls();
@@ -582,6 +673,39 @@ $(document).ready(function() {
     
     $('#addToCartBtn').on('click', function() {
         addMedicationToCart();
+    });
+    
+    // ✅ NOVOS CONTROLES DE CÁLCULO
+    $('#prescribedDose, #frequency, #treatmentDays').on('change input', function() {
+        updateQuantitySummary();
+    });
+    
+    $('#calculateBtn').on('click', function() {
+        const prescribedDose = parseFloat($('#prescribedDose').val());
+        const prescribedUnit = $('#prescribedUnit').val();
+        const frequency = parseInt($('#frequency').val());
+        const treatmentDays = parseInt($('#treatmentDays').val());
+        
+        // Validações
+        if (!prescribedDose || prescribedDose <= 0) {
+            showAlert('Digite uma dose prescrita válida!', 'warning');
+            $('#prescribedDose').focus();
+            return;
+        }
+        
+        if (!frequency || frequency <= 0) {
+            showAlert('Selecione a frequência de uso!', 'warning');
+            return;
+        }
+        
+        if (!treatmentDays || treatmentDays <= 0) {
+            showAlert('Digite os dias de tratamento!', 'warning');
+            $('#treatmentDays').focus();
+            return;
+        }
+        
+        // Iniciar cálculo
+        performCalculation(prescribedDose, prescribedUnit, frequency, treatmentDays);
     });
     
     // ✅ CARREGAR CONTROLES ATIVOS VIA AJAX
@@ -759,13 +883,14 @@ $(document).ready(function() {
             dosage: medicationData.dosage || '',
             pharmaceutical_form: medicationData.pharmaceutical_form || '',
             cost: medicationData.unit_cost || 0,
-            stock: medicationData.current_stock
+            stock: medicationData.current_stock,
+            has_calculation_config: medicationData.has_calculation_config || false  // ✅ NOVO
         };
         
         showQuantityModal();
     }
     
-    // ✅ MOSTRAR MODAL DE QUANTIDADE
+    // ✅ MOSTRAR MODAL DE QUANTIDADE COM CÁLCULOS
     function showQuantityModal() {
         // Preencher dados do medicamento
         $('#selectedMedicationName').text(selectedMedication.name);
@@ -782,23 +907,190 @@ $(document).ready(function() {
         $('#medicationQuantity').val(1).attr('max', selectedMedication.stock);
         $('#medicationObservations').val('');
         
+        // ✅ NOVO: Resetar campos de cálculo
+        $('#prescribedDose').val('');
+        $('#prescribedUnit').val('mg');
+        $('#frequency').val('2');
+        $('#treatmentDays').val('30');
+        $('#calculationResult').hide();
+        lastCalculationResult = null;
+        
+        // ✅ NOVO: Verificar configuração de cálculos
+        checkMedicationCalculationConfig();
+        
         // Atualizar resumo
         updateQuantitySummary();
         
         $('#quantityModal').modal('show');
-        $('#medicationQuantity').focus();
+        $('#prescribedDose').focus();  // ✅ Focar no campo de dose
     }
     
-    // ✅ ATUALIZAR RESUMO DA QUANTIDADE
+    // ✅ NOVA FUNÇÃO: Verificar configuração de cálculos
+    function checkMedicationCalculationConfig() {
+        // ✅ USAR DADOS QUE JÁ VIERAM DA BUSCA
+        if (selectedMedication.has_calculation_config) {
+            $('#calculationStatus').html('<i class="fas fa-check-circle text-success me-1"></i>Cálculos disponíveis')
+                .removeClass('bg-info').addClass('bg-success');
+        } else {
+            $('#calculationStatus').html('<i class="fas fa-info-circle me-1"></i>Cálculo manual')
+                .removeClass('bg-info').addClass('bg-warning');
+        }
+    }
+    
+    // ✅ NOVA FUNÇÃO: Executar cálculo
+    function performCalculation(prescribedDose, prescribedUnit, frequency, treatmentDays) {
+        const $btn = $('#calculateBtn');
+        const originalText = $btn.html();
+        
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Calculando...');
+        
+        const calculationData = {
+            prescribed_dose: prescribedDose,
+            prescribed_unit: prescribedUnit,
+            frequency: frequency,
+            treatment_days: treatmentDays
+        };
+        
+        $.ajax({
+            url: `/dispensation/calculate/${patient.id}/${selectedMedication.id}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(calculationData),
+            success: function(response) {
+                if (response.success) {
+                    lastCalculationResult = response;
+                    displayCalculationResult(response);
+                    
+                    // ✅ Atualizar quantidade automaticamente
+                    if (response.recommended_quantity) {
+                        const roundedQty = Math.ceil(response.recommended_quantity);
+                        $('#medicationQuantity').val(roundedQty);
+                        updateQuantitySummary();
+                    }
+                } else {
+                    showAlert('Erro no cálculo: ' + response.error, 'error');
+                    showManualCalculationFallback();
+                }
+            },
+            error: function(xhr) {
+                const response = xhr.responseJSON;
+                if (response && response.error) {
+                    showAlert('Erro no cálculo: ' + response.error, 'error');
+                } else {
+                    showAlert('Erro interno no cálculo. Use quantidade manual.', 'error');
+                }
+                showManualCalculationFallback();
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(originalText);
+            }
+        });
+    }
+    
+    // ✅ NOVA FUNÇÃO: Exibir resultado do cálculo
+    function displayCalculationResult(result) {
+        let html = '<div class="row g-2 small">';
+        
+        // Quantidade recomendada
+        if (result.recommended_quantity) {
+            html += `
+                <div class="col-6">
+                    <strong>Quantidade Calculada:</strong><br>
+                    <span class="text-primary">${Math.ceil(result.recommended_quantity)} unidades</span>
+                </div>
+            `;
+        }
+        
+        // Duração real
+        if (result.actual_duration) {
+            html += `
+                <div class="col-6">
+                    <strong>Duração Real:</strong><br>
+                    <span>${result.actual_duration} dias</span>
+                </div>
+            `;
+        }
+        
+        // Dose por administração
+        if (result.volume_per_dose) {
+            html += `
+                <div class="col-6">
+                    <strong>Volume por Dose:</strong><br>
+                    <span>${result.volume_per_dose} ${result.volume_unit || 'ml'}</span>
+                </div>
+            `;
+        }
+        
+        // Dose diária total
+        if (result.daily_volume) {
+            html += `
+                <div class="col-6">
+                    <strong>Volume Diário:</strong><br>
+                    <span>${result.daily_volume} ${result.volume_unit || 'ml'}</span>
+                </div>
+            `;
+        }
+        
+        // Conversões (se houver)
+        if (result.conversions && result.conversions.length > 0) {
+            html += '<div class="col-12"><hr class="my-2"><small class="text-muted"><strong>Conversões:</strong></small>';
+            result.conversions.forEach(conv => {
+                html += `<br><small>${conv}</small>`;
+            });
+            html += '</div>';
+        }
+        
+        // Observações técnicas
+        if (result.notes && result.notes.length > 0) {
+            html += '<div class="col-12"><hr class="my-2"><small class="text-info"><strong>Observações:</strong></small>';
+            result.notes.forEach(note => {
+                html += `<br><small class="text-muted">${note}</small>`;
+            });
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        
+        $('#calculationDetails').html(html);
+        $('#calculationResult').show();
+    }
+    
+    // ✅ NOVA FUNÇÃO: Fallback para cálculo manual
+    function showManualCalculationFallback() {
+        $('#calculationDetails').html(`
+            <div class="text-center text-muted">
+                <i class="fas fa-calculator fa-2x mb-2"></i>
+                <p class="mb-0">Cálculo automático indisponível</p>
+                <small>Configure a quantidade manualmente</small>
+            </div>
+        `);
+        $('#calculationResult').show();
+    }
+    
+    // ✅ ATUALIZAR RESUMO DA QUANTIDADE (EXPANDIDO)
     function updateQuantitySummary() {
         const quantity = parseInt($('#medicationQuantity').val()) || 1;
         const total = selectedMedication.cost * quantity;
         
         $('#summaryQuantity').text(quantity);
         $('#summaryTotal').text(`R$ ${total.toFixed(2)}`);
+        
+        // ✅ NOVO: Atualizar informações de dosagem
+        const prescribedDose = parseFloat($('#prescribedDose').val()) || 0;
+        const frequency = parseInt($('#frequency').val()) || 1;
+        const treatmentDays = parseInt($('#treatmentDays').val()) || 1;
+        
+        if (prescribedDose > 0) {
+            const dailyDose = prescribedDose * frequency;
+            $('#summaryDailyDose').text(`${dailyDose} ${$('#prescribedUnit').val()}`);
+            $('#summaryDuration').text(`${treatmentDays} dias`);
+        } else {
+            $('#summaryDailyDose').text('--');
+            $('#summaryDuration').text('--');
+        }
     }
     
-    // ✅ ADICIONAR MEDICAMENTO AO CARRINHO (APÓS MODAL)
+    // ✅ ADICIONAR MEDICAMENTO AO CARRINHO (COM DADOS DE CÁLCULO)
     function addMedicationToCart() {
         const quantity = parseInt($('#medicationQuantity').val());
         const observations = $('#medicationObservations').val().trim();
@@ -809,12 +1101,23 @@ $(document).ready(function() {
             return;
         }
         
+        // ✅ NOVO: Coletar dados de cálculo
+        const calculationData = {
+            prescribed_dose: parseFloat($('#prescribedDose').val()) || null,
+            prescribed_unit: $('#prescribedUnit').val(),
+            frequency: parseInt($('#frequency').val()) || null,
+            treatment_days: parseInt($('#treatmentDays').val()) || null,
+            has_calculation: lastCalculationResult !== null,
+            calculation_result: lastCalculationResult
+        };
+        
         // Verificar se já está no carrinho
         const existingIndex = cart.findIndex(item => item.id === selectedMedication.id);
         
         if (existingIndex >= 0) {
             // Atualizar item existente
             cart[existingIndex].quantity += quantity;
+            cart[existingIndex].calculation_data = calculationData;  // ✅ NOVO
             if (observations) {
                 cart[existingIndex].observations = observations;
             }
@@ -828,7 +1131,8 @@ $(document).ready(function() {
                 stock: selectedMedication.stock,
                 quantity: quantity,
                 observations: observations,
-                interval_days: 30  // Padrão
+                interval_days: 30,  // Padrão
+                calculation_data: calculationData  // ✅ NOVO
             });
             showAlert('Medicamento adicionado ao carrinho!', 'success');
         }
@@ -837,7 +1141,7 @@ $(document).ready(function() {
         $('#quantityModal').modal('hide');
     }
     
-    // ✅ ATUALIZAR CARRINHO
+    // ✅ ATUALIZAR CARRINHO (COM INFORMAÇÕES DE CÁLCULO)
     function updateCart() {
         const cartItems = $('#cartItems');
         const cartCount = $('#cartCount');
@@ -864,6 +1168,18 @@ $(document).ready(function() {
             const itemTotal = item.cost * item.quantity;
             total += itemTotal;
             
+            // ✅ NOVO: Informações de cálculo
+            let calculationInfo = '';
+            if (item.calculation_data && item.calculation_data.has_calculation) {
+                const calc = item.calculation_data;
+                calculationInfo = `
+                    <br><small class="text-success">
+                        <i class="fas fa-calculator me-1"></i>
+                        ${calc.prescribed_dose} ${calc.prescribed_unit} • ${calc.frequency}x/dia • ${calc.treatment_days} dias
+                    </small>
+                `;
+            }
+            
             html += `
                 <div class="list-group-item px-0">
                     <div class="d-flex justify-content-between align-items-start">
@@ -874,6 +1190,7 @@ $(document).ready(function() {
                             <small class="text-muted">
                                 ${item.quantity} × R$ ${item.cost.toFixed(2)} = R$ ${itemTotal.toFixed(2)}
                             </small>
+                            ${calculationInfo}
                             ${item.observations ? `<br><small class="text-info"><i class="fas fa-comment me-1"></i>${item.observations}</small>` : ''}
                             <br><small class="text-warning">
                                 <i class="fas fa-clock me-1"></i>Controle obrigatório
@@ -941,7 +1258,8 @@ $(document).ready(function() {
             id: item.id,
             name: item.name,
             cost: item.cost,
-            stock: item.stock
+            stock: item.stock,
+            has_calculation_config: item.calculation_data && item.calculation_data.has_calculation
         };
         
         // Preencher modal com dados atuais
@@ -950,6 +1268,22 @@ $(document).ready(function() {
         $('#availableStock').text(item.stock);
         $('#medicationQuantity').val(item.quantity).attr('max', item.stock);
         $('#medicationObservations').val(item.observations || '');
+        
+        // ✅ NOVO: Preencher dados de cálculo se existirem
+        if (item.calculation_data) {
+            $('#prescribedDose').val(item.calculation_data.prescribed_dose || '');
+            $('#prescribedUnit').val(item.calculation_data.prescribed_unit || 'mg');
+            $('#frequency').val(item.calculation_data.frequency || 2);
+            $('#treatmentDays').val(item.calculation_data.treatment_days || 30);
+            lastCalculationResult = item.calculation_data.calculation_result;
+            
+            if (lastCalculationResult) {
+                displayCalculationResult(lastCalculationResult);
+            }
+        }
+        
+        // Verificar configuração
+        checkMedicationCalculationConfig();
         
         // Atualizar resumo
         updateQuantitySummary();
@@ -972,8 +1306,19 @@ $(document).ready(function() {
             return;
         }
         
+        // ✅ NOVO: Atualizar dados de cálculo
+        const calculationData = {
+            prescribed_dose: parseFloat($('#prescribedDose').val()) || null,
+            prescribed_unit: $('#prescribedUnit').val(),
+            frequency: parseInt($('#frequency').val()) || null,
+            treatment_days: parseInt($('#treatmentDays').val()) || null,
+            has_calculation: lastCalculationResult !== null,
+            calculation_result: lastCalculationResult
+        };
+        
         cart[index].quantity = quantity;
         cart[index].observations = observations;
+        cart[index].calculation_data = calculationData;  // ✅ NOVO
         
         updateCart();
         $('#quantityModal').modal('hide');
@@ -1018,6 +1363,20 @@ $(document).ready(function() {
         let html = '';
         
         selectedMedicationsData.forEach((med, index) => {
+            // ✅ NOVO: Mostrar informações de cálculo se existirem
+            let calculationInfo = '';
+            if (med.calculation_data && med.calculation_data.has_calculation) {
+                const calc = med.calculation_data;
+                calculationInfo = `
+                    <div class="alert alert-info alert-sm mt-2">
+                        <small>
+                            <i class="fas fa-calculator me-1"></i>
+                            <strong>Cálculo:</strong> ${calc.prescribed_dose} ${calc.prescribed_unit} • ${calc.frequency}x/dia • ${calc.treatment_days} dias
+                        </small>
+                    </div>
+                `;
+            }
+            
             html += `
                 <div class="interval-config-card">
                     <div class="interval-config-header">
@@ -1027,6 +1386,7 @@ $(document).ready(function() {
                             <span class="badge bg-success ms-1">R$ ${(med.cost * med.quantity).toFixed(2)}</span>
                         </h6>
                         ${med.observations ? `<small class="text-muted mt-1 d-block"><i class="fas fa-comment me-1"></i>${med.observations}</small>` : ''}
+                        ${calculationInfo}
                     </div>
                     <div class="interval-config-body">
                         <div class="row">
@@ -1168,7 +1528,7 @@ $(document).ready(function() {
         return selectedMedicationsData.map((med, index) => ({
             medication_id: med.id,
             quantity: med.quantity,
-            observations: med.observations || '',  // ✅ Usar observações do carrinho
+            observations: med.observations || '',
             interval_control: {
                 enabled: true,
                 interval_days: parseInt($(`.interval-days[data-index="${index}"]`).val()),

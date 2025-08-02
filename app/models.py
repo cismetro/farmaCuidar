@@ -2,10 +2,11 @@ from app.database import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from sqlalchemy import desc, and_
 import enum
 import logging
+import math
 
 # ✅ IMPORTAÇÕES PARA INTEGRAÇÃO E-SUS
 try:
@@ -310,6 +311,151 @@ class EarlyReleaseLog(db.Model):
     
     def __repr__(self):
         return f'<EarlyReleaseLog {self.days_early} dias antecipado>'
+
+# =================== MODELO DE CÁLCULOS FARMACOLÓGICOS ===================
+
+class MedicationDispensing(db.Model):
+    """Configuração simples para cálculos de dispensação"""
+    __tablename__ = 'medication_dispensing'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    medication_id = db.Column(db.Integer, db.ForeignKey('medications.id'), nullable=False, unique=True)
+    
+    # ✅ CONCENTRAÇÃO/DOSAGEM (o que importa para cálculo)
+    strength_value = db.Column(db.DECIMAL(10, 3), nullable=False)  # Ex: 250 (mg)
+    strength_unit = db.Column(db.String(10), nullable=False)       # Ex: "mg"
+    
+    # ✅ VOLUME/QUANTIDADE POR UNIDADE
+    volume_per_dose = db.Column(db.DECIMAL(10, 3), nullable=False) # Ex: 5 (ml) ou 1 (comprimido)
+    volume_unit = db.Column(db.String(10), nullable=False)         # Ex: "ml" ou "comp"
+    
+    # ✅ EMBALAGEM
+    package_size = db.Column(db.DECIMAL(10, 3), nullable=False)    # Ex: 150 (ml) ou 30 (comp)
+    package_unit = db.Column(db.String(10), nullable=False)        # Ex: "ml" ou "comp"
+    
+    # ✅ PARA GOTAS (se aplicável)
+    drops_per_ml = db.Column(db.Integer, nullable=True, default=20) # Padrão: 20 gotas/ml
+    
+    # ✅ ESTABILIDADE (se aplicável)
+    stability_days = db.Column(db.Integer, nullable=True)          # Dias após abrir/reconstituir
+    
+    # Metadados
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relacionamentos
+    medication = db.relationship('Medication', back_populates='dispensing_config')
+    
+    # ✅ MÉTODO PRINCIPAL DE CÁLCULO
+    def calculate_dispensation(self, prescribed_dose, prescribed_unit, frequency_per_day, treatment_days):
+        """
+        Cálculo simples de dispensação
+        
+        Args:
+            prescribed_dose: Dose prescrita (ex: 500)
+            prescribed_unit: Unidade prescrita (ex: "mg")
+            frequency_per_day: Frequência por dia (ex: 3 para 8/8h)
+            treatment_days: Dias de tratamento (ex: 7)
+            
+        Returns:
+            dict: Resultado com volume por dose e embalagens necessárias
+        """
+        try:
+            # Converter tudo para Decimal para precisão
+            dose = Decimal(str(prescribed_dose))
+            freq = Decimal(str(frequency_per_day))
+            days = Decimal(str(treatment_days))
+            
+            # ✅ 1. CALCULAR VOLUME/QUANTIDADE POR DOSE
+            # Regra de 3: strength_value está para volume_per_dose assim como dose está para x
+            dose_volume = (dose * self.volume_per_dose) / self.strength_value
+            
+            # ✅ 2. CALCULAR TOTAL PARA O TRATAMENTO
+            total_doses = freq * days
+            total_volume = dose_volume * total_doses
+            
+            # ✅ 3. CALCULAR EMBALAGENS NECESSÁRIAS
+            packages_needed = math.ceil(float(total_volume) / float(self.package_size))
+            
+            # ✅ 4. VERIFICAR ESTABILIDADE (se aplicável)
+            packages_adjusted = packages_needed
+            stability_note = None
+            
+            if self.stability_days and self.stability_days < treatment_days:
+                # Precisa de mais embalagens devido à estabilidade
+                packages_per_period = math.ceil((self.stability_days * freq * dose_volume) / self.package_size)
+                periods_needed = math.ceil(treatment_days / self.stability_days)
+                packages_adjusted = packages_per_period * periods_needed
+                
+                stability_note = f"Medicamento estável por {self.stability_days} dias após aberto. Dispensar {packages_adjusted} embalagens."
+            
+            # ✅ 5. CALCULAR GOTAS (se aplicável)
+            drops_info = None
+            if self.drops_per_ml and self.volume_unit == 'ml':
+                drops_per_dose = float(dose_volume) * self.drops_per_ml
+                drops_info = {
+                    'drops_per_dose': int(drops_per_dose),
+                    'ml_per_dose': float(dose_volume),
+                    'conversion': f"{self._round_decimal(dose_volume, 2)}ml × {self.drops_per_ml} gotas/ml = {int(drops_per_dose)} gotas"
+                }
+            
+            return {
+                'success': True,
+                'dose_per_administration': self._round_decimal(dose_volume, 2),
+                'dose_unit': self.volume_unit,
+                'total_doses': int(total_doses),
+                'total_volume': self._round_decimal(total_volume, 2),
+                'packages_needed': packages_adjusted,
+                'package_size': float(self.package_size),
+                'stability_note': stability_note,
+                'drops_info': drops_info,
+                'calculation_details': {
+                    'concentration': f"{self.strength_value}{self.strength_unit}/{self.volume_per_dose}{self.volume_unit}",
+                    'formula': f"{dose}{prescribed_unit} × {self.volume_per_dose}{self.volume_unit} ÷ {self.strength_value}{self.strength_unit} = {self._round_decimal(dose_volume, 2)}{self.volume_unit}",
+                    'frequency': f"{frequency_per_day}x/dia × {treatment_days} dias = {int(total_doses)} doses",
+                    'total_calculation': f"{self._round_decimal(dose_volume, 2)}{self.volume_unit} × {int(total_doses)} doses = {self._round_decimal(total_volume, 2)}{self.volume_unit}",
+                    'packages_calculation': f"{self._round_decimal(total_volume, 2)}{self.volume_unit} ÷ {self.package_size}{self.package_unit} = {packages_needed} embalagens"
+                }
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Erro no cálculo: {str(e)}'
+            }
+    
+    # ✅ MÉTODO PARA CONVERTER GOTAS
+    def calculate_drops_per_dose(self, dose_ml):
+        """Converter ml para gotas se necessário"""
+        if self.drops_per_ml and self.volume_unit == 'ml':
+            drops = Decimal(str(dose_ml)) * Decimal(str(self.drops_per_ml))
+            return {
+                'drops': int(drops),
+                'ml': float(dose_ml),
+                'conversion': f"{dose_ml}ml × {self.drops_per_ml} gotas/ml = {int(drops)} gotas"
+            }
+        return None
+    
+    def _round_decimal(self, value, places):
+        """Arredondar Decimal com precisão"""
+        if isinstance(value, Decimal):
+            return float(value.quantize(Decimal('0.' + '0' * places), rounding=ROUND_HALF_UP))
+        return round(float(value), places)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'medication_id': self.medication_id,
+            'concentration': f"{self.strength_value}{self.strength_unit}/{self.volume_per_dose}{self.volume_unit}",
+            'package_size': f"{self.package_size}{self.package_unit}",
+            'stability_days': self.stability_days,
+            'drops_per_ml': self.drops_per_ml,
+            'is_active': self.is_active
+        }
+    
+    def __repr__(self):
+        return f'<MedicationDispensing {self.medication.commercial_name if self.medication else "Unknown"}: {self.strength_value}{self.strength_unit}/{self.volume_per_dose}{self.volume_unit}>'
 
 # =================== MODELOS PRINCIPAIS ===================
 
@@ -767,7 +913,7 @@ class Patient(db.Model):
     def __repr__(self):
         return f'<Patient {self.full_name} - CPF: {self.formatted_cpf}>'
 
-# ✅ MODELO DE MEDICAMENTOS COM CONTROLE DE INTERVALOS
+# ✅ MODELO DE MEDICAMENTOS COM CONTROLE DE INTERVALOS E CÁLCULOS
 class Medication(db.Model):
     __tablename__ = 'medications'
     
@@ -802,8 +948,9 @@ class Medication(db.Model):
     inventory_movements = db.relationship('InventoryMovement', backref='medication', lazy=True)
     high_cost_processes = db.relationship('HighCostProcess', backref='medication', lazy=True)
     
-    # ✅ RELACIONAMENTO COM CONTROLE DE INTERVALO
+    # ✅ RELACIONAMENTOS COM CONTROLES
     interval_control = db.relationship('MedicationInterval', back_populates='medication', uselist=False, cascade='all, delete-orphan')
+    dispensing_config = db.relationship('MedicationDispensing', back_populates='medication', uselist=False, cascade='all, delete-orphan')
     
     @property
     def is_low_stock(self):
@@ -835,6 +982,19 @@ class Medication(db.Model):
         if self.has_interval_control:
             return f"Ativo ({self.interval_control.interval_days} dias)"
         return "Sem controle"
+    
+    # ✅ PROPRIEDADES DE CONFIGURAÇÃO DE CÁLCULOS
+    @property
+    def has_dispensing_config(self):
+        """Verifica se medicamento tem configuração de cálculos"""
+        return self.dispensing_config and self.dispensing_config.is_active
+    
+    @property
+    def dispensing_config_display(self):
+        """Exibição da configuração de cálculos"""
+        if self.has_dispensing_config:
+            return f"{self.dispensing_config.strength_value}{self.dispensing_config.strength_unit}/{self.dispensing_config.volume_per_dose}{self.dispensing_config.volume_unit}"
+        return "Sem configuração"
     
     # ✅ MÉTODOS DE CONTROLE DE INTERVALO
     def get_next_allowed_date_for_patient(self, patient_id):
@@ -894,6 +1054,61 @@ class Medication(db.Model):
                 DispensationControl.next_allowed_date <= today
             )
         ).count()
+    
+    # ✅ MÉTODOS DE CÁLCULO DE DISPENSAÇÃO
+    def calculate_dispensation(self, prescribed_dose, prescribed_unit, frequency_per_day, treatment_days):
+        """Calcular dispensação baseado na prescrição"""
+        if not self.has_dispensing_config:
+            return {
+                'success': False,
+                'error': 'Medicamento não possui configuração de dispensação',
+                'needs_configuration': True
+            }
+        
+        return self.dispensing_config.calculate_dispensation(
+            prescribed_dose, prescribed_unit, frequency_per_day, treatment_days
+        )
+    
+    def calculate_drops_per_dose(self, dose_ml):
+        """Calcular gotas por dose se aplicável"""
+        if not self.has_dispensing_config:
+            return None
+        
+        return self.dispensing_config.calculate_drops_per_dose(dose_ml)
+    
+    def to_dict_with_calculations(self):
+        """Converter para dicionário incluindo configurações de cálculo"""
+        base_dict = {
+            'id': self.id,
+            'commercial_name': self.commercial_name,
+            'generic_name': self.generic_name,
+            'dosage': self.dosage,
+            'pharmaceutical_form': self.pharmaceutical_form,
+            'medication_type': self.medication_type.value,
+            'current_stock': self.current_stock,
+            'minimum_stock': self.minimum_stock,
+            'unit_cost': float(self.unit_cost) if self.unit_cost else 0.0,
+            'is_low_stock': self.is_low_stock,
+            'is_near_expiry': self.is_near_expiry,
+            'has_interval_control': self.has_interval_control,
+            'interval_status_display': self.interval_status_display,
+            'has_dispensing_config': self.has_dispensing_config,
+            'dispensing_config_display': self.dispensing_config_display
+        }
+        
+        # Adicionar configuração de cálculos se existir
+        if self.has_dispensing_config:
+            base_dict['dispensing_config'] = self.dispensing_config.to_dict()
+        
+        # Adicionar controle de intervalo se existir
+        if self.has_interval_control:
+            base_dict['interval_control'] = {
+                'interval_days': self.interval_control.interval_days,
+                'is_active': self.interval_control.is_active,
+                'requires_justification': self.interval_control.requires_justification
+            }
+        
+        return base_dict
     
     def __repr__(self):
         return f'<Medication {self.commercial_name}>'

@@ -1,33 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Inventário - {{ super() }}
-<script>
-$(document).ready(function() {
-    // Calcular status de validade dos medicamentos
-    const hoje = new Date();
-    
-    $('.expiry-status').each(function() {
-        const expiryDate = new Date($(this).data('expiry'));
-        const diffTime = expiryDate - hoje;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        const parentTd = $(this).closest('td');
-        const expirySpan = parentTd.find('span').first();
-        
-        if (diffDays < 0) {
-            expirySpan.removeClass().addClass('text-danger');
-            $(this).removeClass().addClass('text-danger').text('Vencido');
-        } else if (diffDays <= 30) {
-            expirySpan.removeClass().addClass('text-warning');
-            $(this).removeClass().addClass('text-warning').text(diffDays + ' dias');
-        } else {
-            expirySpan.removeClass();
-            $(this).removeClass().addClass('text-muted').text('');
-        }
-    });
-});
-</script>
-{% endblock %}
+{% block title %}Inventário - {{ super() }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
@@ -54,17 +27,17 @@ $(document).ready(function() {
         </div>
     </div>
 
-    <!-- Filtros -->
+    <!-- ✅ FILTROS CORRIGIDOS E EXPANDIDOS -->
     <div class="card mb-4">
         <div class="card-body">
             <form method="GET" class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label">Buscar medicamento:</label>
                     <input type="text" name="search_term" class="form-control" 
                            placeholder="Nome comercial ou genérico..." 
                            value="{{ search_term }}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Tipo:</label>
                     <select name="medication_type" class="form-select">
                         <option value="">Todos os tipos</option>
@@ -74,7 +47,16 @@ $(document).ready(function() {
                         <option value="psychotropic" {% if medication_type == 'psychotropic' %}selected{% endif %}>Psicotrópico</option>
                     </select>
                 </div>
-                <div class="col-md-3 d-flex align-items-end">
+                <!-- ✅ NOVO FILTRO DE CÁLCULOS -->
+                <div class="col-md-2">
+                    <label class="form-label">Cálculos:</label>
+                    <select name="has_calculations" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="yes" {% if has_calculations_filter == 'yes' %}selected{% endif %}>Com cálculos</option>
+                        <option value="no" {% if has_calculations_filter == 'no' %}selected{% endif %}>Sem cálculos</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
                     <div class="w-100">
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="checkbox" name="low_stock_only" value="1" 
@@ -113,6 +95,8 @@ $(document).ready(function() {
                             <th>Tipo</th>
                             <th>Estoque</th>
                             <th>Custo Unit.</th>
+                            <!-- ✅ NOVA COLUNA -->
+                            <th>Cálculos</th>
                             <th>Validade</th>
                             <th width="150">Ações</th>
                         </tr>
@@ -154,12 +138,31 @@ $(document).ready(function() {
                                 {% endif %}
                                 <small class="text-muted d-block">Min: {{ medication.minimum_stock }}</small>
                             </td>
-                            <td>{{ format_currency(medication.unit_cost) if medication.unit_cost else '—' }}</td>
+                            <td>{{ format_currency(medication.unit_cost) if medication.unit_cost else '--' }}</td>
+                            <!-- ✅ NOVA COLUNA DE CÁLCULOS -->
+                            <td class="text-center">
+                                {% if medication.has_dispensing_config %}
+                                    <i class="fas fa-calculator text-success" title="Configurado" 
+                                       data-bs-toggle="tooltip"></i>
+                                {% else %}
+                                    <i class="fas fa-calculator text-muted" title="Não configurado" 
+                                       data-bs-toggle="tooltip"></i>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if medication.expiry_date %}
-                                    <span>{{ format_date(medication.expiry_date) }}</span>
+                                    {% set days_to_expiry = calculate_days_until_expiry(medication.expiry_date) %}
+                                    {% if days_to_expiry < 0 %}
+                                        <span class="text-danger">{{ format_date(medication.expiry_date) }}</span>
+                                        <small class="text-danger d-block">Vencido</small>
+                                    {% elif days_to_expiry <= 30 %}
+                                        <span class="text-warning">{{ format_date(medication.expiry_date) }}</span>
+                                        <small class="text-warning d-block">{{ days_to_expiry }} dias</small>
+                                    {% else %}
+                                        <span>{{ format_date(medication.expiry_date) }}</span>
+                                    {% endif %}
                                 {% else %}
-                                    <span class="text-muted">—</span>
+                                    <span class="text-muted">--</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -172,6 +175,11 @@ $(document).ready(function() {
                                     <a href="{{ url_for('main.medication_edit', id=medication.id) }}" 
                                        class="btn btn-outline-secondary" title="Editar">
                                         <i class="fas fa-edit"></i>
+                                    </a>
+                                    <!-- ✅ NOVO BOTÃO DE CÁLCULOS -->
+                                    <a href="{{ url_for('main.medication_dispensing_config', medication_id=medication.id) }}" 
+                                       class="btn btn-outline-success" title="Configurar Cálculos">
+                                        <i class="fas fa-calculator"></i>
                                     </a>
                                     {% endif %}
                                 </div>
@@ -190,7 +198,7 @@ $(document).ready(function() {
                 <ul class="pagination justify-content-center mb-0">
                     {% if medications.has_prev %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('main.inventory_list', page=medications.prev_num) }}">
+                        <a class="page-link" href="{{ url_for('main.inventory_list', page=medications.prev_num, search_term=search_term, medication_type=medication_type, low_stock_only=low_stock_only, has_calculations=has_calculations_filter) }}">
                             <i class="fas fa-chevron-left"></i>
                         </a>
                     </li>
@@ -200,7 +208,7 @@ $(document).ready(function() {
                         {% if page_num %}
                             {% if page_num != medications.page %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('main.inventory_list', page=page_num) }}">
+                                <a class="page-link" href="{{ url_for('main.inventory_list', page=page_num, search_term=search_term, medication_type=medication_type, low_stock_only=low_stock_only, has_calculations=has_calculations_filter) }}">
                                     {{ page_num }}
                                 </a>
                             </li>
@@ -218,7 +226,7 @@ $(document).ready(function() {
 
                     {% if medications.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('main.inventory_list', page=medications.next_num) }}">
+                        <a class="page-link" href="{{ url_for('main.inventory_list', page=medications.next_num, search_term=search_term, medication_type=medication_type, low_stock_only=low_stock_only, has_calculations=has_calculations_filter) }}">
                             <i class="fas fa-chevron-right"></i>
                         </a>
                     </li>
@@ -233,7 +241,7 @@ $(document).ready(function() {
         <div class="card-body text-center py-5">
             <i class="fas fa-pills fa-3x text-muted mb-3"></i>
             <h5>Nenhum medicamento encontrado</h5>
-            {% if search_term or medication_type or low_stock_only %}
+            {% if search_term or medication_type or low_stock_only or has_calculations_filter %}
             <p class="text-muted">Nenhum medicamento corresponde aos filtros aplicados.</p>
             <a href="{{ url_for('main.inventory_list') }}" class="btn btn-outline-primary">
                 <i class="fas fa-times me-1"></i>Limpar Filtros
@@ -250,67 +258,24 @@ $(document).ready(function() {
         {% endif %}
     </div>
 </div>
-
-<script>
-$(document).ready(function() {
-    // Calcular status de validade dos medicamentos
-    const hoje = new Date();
-    
-    $('.expiry-status').each(function() {
-        const expiryDate = new Date($(this).data('expiry'));
-        const diffTime = expiryDate - hoje;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        const parentTd = $(this).closest('td');
-        const expirySpan = parentTd.find('span').first();
-        
-        if (diffDays < 0) {
-            expirySpan.removeClass().addClass('text-danger');
-            $(this).removeClass().addClass('text-danger').text('Vencido');
-        } else if (diffDays <= 30) {
-            expirySpan.removeClass().addClass('text-warning');
-            $(this).removeClass().addClass('text-warning').text(diffDays + ' dias');
-        } else {
-            expirySpan.removeClass();
-            $(this).removeClass().addClass('text-muted').text('');
-        }
-    });
-});
-</script>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Adicionar data atual para cálculos de validade
+    // ✅ ÚNICO JavaScript - removeu duplicações
     
-});
-</script>
-
-<script>
-$(document).ready(function() {
-    // Calcular status de validade dos medicamentos
-    const hoje = new Date();
-    
-    $('.expiry-status').each(function() {
-        const expiryDate = new Date($(this).data('expiry'));
-        const diffTime = expiryDate - hoje;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        const parentTd = $(this).closest('td');
-        const expirySpan = parentTd.find('span').first();
-        
-        if (diffDays < 0) {
-            expirySpan.removeClass().addClass('text-danger');
-            $(this).removeClass().addClass('text-danger').text('Vencido');
-        } else if (diffDays <= 30) {
-            expirySpan.removeClass().addClass('text-warning');
-            $(this).removeClass().addClass('text-warning').text(diffDays + ' dias');
-        } else {
-            expirySpan.removeClass();
-            $(this).removeClass().addClass('text-muted').text('');
-        }
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+    
+    // Auto-limpar filtros se clicou em "Limpar Filtros"
+    if (window.location.search === '') {
+        $('form input, form select').val('');
+        $('form input[type="checkbox"]').prop('checked', false);
+    }
 });
 </script>
 {% endblock %}
